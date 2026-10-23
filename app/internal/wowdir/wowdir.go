@@ -61,6 +61,10 @@ func Clients(root string) []string {
 		if ri != rj {
 			return ri < rj
 		}
+		li, lj := strings.ToLower(names[i]), strings.ToLower(names[j])
+		if li != lj {
+			return li < lj
+		}
 		return names[i] < names[j]
 	})
 	for _, n := range names {
@@ -70,16 +74,17 @@ func Clients(root string) []string {
 }
 
 // SavedVariables restituisce i file DiarioGilda.lua esistenti (solo file regolari) in tutti gli account.
+// Non usa glob: il percorso scelto dall'utente può contenere caratteri speciali come [ o *.
 func SavedVariables(clientDir string) []string {
 	out := []string{}
-	matches, err := filepath.Glob(filepath.Join(clientDir, "WTF", "Account", "*", "SavedVariables", "DiarioGilda.lua"))
+	accounts, err := os.ReadDir(filepath.Join(clientDir, "WTF", "Account"))
 	if err != nil {
 		return out
 	}
-	sort.Strings(matches)
-	for _, m := range matches {
-		if st, err := os.Stat(m); err == nil && st.Mode().IsRegular() {
-			out = append(out, m)
+	for _, a := range accounts { // ReadDir è già ordinato per nome
+		f := filepath.Join(clientDir, "WTF", "Account", a.Name(), "SavedVariables", "DiarioGilda.lua")
+		if st, err := os.Stat(f); err == nil && st.Mode().IsRegular() {
+			out = append(out, f)
 		}
 	}
 	return out

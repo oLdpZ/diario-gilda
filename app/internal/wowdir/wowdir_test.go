@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -34,6 +35,13 @@ func TestDefaultRoots(t *testing.T) {
 	}
 }
 
+func wf(t *testing.T, p string) {
+	t.Helper()
+	if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func client(t *testing.T, root, name string) {
 	mk(t, root, name, "Interface")
 	mk(t, root, name, "WTF")
@@ -46,7 +54,7 @@ func TestClientsOrder(t *testing.T) {
 	client(t, root, "_Forever_")
 	client(t, root, "_anniversary_")
 	mk(t, root, "_ptr_", "Interface") // solo Interface: esclusa
-	os.WriteFile(filepath.Join(root, "file"), nil, 0o644)
+	wf(t, filepath.Join(root, "file"))
 	got := Clients(root)
 	want := []string{
 		filepath.Join(root, "_Forever_"), filepath.Join(root, "_classic_beta_"),
@@ -72,8 +80,8 @@ func TestSavedVariables(t *testing.T) {
 	for _, acc := range []string{"B", "A"} {
 		d := mk(t, c, "WTF", "Account", acc, "SavedVariables")
 		f := filepath.Join(d, "DiarioGilda.lua")
-		os.WriteFile(f, []byte("x"), 0o644)
-		os.WriteFile(filepath.Join(d, "DiarioGilda.lua.bak"), []byte("x"), 0o644)
+		wf(t, f)
+		wf(t, filepath.Join(d, "DiarioGilda.lua.bak"))
 	}
 	want = []string{
 		filepath.Join(c, "WTF", "Account", "A", "SavedVariables", "DiarioGilda.lua"),
@@ -98,5 +106,33 @@ func TestDirs(t *testing.T) {
 	}
 	if LogsDir(c) != filepath.Join(c, "Logs") {
 		t.Fatal(LogsDir(c))
+	}
+}
+
+func TestSavedVariablesSpecialChars(t *testing.T) {
+	names := []string{"w[ow]"}
+	if runtime.GOOS != "windows" {
+		names = append(names, "w*ow", "w?ow")
+	}
+	for _, n := range names {
+		c := filepath.Join(t.TempDir(), n)
+		d := mk(t, c, "WTF", "Account", "A", "SavedVariables")
+		f := filepath.Join(d, "DiarioGilda.lua")
+		wf(t, f)
+		if got := SavedVariables(c); !reflect.DeepEqual(got, []string{f}) {
+			t.Fatalf("%s: got %v", n, got)
+		}
+	}
+}
+
+func TestClientsTieCaseInsensitive(t *testing.T) {
+	root := t.TempDir()
+	client(t, root, "_b_")
+	client(t, root, "_A_")
+	client(t, root, "_c_")
+	got := Clients(root)
+	want := []string{filepath.Join(root, "_A_"), filepath.Join(root, "_b_"), filepath.Join(root, "_c_")}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v", got)
 	}
 }
