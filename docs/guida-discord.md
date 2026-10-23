@@ -16,9 +16,13 @@ Nel server della gilda crea due canali di testo:
 
 1. Impostazioni di `#diario-servizio` → **Integrazioni** → **Webhook** → **Nuovo webhook**.
 2. Nome: `Diario di Gilda`. Canale: `#diario-servizio`.
-3. **Copia URL del webhook**. Questo URL è un segreto: chi lo ha può scrivere nel canale. Non metterlo mai nel
-   codice, in un commit o in chat; va solo nel segreto `WEBHOOK_URL` di GitHub (sezione 5).
-   Se trapela: elimina il webhook, creane uno nuovo, aggiorna il segreto e fai una nuova release.
+3. **Copia URL del webhook**. Chi lo ha può scrivere in `#diario-servizio`. Non metterlo mai nel codice, in un
+   commit o in chat; va solo nel segreto `WEBHOOK_URL` di GitHub (sezione 5).
+   Attenzione: il workflow lo incorpora nel programma, e il programma è scaricabile da chiunque dalle release
+   pubbliche, quindi chi si impegna può estrarlo. Per questo il webhook punta solo a `#diario-servizio`.
+   Se viene usato male (messaggi estranei nel canale): elimina il webhook in Discord, creane uno nuovo, metti il
+   nuovo URL nel segreto `WEBHOOK_URL` e fai una nuova release (sezione 6). Le app si aggiornano da sole e usano
+   il webhook nuovo; finché non si aggiornano, i loro invii al webhook vecchio falliscono e restano in coda.
 
 ## 3. Applicazione bot
 
@@ -40,7 +44,8 @@ Nel server della gilda crea due canali di testo:
 
 1. Su GitHub crea il repository **pubblico** `oLdpZ/diario-gilda` (solo codice: nessun segreto, nessun dato di
    gioco). Deve essere pubblico perché il programma installato legge le release senza credenziali.
-2. Carica il codice: `git remote add origin https://github.com/oLdpZ/diario-gilda.git` e `git push -u origin main` (dopo aver unito il ramo di lavoro in `main`).
+2. Carica il codice: `git remote add origin https://github.com/oLdpZ/diario-gilda.git` e `git push -u origin main`
+   (dopo aver unito il ramo di lavoro in `main`).
 3. In **Settings → Actions → General** lascia attive le Actions (il workflow di release chiede da solo il
    permesso di scrittura che gli serve).
 
@@ -68,9 +73,12 @@ Crea `dist/DiarioGilda-windows-amd64.zip`; con anche `FIRMA_KEY='<FIRMA_KEY>'` c
 
 ## 6. Fare una release
 
-La versione dell'addon e quella del programma sono la stessa, ed è quella del TOC.
+La versione dell'addon e quella del programma sono la stessa. Sta scritta in due posti, che devono coincidere
+(lo controllano i test Lua e il workflow):
 
-1. In `addon/DiarioGilda/DiarioGilda.toc` cambia la riga `## Version: X.Y.Z` (per esempio da `0.1.0` a `0.1.1`).
+1. Cambia la versione (per esempio da `0.1.0` a `0.1.1`) in:
+   - `addon/DiarioGilda/DiarioGilda.toc`, riga `## Version: 0.1.1`;
+   - `addon/DiarioGilda/Core/Const.lua`, riga `VERSION = "0.1.1",`.
 2. Commit: `git commit -am "release 0.1.1"` e `git push`.
 3. Tag e push del tag:
 
@@ -79,12 +87,25 @@ La versione dell'addon e quella del programma sono la stessa, ed è quella del T
    git push origin v0.1.1
    ```
 
-4. Il workflow **Release** (scheda Actions) esegue i test Go e Lua, controlla che il tag sia uguale a
-   `## Version` del TOC (altrimenti si ferma: correggi il TOC, cancella il tag con
-   `git tag -d v0.1.1 && git push origin :refs/tags/v0.1.1` e rifallo), compila Windows e Mac, firma gli zip e
-   pubblica la release con `DiarioGilda-windows-amd64.zip`, `DiarioGilda-macos.zip` e i due `.sig`.
+4. Il workflow **Release** (scheda Actions) esegue i test Go e Lua, controlla che il tag sia uguale alla
+   versione del TOC e di `Const.lua`, compila Windows e Mac, firma gli zip e pubblica la release con
+   `DiarioGilda-windows-amd64.zip`, `DiarioGilda-macos.zip` e i due `.sig`.
 5. Le app installate controllano gli aggiornamenti da sole, scaricano la nuova versione, verificano la firma e
    al riavvio reinstallano anche l'addon nuovo (se WoW è aperto, il giocatore vede "Addon aggiornato: scrivi /reload in gioco").
 
-Un tag con un suffisso (per esempio `v0.1.2-test`, con `## Version: 0.1.2-test` nel TOC) viene pubblicato come
+Se il workflow fallisce:
+
+1. Se nella pagina **Releases** è comparsa una release `v0.1.1` (anche parziale o in bozza), cancellala
+   (**Delete**), altrimenti il nuovo tentativo si ferma perché la release esiste già.
+2. Se l'errore è nel codice o nelle versioni: correggi, fai commit e push, poi sposta il tag sul nuovo commit:
+
+   ```bash
+   git tag -d v0.1.1 && git push origin :refs/tags/v0.1.1
+   git tag v0.1.1 && git push origin v0.1.1
+   ```
+
+   Se l'errore era passeggero (rete, runner), basta **Re-run all jobs** nella scheda Actions, dopo aver
+   cancellato l'eventuale release parziale.
+
+Un tag con un suffisso (per esempio `v0.1.2-test`, con `0.1.2-test` nel TOC e in `Const.lua`) viene pubblicato come
 pre-release: le app installate lo ignorano, quindi serve per provare il workflow senza toccare i giocatori.

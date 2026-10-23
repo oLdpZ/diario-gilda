@@ -139,7 +139,10 @@ func TestReleaseCycle(t *testing.T) {
 				t.Fatalf("exe after update = %q", got)
 			}
 			if goos == "darwin" {
-				bundle, _ := bundleRoot(exe)
+				bundle, err := bundleRoot(exe)
+				if err != nil {
+					t.Fatal(err)
+				}
 				if got := readFile(t, filepath.Join(bundle, "Contents", "Info.plist")); got != "plist 0.1.1" {
 					t.Fatalf("Info.plist = %q", got)
 				}

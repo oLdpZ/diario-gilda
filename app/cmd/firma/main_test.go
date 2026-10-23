@@ -149,15 +149,27 @@ func TestVerifyCommand(t *testing.T) {
 		file string
 		pub  string
 	}{
-		"other key":   {file, otherPub},
-		"no key":      {file, ""},
-		"missing sig": {file + ".nope", pub},
+		"other key": {file, otherPub},
+		"no key":    {file, ""},
 	}
 	for name, c := range cases {
 		errOut.Reset()
 		if code := run([]string{"verify", c.file}, env(c.pub), &out, &errOut); code == 0 {
 			t.Errorf("%s: exit 0", name)
 		}
+	}
+	sig, err := os.ReadFile(file + ".sig")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(file + ".sig"); err != nil {
+		t.Fatal(err)
+	}
+	if code := run([]string{"verify", file}, env(pub), &out, &errOut); code == 0 {
+		t.Error("missing sig: exit 0")
+	}
+	if err := os.WriteFile(file+".sig", sig, 0o644); err != nil {
+		t.Fatal(err)
 	}
 	if err := os.WriteFile(file, []byte("zip cambiato"), 0o644); err != nil {
 		t.Fatal(err)

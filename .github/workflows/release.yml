@@ -31,8 +31,8 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       prerelease: ${{ steps.v.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Tag e versione del TOC devono coincidere
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Tag, versione del TOC e di Const.lua devono coincidere
         id: v
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -43,6 +43,11 @@ jobs:
           TOC="$(sed -n 's/^## Version:[[:space:]]*//p' addon/DiarioGilda/DiarioGilda.toc | tr -d '\r' | head -n 1)"
           if [ "$TOC" != "$VERSION" ]; then
             echo "::error::addon/DiarioGilda/DiarioGilda.toc ha '## Version: $TOC' ma il tag e' $GITHUB_REF_NAME: aggiorna il TOC e rifai il tag"
+            exit 1
+          fi
+          CONST="$(sed -n 's/^[[:space:]]*VERSION[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' addon/DiarioGilda/Core/Const.lua | head -n 1)"
+          if [ "$CONST" != "$VERSION" ]; then
+            echo "::error::addon/DiarioGilda/Core/Const.lua ha VERSION = \"$CONST\" ma il tag e' $GITHUB_REF_NAME: aggiornala insieme al TOC"
             exit 1
           fi
           case "$VERSION" in *-*) PRE=true ;; *) PRE=false ;; esac
@@ -65,8 +70,8 @@ jobs:
   test-go:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
       - name: Test e vet
@@ -77,7 +82,7 @@ jobs:
   test-lua:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Installa Lua 5.1 e luarocks
         run: sudo apt-get update && sudo apt-get install -y lua5.1 liblua5.1-0-dev luarocks
       - name: Installa busted e luacheck
@@ -94,10 +99,11 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
       ASSET: DiarioGilda-windows-amd64.zip
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
+          cache: false # questo job tiene FIRMA_KEY: niente cache condivisa
       - name: Build DiarioGilda.exe
         env:
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
@@ -120,7 +126,7 @@ jobs:
         run: |
           go run ./app/cmd/firma sign "out/$ASSET"
           go run ./app/cmd/firma verify "out/$ASSET"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows
           path: out/*
@@ -134,10 +140,11 @@ jobs:
       ASSET: DiarioGilda-macos.zip
       MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
+          cache: false # questo job tiene FIRMA_KEY: niente cache condivisa
       - name: L'icona deve usare cgo (tray.go, non tray_nocgo.go)
         run: |
           for arch in arm64 amd64; do
@@ -160,6 +167,12 @@ jobs:
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 CC="clang -arch x86_64" \
             CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" \
             go build -trimpath -ldflags "$LDFLAGS" -o bin/DiarioGilda-amd64 ./app/cmd/diario
+          for b in bin/DiarioGilda-arm64 bin/DiarioGilda-amd64; do
+            if ! go version -m "$b" | grep 'CGO_ENABLED=1' >/dev/null; then
+              echo "::error::$b costruito senza cgo"
+              exit 1
+            fi
+          done
           lipo -create -output bin/DiarioGilda bin/DiarioGilda-arm64 bin/DiarioGilda-amd64
           lipo -info bin/DiarioGilda
           lipo bin/DiarioGilda -verify_arch arm64 x86_64
@@ -208,7 +221,7 @@ jobs:
         run: |
           go run ./app/cmd/firma sign "out/$ASSET"
           go run ./app/cmd/firma verify "out/$ASSET"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: macos
           path: out/*
@@ -220,7 +233,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: out
           merge-multiple: true
@@ -238,6 +251,7 @@ jobs:
         run: |
           FLAGS=""
           [ "$PRERELEASE" = "true" ] && FLAGS="--prerelease"
+          # Per rilanciare dopo un errore: prima cancella la release parziale (vedi docs/guida-discord.md).
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "Diario di Gilda $VERSION" --generate-notes $FLAGS \
             out/DiarioGilda-windows-amd64.zip out/DiarioGilda-windows-amd64.zip.sig \

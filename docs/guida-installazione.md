@@ -14,21 +14,34 @@ I file `.sig` accanto agli zip servono al programma per controllare gli aggiorna
 
 ## 2a. Windows
 
-1. Crea la cartella `Documenti\DiarioGilda` ed estrai lì dentro lo zip (tasto destro sullo zip → **Estrai tutto…**).
-   Dentro ci sono `DiarioGilda.exe` e un file `VERSION`: lasciali insieme in quella cartella.
+1. Tasto destro sullo zip → **Estrai tutto…** → **Sfoglia…** → scegli **Documenti**, crea la cartella
+   `DiarioGilda` e confermala, così il percorso è `Documenti\DiarioGilda` → **Estrai**.
+   Dentro ci sono `DiarioGilda.exe` e un file `VERSION`: il file `VERSION` puoi ignorarlo, ma lascialo lì.
+   Se i tuoi Documenti sono sincronizzati con OneDrive e gli aggiornamenti non riescono, sposta la cartella in
+   un posto non sincronizzato (per esempio `C:\DiarioGilda`) e riavvia il programma da lì.
 2. Doppio clic su `DiarioGilda.exe`.
 3. Se compare la finestra blu di Windows ("Windows ha protetto il PC", SmartScreen): clicca
    **Ulteriori informazioni**, poi **Esegui comunque**. Succede solo la prima volta: il programma non ha un
    certificato a pagamento, ma gli aggiornamenti sono firmati e controllati.
+   Se invece Windows dice che **Smart App Control** ha bloccato l'app e non offre "Esegui comunque", quel blocco
+   non si può superare per una singola app: avvisa l'autore (l'alternativa è spegnere Smart App Control in
+   Sicurezza di Windows → Controllo delle app e del browser, ma una volta spento non si riaccende senza
+   reinstallare Windows).
 
 ## 2b. Mac
 
-1. Doppio clic sullo zip in Download: compare `DiarioGilda.app`.
+1. Doppio clic sullo zip in Download: compare `DiarioGilda.app`. Se Safari ha già estratto lo zip da solo, in
+   Download trovi direttamente `DiarioGilda.app` (o una cartella `DiarioGilda` che lo contiene): usa quello.
 2. **Trascina `DiarioGilda.app` nella cartella Applicazioni.** Deve restare lì: se lo apri direttamente da
    Download o da dentro lo zip, macOS lo esegue da una copia temporanea di sola lettura ("App Translocation") e il
    programma **non può aggiornarsi**. Se ti avvisa che l'aggiornamento non è riuscito, controlla questo.
-3. La prima volta: **tasto destro** (o ctrl+clic) su `DiarioGilda.app` in Applicazioni → **Apri** → **Apri**.
-   Dalle volte successive parte da solo.
+3. La prima volta macOS lo blocca perché l'autore non è uno sviluppatore registrato da Apple:
+   - fai doppio clic su `DiarioGilda.app` in Applicazioni; al messaggio di blocco clicca **Fine** (o **OK**);
+   - apri **Impostazioni di Sistema → Privacy e sicurezza**, scorri in fondo fino al messaggio su
+     "DiarioGilda" e clicca **Apri comunque**; conferma con la password del Mac (o Touch ID) e poi **Apri**.
+
+   Su macOS più vecchi (fino a macOS 14 Sonoma) basta anche: **tasto destro** (o ctrl+clic) su
+   `DiarioGilda.app` → **Apri** → **Apri**. Dalle volte successive parte da solo.
 
 ## 3. Primo avvio
 
@@ -64,7 +77,9 @@ Tutto questo parte solo verso il canale Discord della gilda, una volta per sessi
 ## Cosa NON viene mai raccolto
 
 - **La chat**: nessun messaggio, sussurro, canale o chat di gilda.
-- Password, dati dell'account Battle.net, email, indirizzo IP o altri dati del computer.
+- Password, dati dell'account Battle.net, email o altri dati del computer.
+- Il programma non raccoglie il tuo indirizzo IP: come per ogni sito, Discord e GitHub vedono da dove arriva la
+  connessione, ma il programma non lo registra e non lo mette nei file inviati.
 - File fuori dalla cartella di WoW. Il programma legge solo i dati dell'addon e il registro combattimenti, e in WoW
   scrive solo nella cartella `Interface/AddOns/DiarioGilda` (durante un aggiornamento dell'addon possono comparire
   per un attimo anche `DiarioGilda.new` e `DiarioGilda.old`, che spariscono da sole).
