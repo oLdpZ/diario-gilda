@@ -69,7 +69,9 @@ func Decode(globals map[string]any) (DB, error) {
 		if !ok {
 			continue // sessione malformata: saltata, le altre restano
 		}
-		db.Sessions = append(db.Sessions, decodeSession(m))
+		if s := decodeSession(m); s.ID != "" { // senza id non si puo' accodare/inviare
+			db.Sessions = append(db.Sessions, s)
+		}
 	}
 	return db, nil
 }
@@ -141,6 +143,9 @@ func decodeSession(m map[string]any) Session {
 			if k != "t" && k != "k" {
 				e.Fields[k] = v
 			}
+		}
+		if e.K == "" {
+			continue // evento senza tipo: scartato
 		}
 		s.Events = append(s.Events, e)
 	}

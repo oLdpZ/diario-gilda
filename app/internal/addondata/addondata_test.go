@@ -127,18 +127,19 @@ func TestDecodeSkipsMalformed(t *testing.T) {
 		"sessions": []any{
 			good("a"),
 			"junk",
-			[]any{}, // empty table parsed as []any: still a table
-			map[string]any{"id": "b", "events": []any{"junk", map[string]any{"t": int64(5), "k": "level"}}},
+			[]any{},                           // empty table: a table, but no id -> dropped
+			map[string]any{"events": []any{}}, // no id -> dropped
+			map[string]any{"id": "b", "events": []any{"junk", map[string]any{"t": int64(4)}, []any{}, map[string]any{"t": int64(5), "k": "level"}}},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(db.Sessions) != 3 || db.Sessions[0].ID != "a" || db.Sessions[2].ID != "b" {
+	if len(db.Sessions) != 2 || db.Sessions[0].ID != "a" || db.Sessions[1].ID != "b" {
 		t.Fatalf("sessions = %+v", db.Sessions)
 	}
-	if len(db.Sessions[2].Events) != 1 {
-		t.Fatalf("events = %+v", db.Sessions[2].Events)
+	if len(db.Sessions[1].Events) != 1 {
+		t.Fatalf("events = %+v", db.Sessions[1].Events)
 	}
 	b, err := json.Marshal(db.Sessions[0])
 	if err != nil {
