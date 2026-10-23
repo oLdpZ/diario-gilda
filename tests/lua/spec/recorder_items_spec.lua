@@ -1,0 +1,204 @@
+local H = require("helpers")
+
+local GLOBALS = {
+  LOOT_ITEM_SELF = "You receive loot: %s.",
+  LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d.",
+}
+local RARE = "|cff0070dd|Hitem:2042::::::::|h[Staff of Westfall]|h|r"
+local GREEN = "|cff1eff00|Hitem:2043::::::::|h[Green Thing]|h|r"
+
+describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", function()
+  local DG, J, rec, clock, timers, items, secret
+
+  local function events() return J.current().events end
+  local function kinds()
+    local out = {}
+    for _, e in ipairs(events()) do out[#out + 1] = e.k end
+    return out
+  end
+
+  before_each(function()
+    clock = 1000
+    timers = {}
+    secret = {}
+    items = {
+      [RARE] = { 2042, "Staff of Westfall", 3 },
+      [GREEN] = { 2043, "Green Thing", 2 },
+    }
+    DG = H.load({ "Core/Const.lua", "Core/Safe.lua", "Core/Journal.lua", "Core/Parse.lua", "Core/Recorder.lua" })
+    DG.Safe.init(function(v) return secret[v] == true end)
+    DG.Parse.init(GLOBALS)
+    J = DG.Journal
+    J.load(nil, { now = function() return clock end, where = function() return { z = "Westfall" } end })
+    J.begin({ char = "Gino", realm = "R", class = "WARRIOR", race = "Human", level = 1, build = "1" }, false)
+    rec = DG.Recorder.new(J, {
+      now = function() return clock end,
+      itemInfo = function(link)
+        local i = items[link]
+        if i == "boom" then error("boom") end
+        if i then return i[1], i[2], i[3] end
+      end,
+      after = function(sec, fn) timers[#timers + 1] = { sec = sec, fn = fn } end,
+    })
+  end)
+
+  it("loot raro con sorgente recente", function()
+    rec:onLootReady(false, "Murloc Forager")
+    clock = 1003
+    rec:onLootMsg("You receive loot: " .. RARE .. ".")
+    local e = events()[1]
+    assert.equals("loot", e.k)
+    assert.equals("Staff of Westfall", e.item)
+    assert.equals(2042, e.id)
+    assert.equals(3, e.q)
+    assert.equals(1, e.n)
+    assert.equals("Murloc Forager", e.src)
+  end)
+
+  it("la sorgente scade dopo 10 secondi", function()
+    rec:onLootReady(false, "Murloc Forager")
+    clock = 1011
+    rec:onLootMsg("You receive loot: " .. RARE .. ".")
+    assert.is_nil(events()[1].src)
+  end)
+
+  it("loot verde: nessun evento", function()
+    rec:onLootMsg("You receive loot: " .. GREEN .. ".")
+    assert.equals(0, #events())
+  end)
+
+  it("messaggio secret: nessun evento e nessun errore", function()
+    local msg = "You receive loot: " .. RARE .. "."
+    secret[msg] = true
+    rec:onLootMsg(msg)
+    assert.equals(0, #events())
+    assert.equals(0, #DG.Journal.current().events)
+  end)
+
+  it("itemInfo in errore: nessun evento, errore registrato", function()
+    items[RARE] = "boom"
+    rec:onLootMsg("You receive loot: " .. RARE .. ".")
+    assert.equals(0, #events())
+  end)
+
+  it("itemInfo in errore finisce in errors", function()
+    items[RARE] = "boom"
+    local logged
+    local r = DG.Recorder.new({ add = J.add, logError = function(m) logged = m end }, {
+      now = function() return clock end,
+      itemInfo = function() error("boom") end,
+      after = function() end,
+    })
+    r:onLootMsg("You receive loot: " .. RARE .. ".")
+    assert.is_truthy(logged)
+  end)
+
+  it("pesca: due lanci e una cattura, un solo evento dopo il timeout", function()
+    rec:onSpellcast(7620)
+    clock = 1010
+    rec:onSpellcast(7620)
+    rec:onLootReady(true, nil, { "Raw Brilliant Smallfish" })
+    assert.equals(2, #timers)
+    timers[1].fn() -- timer vecchio: non deve chiudere
+    assert.equals(0, #events())
+    clock = 1130
+    assert.equals(120, timers[2].sec)
+    timers[2].fn()
+    assert.same({ "fishing" }, kinds())
+    local e = events()[1]
+    assert.equals(2, e.casts)
+    assert.same({ "Raw Brilliant Smallfish" }, e.catches)
+    assert.equals(1000, e.from)
+    timers[2].fn() -- doppia chiamata: nessun secondo evento
+    assert.equals(1, #events())
+  end)
+
+  it("spell non di pesca ignorata", function()
+    rec:onSpellcast(1)
+    assert.equals(0, #timers)
+  end)
+
+  it("loot di pesca senza span aperto ne apre uno", function()
+    rec:onLootReady(true, nil, { "Fish" })
+    rec:flush()
+    assert.equals("fishing", events()[1].k)
+    assert.same({ "Fish" }, events()[1].catches)
+  end)
+
+  it("loot di pesca marca la sorgente come fishing", function()
+    rec:onLootReady(true, nil, {})
+    rec:onLootMsg("You receive loot: " .. RARE .. ".")
+    assert.equals("fishing", events()[1].src)
+  end)
+
+  it("catches limitato a MAX_CATCHES", function()
+    local names = {}
+    for i = 1, 25 do names[i] = "F" .. i end
+    rec:onLootReady(true, nil, names)
+    rec:flush()
+    assert.equals(20, #events()[1].catches)
+  end)
+
+  it("pesca seguita da combattimento: fishing prima di combat", function()
+    rec:onSpellcast(7620)
+    rec:onCombat(true)
+    rec:onCombat(false)
+    assert.same({ "fishing", "combat" }, kinds())
+  end)
+
+  it("combattimento 100 -> 12 -> 80", function()
+    rec:onCombat(true)
+    rec:onHealth(100, 100)
+    rec:onHealth(12, 100)
+    rec:onHealth(80, 100)
+    clock = 1020
+    rec:onCombat(false)
+    local e = events()[1]
+    assert.equals("combat", e.k)
+    assert.equals(12, e.minHp)
+    assert.equals(1000, e.from)
+    assert.equals(1020, e.to)
+  end)
+
+  it("onHealth secret o max 0 ignorato", function()
+    secret[5] = true
+    rec:onCombat(true)
+    rec:onHealth(5, 100)
+    rec:onHealth(50, 0)
+    rec:onCombat(false)
+    assert.equals(100, events()[1].minHp)
+  end)
+
+  it("flush chiude combattimento aperto", function()
+    rec:onCombat(true)
+    rec:flush()
+    assert.same({ "combat" }, kinds())
+  end)
+
+  it("level", function()
+    rec:onLevel(12)
+    assert.equals(12, events()[1].level)
+  end)
+
+  it("morte con respiro attivo", function()
+    rec:onBreath(true)
+    rec:onDead()
+    assert.is_true(events()[1].breath)
+    rec:onBreath(false)
+    rec:onDead()
+    assert.is_false(events()[2].breath)
+  end)
+
+  it("soldi: calo grande e piccolo", function()
+    rec:onMoney(600000, "other")
+    rec:onMoney(540000, "merchant")
+    local e = events()[1]
+    assert.equals("spend", e.k)
+    assert.equals(60000, e.amount)
+    assert.equals("merchant", e.where)
+    rec:onMoney(539900, "other")
+    assert.equals(1, #events())
+    rec:onMoney(600000, "other") -- aumento
+    assert.equals(1, #events())
+  end)
+end)
