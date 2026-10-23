@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,7 +72,10 @@ func TestKeygenSignVerify(t *testing.T) {
 
 func TestSignErrors(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "a.zip")
-	os.WriteFile(file, []byte("x"), 0o644)
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	seed := base64.StdEncoding.EncodeToString(make([]byte, ed25519.SeedSize)) // chiave valida
 	none := func(string) string { return "" }
 	bad := func(string) string { return "non-base64!" }
 	cases := []struct {
@@ -83,7 +88,7 @@ func TestSignErrors(t *testing.T) {
 		{"sign no file", []string{"sign"}, none},
 		{"sign no key", []string{"sign", file}, none},
 		{"sign bad key", []string{"sign", file}, bad},
-		{"sign missing file", []string{"sign", file + ".nope"}, func(string) string { return strings.Repeat("A", 88) }},
+		{"sign missing file", []string{"sign", file + ".nope"}, func(string) string { return seed }},
 	}
 	for _, c := range cases {
 		var out, errOut bytes.Buffer
@@ -93,5 +98,26 @@ func TestSignErrors(t *testing.T) {
 	}
 	if _, err := os.Stat(file + ".sig"); err == nil {
 		t.Fatal(".sig written on error")
+	}
+}
+
+func TestSignWithSeed(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "a.zip")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	seed := make([]byte, ed25519.SeedSize)
+	env := func(string) string { return base64.StdEncoding.EncodeToString(seed) }
+	var out, errOut bytes.Buffer
+	if code := run([]string{"sign", file}, env, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	sig, err := os.ReadFile(file + ".sig")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub := ed25519.NewKeyFromSeed(seed).Public().(ed25519.PublicKey)
+	if err := update.Verify([]byte("x"), sig, base64.StdEncoding.EncodeToString(pub)); err != nil {
+		t.Fatal(err)
 	}
 }

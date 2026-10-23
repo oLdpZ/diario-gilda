@@ -25,7 +25,7 @@ type asset struct {
 
 // releaseServer serve /repos/{repo}/releases/latest con il tag dato e gli asset
 // di entrambe le piattaforme, piu' i file sotto /dl/.
-func releaseServer(t *testing.T, tag string, files map[string][]byte) *httptest.Server {
+func releaseServer(t *testing.T, tag string, files map[string][]byte, extra ...map[string]any) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	var ts *httptest.Server
@@ -34,7 +34,13 @@ func releaseServer(t *testing.T, tag string, files map[string][]byte) *httptest.
 		for _, n := range []string{assetWindows, assetMac} {
 			as = append(as, asset{n, ts.URL + "/dl/" + n}, asset{n + ".sig", ts.URL + "/dl/" + n + ".sig"})
 		}
-		json.NewEncoder(w).Encode(map[string]any{"tag_name": tag, "assets": as})
+		body := map[string]any{"tag_name": tag, "assets": as}
+		for _, e := range extra {
+			for k, v := range e {
+				body[k] = v
+			}
+		}
+		json.NewEncoder(w).Encode(body)
 	})
 	mux.HandleFunc("/dl/", func(w http.ResponseWriter, r *http.Request) {
 		b, ok := files[strings.TrimPrefix(r.URL.Path, "/dl/")]
@@ -72,7 +78,7 @@ func TestCheck(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.tag+"_"+c.current+"_"+c.goos, func(t *testing.T) {
 			ts := releaseServer(t, c.tag, nil)
-			rel, err := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", c.current, c.goos)
+			rel, err := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", c.current, c.goos, testKey)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -95,19 +101,49 @@ func TestCheck(t *testing.T) {
 	}
 }
 
+const testKey = "chiave-di-test" // check controlla solo che non sia vuota
+
 func TestCheckRuntimeGOOS(t *testing.T) {
-	if _, err := assetName(goosForTest()); err != nil {
+	ts := releaseServer(t, "v9.0.0", nil)
+	// build di sviluppo: build.PublicKey vuota, quindi mai aggiornamenti
+	rel, err := Check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0")
+	if err != nil || rel != nil {
+		t.Fatalf("Check without key: rel=%v err=%v", rel, err)
+	}
+	want, err := assetName(goosForTest())
+	if err != nil {
 		t.Skip("GOOS non supportato")
 	}
-	ts := releaseServer(t, "v9.0.0", nil)
-	rel, err := Check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0")
+	rel, err = check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0", goosForTest(), testKey)
 	if err != nil || rel == nil {
 		t.Fatalf("rel=%v err=%v", rel, err)
 	}
-	want, _ := assetName(goosForTest())
 	if !strings.HasSuffix(rel.AssetURL, "/"+want) {
 		t.Fatalf("AssetURL = %q", rel.AssetURL)
 	}
+}
+
+func TestCheckSkips(t *testing.T) {
+	cases := map[string]map[string]any{
+		"prerelease": {"prerelease": true},
+		"draft":      {"draft": true},
+	}
+	for name, extra := range cases {
+		t.Run(name, func(t *testing.T) {
+			ts := releaseServer(t, "v0.2.0", nil, extra)
+			rel, err := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0", "windows", testKey)
+			if err != nil || rel != nil {
+				t.Fatalf("rel=%v err=%v", rel, err)
+			}
+		})
+	}
+	t.Run("no key", func(t *testing.T) {
+		ts := releaseServer(t, "v0.2.0", nil)
+		rel, err := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0", "windows", "")
+		if err != nil || rel != nil {
+			t.Fatalf("rel=%v err=%v", rel, err)
+		}
+	})
 }
 
 func TestCheckErrors(t *testing.T) {
@@ -116,7 +152,7 @@ func TestCheckErrors(t *testing.T) {
 			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":"https://x/a"}]}`, assetWindows)
 		}))
 		defer ts.Close()
-		if _, err := check(context.Background(), ts.Client(), ts.URL, "o/r", "0.1.0", "windows"); err == nil {
+		if _, err := check(context.Background(), ts.Client(), ts.URL, "o/r", "0.1.0", "windows", testKey); err == nil {
 			t.Fatal("no error")
 		}
 	})
@@ -125,14 +161,14 @@ func TestCheckErrors(t *testing.T) {
 			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":"http://x/a"},{"name":%q,"browser_download_url":"https://x/a.sig"}]}`, assetWindows, assetWindows+".sig")
 		}))
 		defer ts.Close()
-		if _, err := check(context.Background(), ts.Client(), ts.URL, "o/r", "0.1.0", "windows"); err == nil {
+		if _, err := check(context.Background(), ts.Client(), ts.URL, "o/r", "0.1.0", "windows", testKey); err == nil {
 			t.Fatal("no error")
 		}
 	})
 	t.Run("http api base", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 		defer ts.Close()
-		if _, err := check(context.Background(), ts.Client(), ts.URL, "o/r", "0.1.0", "windows"); err == nil {
+		if _, err := check(context.Background(), ts.Client(), ts.URL, "o/r", "0.1.0", "windows", testKey); err == nil {
 			t.Fatal("no error")
 		}
 	})
@@ -141,27 +177,27 @@ func TestCheckErrors(t *testing.T) {
 			http.Error(w, "boom", 500)
 		}))
 		defer ts.Close()
-		if _, err := check(context.Background(), ts.Client(), ts.URL, "o/r", "0.1.0", "windows"); err == nil {
+		if _, err := check(context.Background(), ts.Client(), ts.URL, "o/r", "0.1.0", "windows", testKey); err == nil {
 			t.Fatal("no error")
 		}
 	})
 	t.Run("no releases", func(t *testing.T) {
 		ts := httptest.NewTLSServer(http.NotFoundHandler())
 		defer ts.Close()
-		rel, err := check(context.Background(), ts.Client(), ts.URL, "o/r", "0.1.0", "windows")
+		rel, err := check(context.Background(), ts.Client(), ts.URL, "o/r", "0.1.0", "windows", testKey)
 		if err != nil || rel != nil {
 			t.Fatalf("rel=%v err=%v", rel, err)
 		}
 	})
 	t.Run("bad tag", func(t *testing.T) {
 		ts := releaseServer(t, "latest", nil)
-		if _, err := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0", "windows"); err == nil {
+		if _, err := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0", "windows", testKey); err == nil {
 			t.Fatal("no error")
 		}
 	})
 	t.Run("unsupported goos", func(t *testing.T) {
 		ts := releaseServer(t, "v0.2.0", nil)
-		if _, err := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0", "plan9"); err == nil {
+		if _, err := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0", "plan9", testKey); err == nil {
 			t.Fatal("no error")
 		}
 	})
@@ -262,19 +298,30 @@ func TestApplyWindows(t *testing.T) {
 	}
 }
 
-func TestApplyMac(t *testing.T) {
-	root := t.TempDir()
-	bundle := filepath.Join(root, "DiarioGilda.app")
-	exe := filepath.Join(bundle, "Contents", "MacOS", "DiarioGilda")
+func macBundle(t *testing.T) (root, bundle, exe string) {
+	t.Helper()
+	root = t.TempDir()
+	bundle = filepath.Join(root, "DiarioGilda.app")
+	exe = filepath.Join(bundle, "Contents", "MacOS", "DiarioGilda")
 	fakeExe(t, exe, "vecchio")
 	fakeExe(t, filepath.Join(bundle, "Contents", "Info.plist"), "plist vecchio")
-	z := makeZip(t, map[string]string{
+	fakeExe(t, filepath.Join(bundle, "Contents", "Resources", "vecchia.icns"), "vecchia")
+	return root, bundle, exe
+}
+
+func macZip(t *testing.T) []byte {
+	return makeZip(t, map[string]string{
+		"VERSION": "0.2.0\n",
 		"DiarioGilda.app/Contents/MacOS/DiarioGilda":    "nuovo",
 		"DiarioGilda.app/Contents/Info.plist":           "plist nuovo",
 		"DiarioGilda.app/Contents/Resources/icona.icns": "icona",
 		"altro/fuori.txt": "ignorato",
 	})
-	if err := apply(z, "darwin", exe); err != nil {
+}
+
+func TestApplyMacSwapsBundle(t *testing.T) {
+	root, bundle, exe := macBundle(t)
+	if err := apply(macZip(t), "darwin", exe); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, exe); got != "nuovo" {
@@ -286,8 +333,74 @@ func TestApplyMac(t *testing.T) {
 	if got := readFile(t, filepath.Join(bundle, "Contents", "Resources", "icona.icns")); got != "icona" {
 		t.Fatalf("icon = %q", got)
 	}
-	if _, err := os.Stat(filepath.Join(root, "altro")); err == nil {
-		t.Fatal("unexpected entry extracted")
+	// bundle sostituito per intero: niente file vecchi dentro
+	if _, err := os.Stat(filepath.Join(bundle, "Contents", "Resources", "vecchia.icns")); err == nil {
+		t.Fatal("old resource left in the new bundle")
+	}
+	for _, p := range []string{filepath.Join(root, "altro"), filepath.Join(bundle, "VERSION"), bundle + ".new"} {
+		if _, err := os.Stat(p); err == nil {
+			t.Fatalf("%s should not exist", p)
+		}
+	}
+	if got := readFile(t, filepath.Join(bundle+".old", "Contents", "MacOS", "DiarioGilda")); got != "vecchio" {
+		t.Fatalf("old bundle = %q", got)
+	}
+	if runtime.GOOS != "windows" {
+		if fi, err := os.Stat(exe); err != nil || fi.Mode().Perm()&0o111 == 0 {
+			t.Fatalf("exe not executable: %v %v", fi, err)
+		}
+	}
+	cleanupOld("darwin", exe)
+	if _, err := os.Stat(bundle + ".old"); err == nil {
+		t.Fatal("CleanupOld left DiarioGilda.app.old")
+	}
+}
+
+func TestApplyMacRollback(t *testing.T) {
+	files, err := unzip(macZip(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, bundle, exe := macBundle(t)
+	rename := func(from, to string) error {
+		if strings.HasSuffix(from, ".new") {
+			return fmt.Errorf("rename finto fallito")
+		}
+		return os.Rename(from, to)
+	}
+	if err := applyFiles(files, "darwin", exe, rename); err == nil {
+		t.Fatal("no error")
+	}
+	if got := readFile(t, exe); got != "vecchio" {
+		t.Fatalf("exe = %q", got)
+	}
+	if got := readFile(t, filepath.Join(bundle, "Contents", "Resources", "vecchia.icns")); got != "vecchia" {
+		t.Fatalf("old bundle not intact: %q", got)
+	}
+	for _, p := range []string{bundle + ".new", bundle + ".old"} {
+		if _, err := os.Stat(p); err == nil {
+			t.Fatalf("%s left behind", p)
+		}
+	}
+}
+
+func TestApplyMacNotInBundle(t *testing.T) {
+	exe := filepath.Join(t.TempDir(), "DiarioGilda")
+	fakeExe(t, exe, "vecchio")
+	if err := apply(macZip(t), "darwin", exe); err == nil {
+		t.Fatal("no error")
+	}
+	if got := readFile(t, exe); got != "vecchio" {
+		t.Fatalf("exe = %q", got)
+	}
+}
+
+func TestCleanupOldWindows(t *testing.T) {
+	exe := filepath.Join(t.TempDir(), "DiarioGilda.exe")
+	fakeExe(t, exe+".old", "vecchio")
+	cleanupOld("windows", exe)
+	if _, err := os.Stat(exe + ".old"); err == nil {
+		t.Fatal(".old left")
 	}
 }
 
@@ -301,6 +414,7 @@ func TestApplyRejects(t *testing.T) {
 		"backslash": makeZip(t, map[string]string{"DiarioGilda.exe": "x", `..\fuori.exe`: "x"}),
 		"empty exe": makeZip(t, map[string]string{"DiarioGilda.exe": ""}),
 		"duplicate": dupZip(t),
+		"symlink":   symlinkZip(t),
 	}
 	for name, z := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -314,6 +428,19 @@ func TestApplyRejects(t *testing.T) {
 			}
 		})
 	}
+}
+
+func symlinkZip(t *testing.T) []byte {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, _ := zw.Create("DiarioGilda.exe")
+	w.Write([]byte("nuovo"))
+	h := &zip.FileHeader{Name: "link", Method: zip.Store}
+	h.SetMode(os.ModeSymlink | 0o777)
+	w, _ = zw.CreateHeader(h)
+	w.Write([]byte("../../etc/passwd"))
+	zw.Close()
+	return buf.Bytes()
 }
 
 func dupZip(t *testing.T) []byte {
@@ -349,53 +476,97 @@ func TestApplyTooBig(t *testing.T) {
 
 func TestUpdateEndToEnd(t *testing.T) {
 	pub, priv := keys(t)
-	z := makeZip(t, map[string]string{"DiarioGilda.exe": "nuovo"})
-	good := map[string][]byte{assetWindows: z, assetWindows + ".sig": sign(priv, z)}
+	z := makeZip(t, map[string]string{"VERSION": "0.2.0\n", "DiarioGilda.exe": "nuovo"})
+	signed := func(z []byte) map[string][]byte {
+		return map[string][]byte{assetWindows: z, assetWindows + ".sig": sign(priv, z)}
+	}
 
-	run := func(t *testing.T, files map[string][]byte, key string) (string, error) {
-		ts := releaseServer(t, "v0.2.0", files)
-		rel, err := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0", "windows")
+	run := func(t *testing.T, tag string, files map[string][]byte, key string) (string, error) {
+		ts := releaseServer(t, tag, files)
+		rel, err := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0", "windows", testKey)
 		if err != nil || rel == nil {
 			t.Fatalf("check: rel=%v err=%v", rel, err)
 		}
 		exe := filepath.Join(t.TempDir(), "DiarioGilda.exe")
 		fakeExe(t, exe, "vecchio")
-		err = install(context.Background(), ts.Client(), rel, key, "windows", exe)
+		err = install(context.Background(), ts.Client(), rel, "0.1.0", key, "windows", exe)
 		return readFile(t, exe), err
 	}
-
-	t.Run("ok", func(t *testing.T) {
-		got, err := run(t, good, pub)
+	ok := func(t *testing.T, got string, err error) {
+		t.Helper()
 		if err != nil || got != "nuovo" {
 			t.Fatalf("got=%q err=%v", got, err)
 		}
+	}
+	rejected := func(t *testing.T, got string, err error) {
+		t.Helper()
+		if err == nil || got != "vecchio" {
+			t.Fatalf("want rejection, got=%q err=%v", got, err)
+		}
+	}
+
+	t.Run("ok", func(t *testing.T) {
+		got, err := run(t, "v0.2.0", signed(z), pub)
+		ok(t, got, err)
 	})
 	t.Run("no public key", func(t *testing.T) {
-		got, err := run(t, good, "")
-		if err == nil || got != "vecchio" {
-			t.Fatalf("got=%q err=%v", got, err)
-		}
+		got, err := run(t, "v0.2.0", signed(z), "")
+		rejected(t, got, err)
 	})
 	t.Run("tampered", func(t *testing.T) {
 		bad := append([]byte(nil), z...)
 		bad[len(bad)/2] ^= 1
-		got, err := run(t, map[string][]byte{assetWindows: bad, assetWindows + ".sig": sign(priv, z)}, pub)
-		if err == nil || got != "vecchio" {
-			t.Fatalf("got=%q err=%v", got, err)
-		}
+		got, err := run(t, "v0.2.0", map[string][]byte{assetWindows: bad, assetWindows + ".sig": sign(priv, z)}, pub)
+		rejected(t, got, err)
 	})
 	t.Run("half downloaded", func(t *testing.T) {
-		got, err := run(t, map[string][]byte{assetWindows: z[:len(z)/2], assetWindows + ".sig": sign(priv, z)}, pub)
-		if err == nil || got != "vecchio" {
-			t.Fatalf("got=%q err=%v", got, err)
-		}
+		got, err := run(t, "v0.2.0", map[string][]byte{assetWindows: z[:len(z)/2], assetWindows + ".sig": sign(priv, z)}, pub)
+		rejected(t, got, err)
 	})
 	t.Run("missing sig file", func(t *testing.T) {
-		got, err := run(t, map[string][]byte{assetWindows: z}, pub)
-		if err == nil || got != "vecchio" {
-			t.Fatalf("got=%q err=%v", got, err)
-		}
+		got, err := run(t, "v0.2.0", map[string][]byte{assetWindows: z}, pub)
+		rejected(t, got, err)
 	})
+	t.Run("old signed zip under new tag", func(t *testing.T) {
+		old := makeZip(t, map[string]string{"VERSION": "0.1.0\n", "DiarioGilda.exe": "nuovo"})
+		got, err := run(t, "v0.2.0", signed(old), pub)
+		rejected(t, got, err)
+	})
+	t.Run("older signed zip under fake tag", func(t *testing.T) {
+		got, err := run(t, "v99.0.0", signed(z), pub) // VERSION 0.2.0 != 99.0.0
+		rejected(t, got, err)
+	})
+	t.Run("missing VERSION", func(t *testing.T) {
+		nov := makeZip(t, map[string]string{"DiarioGilda.exe": "nuovo"})
+		got, err := run(t, "v0.2.0", signed(nov), pub)
+		rejected(t, got, err)
+	})
+	t.Run("VERSION not newer", func(t *testing.T) {
+		// VERSION coerente col tag ma non piu' nuovo della versione attuale passata a install
+		ts := releaseServer(t, "v0.2.0", signed(z))
+		rel, _ := check(context.Background(), ts.Client(), ts.URL, "oLdpZ/diario-gilda", "0.1.0", "windows", testKey)
+		exe := filepath.Join(t.TempDir(), "DiarioGilda.exe")
+		fakeExe(t, exe, "vecchio")
+		err := install(context.Background(), ts.Client(), rel, "0.2.0", pub, "windows", exe)
+		rejected(t, readFile(t, exe), err)
+	})
+}
+
+func TestRedirectToHTTPRejected(t *testing.T) {
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("dati"))
+	}))
+	defer plain.Close()
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, plain.URL+"/x", http.StatusFound)
+	}))
+	defer ts.Close()
+	if _, err := download(context.Background(), ts.Client(), ts.URL, 1024); err == nil {
+		t.Fatal("redirect to http followed")
+	}
+	if _, err := download(context.Background(), nil, ts.URL, 1024); err == nil {
+		t.Fatal("redirect to http followed (default client)")
+	}
 }
 
 func TestDownloadLimits(t *testing.T) {

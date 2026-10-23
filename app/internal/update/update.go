@@ -3,12 +3,22 @@
 //
 // Regole di sicurezza:
 //   - lo zip si verifica PRIMA di estrarlo o applicarlo; senza chiave pubblica
-//     (build di sviluppo) non si aggiorna mai;
-//   - la firma copre i byte esatti dello zip scaricato;
+//     (build di sviluppo) Check non segnala mai aggiornamenti e Install rifiuta;
+//   - la firma copre i byte esatti dello zip scaricato; il tag della release non
+//     e' firmato, quindi ogni zip contiene un file VERSION in cima (es. "0.2.0\n"),
+//     che dopo la verifica deve essere uguale a Release.Version e piu' nuovo della
+//     versione attuale: cosi' un tag falso non puo' riproporre uno zip vecchio;
+//   - anche i redirect devono restare in https;
 //   - si seguono solo URL https (anche apiBase): i test usano httptest.NewTLSServer
 //     con il suo client, senza eccezioni per l'http in chiaro;
 //   - download con limite di dimensione, estrazione con limite e senza percorsi
-//     assoluti o "..", solo le voci attese.
+//     assoluti o "..", senza link simbolici (il bundle macOS prodotto dal workflow
+//     di release non ne contiene), solo le voci attese.
+//
+// Windows: l'eseguibile si sostituisce con selfupdate (il vecchio resta in
+// <exe>.old). macOS: il bundle intero viene preparato in DiarioGilda.app.new
+// accanto a quello in uso e scambiato con due rename (il vecchio resta in
+// DiarioGilda.app.old); a un errore si rimette quello vecchio.
 //
 // Versioni: MAJOR.MINOR.PATCH numerico, "v" iniziale ignorata. Un tag con suffisso
 // di pre-release ("0.1.1-test") si salta, a meno che anche la versione attuale ne
@@ -37,15 +47,18 @@ import (
 	"time"
 
 	"github.com/minio/selfupdate"
+
+	"github.com/oLdpZ/diario-gilda/app/internal/build"
 )
 
 const (
 	assetWindows = "DiarioGilda-windows-amd64.zip"
 	assetMac     = "DiarioGilda-macos.zip"
 
-	exeWindows = "DiarioGilda.exe"
-	bundleMac  = "DiarioGilda.app"
-	exeMac     = bundleMac + "/Contents/MacOS/DiarioGilda"
+	exeWindows  = "DiarioGilda.exe"
+	bundleMac   = "DiarioGilda.app"
+	exeMac      = bundleMac + "/Contents/MacOS/DiarioGilda"
+	versionFile = "VERSION"
 
 	maxAPI      = 1 << 20   // risposta JSON dell'API
 	maxSig      = 4 << 10   // file .sig
@@ -64,13 +77,18 @@ type Release struct {
 
 // Check chiede a {apiBase}/repos/{repo}/releases/latest l'ultima release e la
 // restituisce se e' piu' nuova di current; nil se non lo e', se current e' "dev"
-// (o non e' una versione) o se il repository non ha release. client dovrebbe avere
-// un Timeout; se nil se ne usa uno con 5 minuti.
+// (o non e' una versione), se la build non ha build.PublicKey o se il repository
+// non ha release. /releases/latest non restituisce mai pre-release ne' bozze; i
+// controlli su prerelease/draft e sul suffisso del tag sono una difesa in piu'.
+// client dovrebbe avere un Timeout; se nil se ne usa uno con 5 minuti.
 func Check(ctx context.Context, client *http.Client, apiBase, repo, current string) (*Release, error) {
-	return check(ctx, client, apiBase, repo, current, runtime.GOOS)
+	return check(ctx, client, apiBase, repo, current, runtime.GOOS, build.PublicKey)
 }
 
-func check(ctx context.Context, client *http.Client, apiBase, repo, current, goos string) (*Release, error) {
+func check(ctx context.Context, client *http.Client, apiBase, repo, current, goos, pubKeyB64 string) (*Release, error) {
+	if pubKeyB64 == "" {
+		return nil, nil // senza chiave non si potrebbe verificare: niente aggiornamenti
+	}
 	cur, err := parseVersion(current)
 	if err != nil {
 		return nil, nil // "dev" o build senza versione: mai aggiornare
@@ -145,18 +163,19 @@ func check(ctx context.Context, client *http.Client, apiBase, repo, current, goo
 	return rel, nil
 }
 
-// Install scarica lo zip e la firma di rel, verifica la firma con pubKeyB64 e
-// solo allora applica l'aggiornamento all'eseguibile in uso. Non riavvia il
-// processo: chi chiama decide quando (il nuovo eseguibile parte al prossimo avvio).
-func Install(ctx context.Context, client *http.Client, rel *Release, pubKeyB64 string) error {
+// Install scarica lo zip e la firma di rel, verifica la firma con build.PublicKey,
+// controlla che il file VERSION dello zip sia rel.Version e piu' nuovo di current,
+// e solo allora applica l'aggiornamento. Non riavvia il processo: la nuova
+// versione parte al prossimo avvio (chi chiama decide quando).
+func Install(ctx context.Context, client *http.Client, rel *Release, current string) error {
 	exe, err := executable()
 	if err != nil {
 		return err
 	}
-	return install(ctx, client, rel, pubKeyB64, runtime.GOOS, exe)
+	return install(ctx, client, rel, current, build.PublicKey, runtime.GOOS, exe)
 }
 
-func install(ctx context.Context, client *http.Client, rel *Release, pubKeyB64, goos, exe string) error {
+func install(ctx context.Context, client *http.Client, rel *Release, current, pubKeyB64, goos, exe string) error {
 	if pubKeyB64 == "" {
 		return ErrNoKey
 	}
@@ -171,7 +190,35 @@ func install(ctx context.Context, client *http.Client, rel *Release, pubKeyB64, 
 	if err := Verify(data, sig, pubKeyB64); err != nil {
 		return err
 	}
-	return apply(data, goos, exe)
+	files, err := unzip(data)
+	if err != nil {
+		return err
+	}
+	if err := checkVersionFile(files, rel.Version, current); err != nil {
+		return err
+	}
+	return applyFiles(files, goos, exe, os.Rename)
+}
+
+// checkVersionFile: il VERSION firmato deve coincidere col tag ed essere piu' nuovo.
+func checkVersionFile(files map[string]zfile, tag, current string) error {
+	f, ok := files[versionFile]
+	if !ok {
+		return errors.New("lo zip non contiene VERSION: aggiornamento rifiutato")
+	}
+	got := strings.TrimPrefix(strings.TrimSpace(string(f.data)), "v")
+	if got != strings.TrimPrefix(tag, "v") {
+		return fmt.Errorf("lo zip e' la versione %q, non %q: aggiornamento rifiutato", got, tag)
+	}
+	next, err := parseVersion(got)
+	if err != nil {
+		return fmt.Errorf("VERSION dello zip: %w", err)
+	}
+	cur, err := parseVersion(current)
+	if err != nil || !next.newerThan(cur) {
+		return fmt.Errorf("la versione %s non e' piu' nuova di %q: aggiornamento rifiutato", got, current)
+	}
+	return nil
 }
 
 // ErrNoKey: build senza chiave pubblica, gli aggiornamenti sono disattivati.
@@ -197,21 +244,22 @@ func Verify(data, sig []byte, pubKeyB64 string) error {
 	return nil
 }
 
-// Apply estrae l'eseguibile da zipData (gia' verificato con Verify) e sostituisce
-// quello in uso; su macOS sostituisce anche le altre risorse del bundle.
-// La versione precedente resta in <eseguibile>.old (vedi CleanupOld).
-func Apply(zipData []byte) error {
-	exe, err := executable()
-	if err != nil {
-		return err
-	}
-	return apply(zipData, runtime.GOOS, exe)
-}
-
 // CleanupOld cancella la copia di ripristino lasciata da un aggiornamento
-// precedente (su Windows si puo' solo dopo il riavvio). Errori ignorati.
+// precedente (<exe>.old su Windows, dove si puo' solo dopo il riavvio;
+// DiarioGilda.app.old su macOS). Errori ignorati.
 func CleanupOld() {
 	if exe, err := executable(); err == nil {
+		cleanupOld(runtime.GOOS, exe)
+	}
+}
+
+func cleanupOld(goos, exe string) {
+	switch goos {
+	case "darwin":
+		if bundle, err := bundleRoot(exe); err == nil {
+			os.RemoveAll(bundle + ".old")
+		}
+	default:
 		os.Remove(exe + ".old")
 	}
 }
@@ -227,53 +275,95 @@ func executable() (string, error) {
 	return exe, nil
 }
 
+// apply applica uno zip gia' verificato, senza controllare VERSION (lo fa install).
 func apply(zipData []byte, goos, exe string) error {
 	files, err := unzip(zipData)
 	if err != nil {
 		return err
 	}
-	var exeEntry, bundlePrefix string
+	return applyFiles(files, goos, exe, os.Rename)
+}
+
+func applyFiles(files map[string]zfile, goos, exe string, rename func(string, string) error) error {
 	switch goos {
 	case "windows":
-		exeEntry = exeWindows
-	case "darwin":
-		exeEntry, bundlePrefix = exeMac, bundleMac+"/"
-	default:
-		return fmt.Errorf("piattaforma %s non supportata", goos)
-	}
-	bin, ok := files[exeEntry]
-	if !ok || len(bin.data) == 0 {
-		return fmt.Errorf("lo zip non contiene %s", exeEntry)
-	}
-
-	// Su macOS le altre voci del bundle (gia' in memoria e validate) si scrivono
-	// dopo il binario.
-	var bundle string
-	if bundlePrefix != "" {
-		bundle = filepath.Dir(filepath.Dir(filepath.Dir(exe))) // .../DiarioGilda.app
-		if !strings.HasSuffix(bundle, ".app") {
-			bundle = "" // eseguibile fuori da un bundle: si aggiorna solo il binario
+		bin, ok := files[exeWindows]
+		if !ok || len(bin.data) == 0 {
+			return fmt.Errorf("lo zip non contiene %s", exeWindows)
 		}
-	}
-
-	opts := selfupdate.Options{TargetPath: exe, OldSavePath: exe + ".old"}
-	if err := selfupdate.Apply(bytes.NewReader(bin.data), opts); err != nil {
-		if rerr := selfupdate.RollbackError(err); rerr != nil {
-			return fmt.Errorf("aggiornamento fallito e ripristino fallito: %v (%w)", rerr, err)
+		opts := selfupdate.Options{TargetPath: exe, OldSavePath: exe + ".old"}
+		if err := selfupdate.Apply(bytes.NewReader(bin.data), opts); err != nil {
+			if rerr := selfupdate.RollbackError(err); rerr != nil {
+				return fmt.Errorf("aggiornamento fallito e ripristino fallito: %v (%w)", rerr, err)
+			}
+			return fmt.Errorf("aggiornamento fallito, versione precedente intatta: %w", err)
 		}
-		return fmt.Errorf("aggiornamento fallito, versione precedente intatta: %w", err)
-	}
-	if bundle == "" {
 		return nil
+	case "darwin":
+		return swapBundle(files, exe, rename)
 	}
+	return fmt.Errorf("piattaforma %s non supportata", goos)
+}
+
+// bundleRoot ricava .../X.app da .../X.app/Contents/MacOS/<eseguibile>.
+func bundleRoot(exe string) (string, error) {
+	macos := filepath.Dir(exe)
+	contents := filepath.Dir(macos)
+	bundle := filepath.Dir(contents)
+	if filepath.Base(macos) != "MacOS" || filepath.Base(contents) != "Contents" || !strings.HasSuffix(bundle, ".app") {
+		return "", fmt.Errorf("%s non e' dentro un bundle .app", exe)
+	}
+	return bundle, nil
+}
+
+// swapBundle prepara il bundle dello zip in <bundle>.new, poi <bundle> -> <bundle>.old
+// e <bundle>.new -> <bundle>; a un errore rimette il bundle vecchio.
+func swapBundle(files map[string]zfile, exe string, rename func(string, string) error) error {
+	if bin, ok := files[exeMac]; !ok || len(bin.data) == 0 {
+		return fmt.Errorf("lo zip non contiene %s", exeMac)
+	}
+	bundle, err := bundleRoot(exe)
+	if err != nil {
+		return err
+	}
+	newB, oldB := bundle+".new", bundle+".old"
+	if err := os.RemoveAll(newB); err != nil {
+		return fmt.Errorf("pulizia di %s: %w", newB, err)
+	}
+	prefix := bundleMac + "/"
 	for name, f := range files {
-		if name == exeEntry || !strings.HasPrefix(name, bundlePrefix) {
-			continue
+		rel, ok := strings.CutPrefix(name, prefix)
+		if !ok {
+			continue // voci fuori dal bundle (es. VERSION) non si estraggono
 		}
-		dst := filepath.Join(bundle, filepath.FromSlash(strings.TrimPrefix(name, bundlePrefix)))
-		if err := writeAtomic(dst, f.data, f.mode); err != nil {
-			return fmt.Errorf("risorsa %s: %w", name, err)
+		mode := f.mode
+		if name == exeMac {
+			mode |= 0o755
 		}
+		dst := filepath.Join(newB, filepath.FromSlash(rel))
+		err := os.MkdirAll(filepath.Dir(dst), 0o755)
+		if err == nil {
+			err = os.WriteFile(dst, f.data, mode)
+		}
+		if err != nil {
+			os.RemoveAll(newB)
+			return fmt.Errorf("preparazione del bundle (%s): %w", name, err)
+		}
+	}
+	if err := os.RemoveAll(oldB); err != nil {
+		os.RemoveAll(newB)
+		return fmt.Errorf("pulizia di %s: %w", oldB, err)
+	}
+	if err := rename(bundle, oldB); err != nil {
+		os.RemoveAll(newB)
+		return fmt.Errorf("spostamento del bundle attuale: %w", err)
+	}
+	if err := rename(newB, bundle); err != nil {
+		if rerr := rename(oldB, bundle); rerr != nil {
+			return fmt.Errorf("installazione del bundle: %w (ripristino fallito: %v)", err, rerr)
+		}
+		os.RemoveAll(newB)
+		return fmt.Errorf("installazione del bundle, versione precedente intatta: %w", err)
 	}
 	return nil
 }
@@ -346,22 +436,6 @@ func safeName(name string) (string, error) {
 	return clean, nil
 }
 
-func writeAtomic(dst string, data []byte, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
-	}
-	tmp := dst + ".new"
-	if err := os.WriteFile(tmp, data, mode); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-	if err := os.Rename(tmp, dst); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-	return nil
-}
-
 func download(ctx context.Context, client *http.Client, u string, limit int64) ([]byte, error) {
 	if err := requireHTTPS(u); err != nil {
 		return nil, err
@@ -392,11 +466,29 @@ func download(ctx context.Context, client *http.Client, u string, limit int64) (
 	return data, nil
 }
 
+// httpClient copia il client (o ne crea uno con timeout) e rifiuta i redirect
+// verso URL non https, mantenendo l'eventuale CheckRedirect del chiamante.
 func httpClient(c *http.Client) *http.Client {
+	var cp http.Client
 	if c != nil {
-		return c
+		cp = *c
+	} else {
+		cp.Timeout = defaultTimeout
 	}
-	return &http.Client{Timeout: defaultTimeout}
+	prev := cp.CheckRedirect
+	cp.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if req.URL.Scheme != "https" {
+			return fmt.Errorf("redirect non https rifiutato: %s", req.URL)
+		}
+		if prev != nil {
+			return prev(req, via)
+		}
+		if len(via) >= 10 {
+			return errors.New("troppi redirect")
+		}
+		return nil
+	}
+	return &cp
 }
 
 func requireHTTPS(raw string) error {
