@@ -41,6 +41,7 @@ local function playFirstSession()
   end
   advance(5)
   H.fire("LOOT_READY")
+  H.fire("LOOT_CLOSED")
   v.fishing = false
   v.loot = {}
   advance(10)
@@ -57,6 +58,7 @@ local function playFirstSession()
   v.units.target = { name = "Defias Bandito", dead = true }
   H.fire("LOOT_READY")
   H.fire("CHAT_MSG_LOOT", "You receive loot: " .. RARE .. ".")
+  H.fire("LOOT_CLOSED")
   v.units.target = nil
 
   advance(60)

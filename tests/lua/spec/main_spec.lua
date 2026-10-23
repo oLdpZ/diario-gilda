@@ -32,6 +32,21 @@ describe("Main (collegamento al gioco)", function()
     H.fire("ADDON_LOADED", "DiarioGilda")
     H.fire("PLAYER_ENTERING_WORLD", true, false)
   end
+  -- Nuovo client (stub e Main ricaricati); setup(G) prepara gli stub prima del caricamento di Main.
+  local function restart(setup)
+    G = H.gameStub()
+    v = G.v
+    v.combatLog = true
+    if setup then setup(G) end
+    H.load(FILES)
+  end
+  local function count(k)
+    local n = 0
+    for _, e in ipairs(events()) do
+      if e.k == k then n = n + 1 end
+    end
+    return n
+  end
   local function runTimers()
     local list = G.timers
     G.timers = {}
@@ -279,7 +294,7 @@ describe("Main (collegamento al gioco)", function()
     assert.equals(0, #DiarioGildaDB.errors)
   end)
 
-  it("QUEST_TURNED_IN e abbandono tramite AbandonQuest", function()
+  it("QUEST_TURNED_IN", function()
     login()
     v.quests[42] = "Il Ragno"
     H.fire("QUEST_TURNED_IN", 42, 450, 1200)
@@ -288,14 +303,65 @@ describe("Main (collegamento al gioco)", function()
     assert.equals("done", q.action)
     assert.equals(450, q.xp)
     assert.equals(1200, q.money)
+  end)
+
+  it("abbandono via C_QuestLog: id ricordato a SetAbandonQuest, un solo evento", function()
+    login()
     v.quests[7] = "Lupi"
     v.abandonId = 7
-    _G.AbandonQuest()
+    C_QuestLog.SetAbandonQuest()
+    C_QuestLog.AbandonQuest() -- azzera l'id prima del post-hook
+    local a = events()[#events()]
+    assert.equals("quest", a.k)
+    assert.equals("abandon", a.action)
+    assert.equals(7, a.id)
+    assert.equals("Lupi", a.title)
+    assert.equals(1, count("quest"))
+    assert.same({ "C_QuestLog.SetAbandonQuest", "C_QuestLog.AbandonQuest", "AbandonQuest" }, G.hooks)
+    -- un secondo abbandono piu' tardi viene registrato
+    v.now = v.now + 30
+    v.quests[8] = "Orsi"
+    v.abandonId = 8
+    C_QuestLog.SetAbandonQuest()
+    C_QuestLog.AbandonQuest()
+    assert.equals(2, count("quest"))
+    assert.equals(8, events()[#events()].id)
+    assert.equals(0, #DiarioGildaDB.errors)
+  end)
+
+  it("abbandono con solo l'AbandonQuest globale (fallback)", function()
+    restart(function()
+      rawset(C_QuestLog, "SetAbandonQuest", nil)
+      rawset(C_QuestLog, "AbandonQuest", nil)
+    end)
+    login()
+    v.quests[7] = "Lupi"
+    v.abandonId = 7
+    AbandonQuest()
     local a = events()[#events()]
     assert.equals("abandon", a.action)
     assert.equals(7, a.id)
     assert.equals("Lupi", a.title)
     assert.same({ "AbandonQuest" }, G.hooks)
+  end)
+
+  it("AbandonQuest globale che chiama C_QuestLog.AbandonQuest: nessun doppio evento", function()
+    restart(function()
+      _G.AbandonQuest = function() C_QuestLog.AbandonQuest() end
+    end)
+    login()
+    v.quests[7] = "Lupi"
+    v.abandonId = 7
+    C_QuestLog.SetAbandonQuest()
+    AbandonQuest()
+    assert.equals(1, count("quest"))
+    assert.equals(7, events()[#events()].id)
+  end)
+
+  it("senza AbandonQuest globale (client moderno) si aggancia solo C_QuestLog", function()
+    restart(function() _G.AbandonQuest = nil end)
+    login()
+    assert.same({ "C_QuestLog.SetAbandonQuest", "C_QuestLog.AbandonQuest" }, G.hooks)
   end)
 
   it("CHAT_MSG_SYSTEM: duello", function()
@@ -304,6 +370,98 @@ describe("Main (collegamento al gioco)", function()
     local d = find("duel")
     assert.equals("Gino", d.winner)
     assert.equals("knockout", d.how)
+  end)
+
+  it("un evento che il client non conosce: gli altri funzionano, errors lo nomina", function()
+    restart(function(g) g.badEvents.TRAINER_SHOW = true end)
+    login()
+    H.fire("PLAYER_LEVEL_UP", 13)
+    assert.truthy(find("zone"))
+    assert.equals(13, find("level").level)
+    assert.equals(1, #DiarioGildaDB.errors)
+    assert.truthy(DiarioGildaDB.errors[1]:find("TRAINER_SHOW", 1, true))
+  end)
+
+  it("UNIT_HEALTH e UNIT_SPELLCAST_SUCCEEDED registrati solo per player", function()
+    local f = G.frames[1]
+    assert.same({ "player" }, f.units.UNIT_HEALTH)
+    assert.same({ "player" }, f.units.UNIT_SPELLCAST_SUCCEEDED)
+  end)
+
+  it("LOOT_READY ripetuto nella stessa finestra conta una volta sola", function()
+    login()
+    v.fishing = true
+    v.loot = { "Pesce Gatto" }
+    H.fire("LOOT_READY")
+    H.fire("LOOT_READY")
+    H.fire("LOOT_CLOSED")
+    H.fire("LOOT_READY")
+    H.fire("LOOT_CLOSED")
+    H.fire("PLAYER_LOGOUT")
+    assert.same({ "Pesce Gatto", "Pesce Gatto" }, find("fishing").catches)
+  end)
+
+  it("LOOT_CLOSED: una ricompensa poco dopo non prende il mob come fonte", function()
+    login()
+    v.items[RARE] = { name = "Spada Rara", q = 3, id = 1234 }
+    v.units.target = { name = "Defias", dead = true }
+    H.fire("LOOT_READY")
+    H.fire("LOOT_CLOSED")
+    v.now = v.now + 3
+    H.fire("CHAT_MSG_LOOT", "You receive loot: " .. RARE .. ".")
+    assert.is_nil(find("loot").src)
+  end)
+
+  it("GROUP_ROSTER_UPDATE con un membro \"Unknown\": tiene l'ultimo gruppo noto", function()
+    login()
+    v.units.party1 = { name = "Bob" }
+    H.fire("GROUP_ROSTER_UPDATE")
+    runTimers()
+    v.units.party2 = { name = "Unknown" }
+    H.fire("GROUP_ROSTER_UPDATE")
+    assert.equals(0, #G.timers)
+    assert.equals(1, count("group"))
+    assert.same({ "Bob" }, find("group").members)
+  end)
+
+  it("ingresso in combattimento gia' ferito senza altri danni: minHp dalla vita corrente", function()
+    login()
+    v.units.player.hp = 40
+    H.fire("PLAYER_REGEN_DISABLED")
+    H.fire("PLAYER_REGEN_ENABLED")
+    assert.equals(40, find("combat").minHp)
+  end)
+
+  it("gilda non leggibile al login: PLAYER_GUILD_UPDATE la scrive nella sessione", function()
+    v.guild = nil
+    login()
+    assert.is_nil(session().guild)
+    v.guild = "La Gilda"
+    H.fire("PLAYER_GUILD_UPDATE", "player")
+    assert.equals("La Gilda", session().guild)
+  end)
+
+  it("/reload entro 600 s dopo PLAYER_LOGOUT: stessa sessione, stesso id, eventi accodati", function()
+    login()
+    H.fire("PLAYER_LEVEL_UP", 13)
+    v.now = v.now + 100
+    H.fire("PLAYER_LOGOUT")
+    local saved, id, n = DiarioGildaDB, session().id, #events()
+    assert.truthy(session().stop)
+    -- il client ricarica l'interfaccia: Lua da capo, SavedVariables dal disco
+    local now = v.now
+    restart()
+    v.now = now + 20
+    _G.DiarioGildaDB = saved
+    H.fire("ADDON_LOADED", "DiarioGilda")
+    H.fire("PLAYER_ENTERING_WORLD", false, true)
+    H.fire("PLAYER_LEVEL_UP", 14)
+    assert.equals(1, #DiarioGildaDB.sessions)
+    assert.equals(id, session().id)
+    assert.is_nil(session().stop)
+    assert.is_true(#events() > n)
+    assert.equals(14, events()[#events()].level)
+    assert.equals(0, #DiarioGildaDB.errors)
   end)
 
   it("un solo frame e /diario registrato", function()

@@ -28,7 +28,9 @@ end
 --   G.secret   set dei valori che issecretvalue considera secret
 --   G.printed  righe passate a print
 --   G.timers   callback di C_Timer.After ({ sec, fn })
---   G.frames   frame creati con CreateFrame (eventi registrati e script)
+--   G.frames   frame creati con CreateFrame (eventi registrati, unit di RegisterUnitEvent in f.units, script)
+--   G.badEvents  set di nomi per cui RegisterEvent/RegisterUnitEvent lancia errore (evento sconosciuto al client)
+--   G.hooks    nomi agganciati con hooksecurefunc ("AbandonQuest", "C_QuestLog.SetAbandonQuest", ...)
 -- H.ungame() rimuove tutto (chiamato anche all'inizio di ogni gameStub).
 local gameNames = {}
 local realPrint = print
@@ -46,7 +48,7 @@ end
 
 function H.gameStub()
   H.ungame()
-  local G = { secret = {}, printed = {}, timers = {}, frames = {}, hooks = {} }
+  local G = { secret = {}, printed = {}, timers = {}, frames = {}, hooks = {}, badEvents = {} }
   local v = {
     now = 1793000000,
     units = {
@@ -73,8 +75,16 @@ function H.gameStub()
   end
 
   set("CreateFrame", function()
-    local f = { events = {}, scripts = {} }
-    function f:RegisterEvent(e) self.events[e] = true end
+    local f = { events = {}, units = {}, scripts = {} }
+    function f:RegisterEvent(e)
+      if G.badEvents[e] then error("Attempt to register unknown event \"" .. e .. "\"") end
+      self.events[e] = true
+    end
+    function f:RegisterUnitEvent(e, ...)
+      if G.badEvents[e] then error("Attempt to register unknown event \"" .. e .. "\"") end
+      self.events[e] = true
+      self.units[e] = { ... }
+    end
     function f:UnregisterEvent(e) self.events[e] = nil end
     function f:SetScript(n, fn) self.scripts[n] = fn end
     G.frames[#G.frames + 1] = f
@@ -82,14 +92,22 @@ function H.gameStub()
   end)
   set("issecretvalue", function(x) return G.secret[x] == true end)
   set("time", function() return v.now end)
-  set("hooksecurefunc", function(name, fn)
-    local orig = _G[name]
-    G.hooks[#G.hooks + 1] = name
-    _G[name] = function(...)
+  -- hooksecurefunc("Globale", fn) o hooksecurefunc(tabella, "campo", fn): post-hook come nel client
+  set("hooksecurefunc", function(a, b, c)
+    local t, name, fn, label = _G, a, b, a
+    if type(a) == "table" then
+      t, name, fn = a, b, c
+      label = (a == _G.C_QuestLog and "C_QuestLog." or "?.") .. b
+    end
+    local orig = t[name]
+    G.hooks[#G.hooks + 1] = label
+    t[name] = function(...)
       orig(...)
       fn(...)
     end
   end)
+  -- AbandonQuest globale (client vecchi): non azzera l'id. C_QuestLog.AbandonQuest (client moderno) lo azzera,
+  -- come il client vero: nel post-hook GetAbandonQuest() non lo restituisce piu'.
   set("AbandonQuest", function() end)
 
   set("UnitName", function(u) local x = unit(u) if x then return x.name, x.realm end end)
@@ -131,13 +149,16 @@ function H.gameStub()
   set("C_Spell", { GetSpellName = function(id) return v.spells[id] end })
   set("C_QuestLog", {
     GetTitleForQuestID = function(id) return v.quests[id] end,
-    GetAbandonQuest = function() return v.abandonId end,
+    GetAbandonQuest = function() return v.abandonId or 0 end,
+    SetAbandonQuest = function() end,
+    AbandonQuest = function() v.abandonId = nil end,
   })
   set("IsFishingLoot", function() return v.fishing end)
   set("GetNumLootItems", function() return #v.loot end)
   set("GetLootSlotInfo", function(i) return 134400, v.loot[i], 1, nil, 3 end)
   set("GetMoney", function() return v.money end)
 
+  set("UNKNOWNOBJECT", "Unknown")
   set("LOOT_ITEM_SELF", "You receive loot: %s.")
   set("LOOT_ITEM_SELF_MULTIPLE", "You receive loot: %sx%d.")
   set("DUEL_WINNER_KNOCKOUT", "%1$s has defeated %2$s in a duel")

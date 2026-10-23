@@ -161,4 +161,18 @@ describe("Journal", function()
     local ev = J.add("note", { text = "x" })
     assert.equals("x", ev.text)
   end)
+
+  it("setGuild riempie la gilda solo se la sessione corrente non ce l'ha", function()
+    assert.has_no.errors(function() J.setGuild("X") end) -- nessuna sessione
+    local nog = {}
+    for k, val in pairs(gino) do nog[k] = val end
+    nog.guild = nil
+    local s = J.begin(nog, false)
+    J.setGuild(nil)
+    assert.is_nil(s.guild)
+    J.setGuild("Gilda Tarda")
+    assert.equals("Gilda Tarda", s.guild)
+    J.setGuild("Altra")
+    assert.equals("Gilda Tarda", s.guild)
+  end)
 end)

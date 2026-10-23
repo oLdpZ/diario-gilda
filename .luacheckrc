@@ -35,6 +35,7 @@ read_globals = {
   "UnitIsUnit",
   "UnitLevel",
   "UnitName",
+  "UNKNOWNOBJECT",
   "UnitRace",
   "hooksecurefunc",
   "issecretvalue",

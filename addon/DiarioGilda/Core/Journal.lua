@@ -5,6 +5,7 @@
 --   DG.Journal.finish()                  chiude la sessione corrente (stop = now)
 --   DG.Journal.firstVisit(zone) -> bool  vero solo la prima volta per il personaggio corrente
 --   DG.Journal.current() -> session|nil  sessione corrente
+--   DG.Journal.setGuild(name)            gilda letta in ritardo: la scrive solo se la sessione aperta non ce l'ha
 --   DG.Journal.logError(msg)             tiene gli ultimi MAX_ERRORS errori
 local _, DG = ...
 
@@ -127,6 +128,12 @@ function Journal.firstVisit(zone)
   end
   db.seen[k][zone] = true
   return true
+end
+
+function Journal.setGuild(name)
+  if cur and cur.stop == nil and cur.guild == nil and type(name) == "string" then
+    cur.guild = name
+  end
 end
 
 function Journal.current()

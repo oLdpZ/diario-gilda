@@ -1,6 +1,8 @@
 -- Main.lua: collegamento del Core al client WoW Forever. Unico file che tocca le API di gioco.
 --   Un solo frame semplice (CreateFrame("Frame")) riceve gli eventi; nessun frame sicuro viene toccato.
---   Unico hook: hooksecurefunc("AbandonQuest", ...) (post-hook, non contamina).
+--   Hook (post-hook, non contaminano) solo per l'abbandono delle missioni: C_QuestLog.SetAbandonQuest (ricorda l'id),
+--   C_QuestLog.AbandonQuest e, se esiste, l'AbandonQuest globale (client vecchi); mai due eventi per un abbandono.
+--   Registrazione degli eventi protetta: un nome sconosciuto al client non ferma gli altri e finisce in errors.
 --   ADDON_LOADED (il proprio) -> Safe.init, Parse.init, DiarioGildaDB = Journal.load, Recorder.new
 --   PLAYER_ENTERING_WORLD solo con isLogin/isReload -> Journal.begin, zona, registro combattimenti
 --   PLAYER_LOGOUT -> rec:flush(), Journal.finish(); gli altri eventi -> metodi di DG.Recorder
@@ -15,6 +17,8 @@ local ready = false   -- vero dopo il nostro ADDON_LOADED
 local rec = nil
 local debugCasts = false
 local shop = { merchant = false, auction = false, trainer = false }
+local lootOpen = false     -- LOOT_READY gia' gestito per la finestra di bottino corrente
+local regFailed = {}       -- eventi che il client ha rifiutato di registrare (scritti in errors dopo ADDON_LOADED)
 
 local function say(text)
   print(PREFIX .. text)
@@ -113,7 +117,7 @@ end
 local function memberName(unit)
   local name, realm = Safe.call(UnitName, unit)
   name = Safe.str(name)
-  if not name then
+  if not name or name == UNKNOWNOBJECT then
     return nil
   end
   realm = Safe.str(realm)
@@ -123,7 +127,8 @@ local function memberName(unit)
   return name
 end
 
--- Membri del gruppo, o nil se anche un solo nome non e' leggibile (si tiene l'ultimo gruppo noto).
+-- Membri del gruppo, o nil se anche un solo nome non e' leggibile (secret, o "Unknown" non ancora caricato):
+-- in quel caso si tiene l'ultimo gruppo noto.
 local function roster()
   local prefix, count = "party", 4
   if Safe.get((Safe.call(IsInRaid))) == true then
@@ -157,6 +162,10 @@ handlers.ADDON_LOADED = function(name)
   DiarioGildaDB = Journal.load(DiarioGildaDB, { now = time, where = where })
   rec = DG.Recorder.new(Journal, { now = time, itemInfo = itemInfo, after = after })
   ready = true
+  for _, msg in ipairs(regFailed) do
+    Journal.logError(msg)
+  end
+  regFailed = {}
 end
 
 handlers.PLAYER_ENTERING_WORLD = function(isLogin, isReload)
@@ -170,6 +179,7 @@ handlers.PLAYER_ENTERING_WORLD = function(isLogin, isReload)
     return
   end
   Journal.begin(info, isReload and true or false)
+  Journal.setGuild(info.guild) -- sessione riaperta da /reload senza gilda
   rec:onMoney(Safe.call(GetMoney))
   rec:onZone(Safe.call(GetZoneText))
   if not combatLogOn() then
@@ -190,11 +200,21 @@ handlers.ZONE_CHANGED_NEW_AREA = function()
   rec:onZone(Safe.call(GetZoneText))
 end
 
+-- La gilda spesso non e' ancora leggibile al primo PLAYER_ENTERING_WORLD.
+handlers.PLAYER_GUILD_UPDATE = function()
+  Journal.setGuild(Safe.str((Safe.call(GetGuildInfo, "player"))))
+end
+
 handlers.CHAT_MSG_LOOT = function(msg)
   rec:onLootMsg(msg)
 end
 
+-- LOOT_READY puo' arrivare piu' volte per la stessa finestra: conta solo il primo fino a LOOT_CLOSED.
 handlers.LOOT_READY = function()
+  if lootOpen then
+    return
+  end
+  lootOpen = true
   local isFishing = Safe.get((Safe.call(IsFishingLoot))) and true or false
   local source = nil
   if not isFishing and Safe.get((Safe.call(UnitIsDead, "target"))) == true then
@@ -212,6 +232,11 @@ handlers.LOOT_READY = function()
     end
   end
   rec:onLootReady(isFishing, source, names)
+end
+
+handlers.LOOT_CLOSED = function()
+  lootOpen = false
+  rec:onLootClosed()
 end
 
 handlers.UNIT_SPELLCAST_SUCCEEDED = function(unit, _, spellId)
@@ -259,6 +284,8 @@ handlers.TRAINER_CLOSED = function() shop.trainer = false end
 
 handlers.PLAYER_REGEN_DISABLED = function()
   rec:onCombat(true)
+  -- vita all'ingresso: senza danni successivi minHp e' questa
+  rec:onHealth((Safe.call(UnitHealth, "player")), (Safe.call(UnitHealthMax, "player")))
 end
 
 handlers.PLAYER_REGEN_ENABLED = function()
@@ -306,23 +333,71 @@ local function run(name, fn, ...)
   end
 end
 
+-- Eventi del solo giocatore: RegisterUnitEvent evita quelli degli altri unit (il controllo nell'handler resta).
+local UNIT_EVENTS = { UNIT_HEALTH = true, UNIT_SPELLCAST_SUCCEEDED = true }
+
 local frame = CreateFrame("Frame")
-for event in pairs(handlers) do
-  frame:RegisterEvent(event)
-end
 frame:SetScript("OnEvent", function(_, event, ...)
   local fn = handlers[event]
   if fn then
     run(event, fn, ...)
   end
 end)
-
--- Abbandono di una missione: post-hook, l'id arriva da C_QuestLog.GetAbandonQuest().
-local function onAbandon()
-  local id = Safe.call(api(C_QuestLog, "GetAbandonQuest"))
-  rec:onQuestAbandon(id, questTitle(id))
+for event in pairs(handlers) do
+  local ok, err
+  if UNIT_EVENTS[event] and type(frame.RegisterUnitEvent) == "function" then
+    ok, err = pcall(frame.RegisterUnitEvent, frame, event, "player")
+  else
+    ok, err = pcall(frame.RegisterEvent, frame, event)
+  end
+  if not ok then
+    regFailed[#regFailed + 1] = "Main.RegisterEvent " .. event .. ": " .. tostring(err)
+  end
 end
 
+-- Abbandono di una missione. Nel client moderno l'id si legge con C_QuestLog.GetAbandonQuest() quando il
+-- popup di conferma lo imposta (SetAbandonQuest); dopo AbandonQuest e' gia' azzerato, quindi si ricorda prima.
+local ABANDON_DEDUP = 1   -- secondi: un AbandonQuest globale che chiama C_QuestLog.AbandonQuest fa scattare due hook
+local pending = nil       -- { id, title } ricordati a SetAbandonQuest
+local lastAbandonAt = nil
+
+local function abandonId()
+  local id = Safe.num((Safe.call(api(C_QuestLog, "GetAbandonQuest"))))
+  if id and id > 0 then
+    return id
+  end
+  return nil
+end
+
+local function onSetAbandon()
+  local id = abandonId()
+  pending = id and { id = id, title = questTitle(id) } or nil
+end
+
+local function onAbandon()
+  local now = time()
+  if lastAbandonAt and now - lastAbandonAt <= ABANDON_DEDUP then
+    pending = nil
+    return
+  end
+  local p = pending
+  pending = nil
+  local id = p and p.id or abandonId()
+  local title = p and p.title or questTitle(id)
+  lastAbandonAt = now
+  rec:onQuestAbandon(id, title)
+end
+
+local function hook(t, name, label, fn)
+  if type(t) == "table" and type(t[name]) == "function" then
+    pcall(hooksecurefunc, t, name, function()
+      run(label, fn)
+    end)
+  end
+end
+
+hook(C_QuestLog, "SetAbandonQuest", "SetAbandonQuest", onSetAbandon)
+hook(C_QuestLog, "AbandonQuest", "C_QuestLog.AbandonQuest", onAbandon)
 if type(AbandonQuest) == "function" then
   pcall(hooksecurefunc, "AbandonQuest", function()
     run("AbandonQuest", onAbandon)
