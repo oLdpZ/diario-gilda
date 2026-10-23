@@ -42,6 +42,11 @@ Prima di iniziare scrivi `/console scriptErrors 1` (vedi voce 15).
   `ENCOUNTER_START/END`, `ZONE_CHANGE`, se presenti. Serve a confermare la posizione dei campi su Forever.
   - Se fallisce: se il file è vuoto o ha un formato diverso, le posizioni dei campi assunte dal Piano 2 vanno corrette sul campione
     reale prima di scrivere il parser. Non scrivere il parser del registro senza questo file.
+  - Poi: togli i nomi degli altri giocatori, aggiungi qualche riga del campione a `app/internal/combatlog/testdata/` e scrivi
+    un test che ne controlla `Amount`, `Crit`, `SpellName`, `EnvType`. Il parser assume: data `M/D/YYYY H:MM:SS.ffff±fuso`
+    (o `M/D` senza anno), blocco avanzato di 17 o 19 campi, suffisso dei danni di 10 o 11 campi e delle cure di 4 o 5.
+    Se le righe di Forever hanno altre lunghezze (conta i campi di una `SWING_DAMAGE` e di una `SPELL_HEAL`), aggiungile a
+    `advLens`/`damageLens` in `combatlog.go`.
 
 ## Dati registrati
 
