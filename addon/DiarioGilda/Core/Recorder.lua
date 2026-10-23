@@ -11,6 +11,9 @@
 --   rec:flush()                             chiude pesca e combattimento aperti (logout)
 -- Ogni metodo pubblico e' avvolto in pcall: l'errore va in journal.logError, nessuna eccezione esce.
 -- I valori passano da DG.Safe prima di essere letti. La parte 2 (Task 6) aggiunge metodi a DG.Recorder.
+--   rec:onEncounterStart(id,name,diff,size) rec:onEncounterEnd(id,name,diff,size,success)  -> encounter
+--   rec:onRoster(members) (debounce GROUP_SETTLE) -> group; rec:onQuestDone/onQuestAbandon -> quest
+--   rec:onSystemMsg(msg) -> duel; rec:onZone(zone) -> zone
 local _, DG = ...
 
 local Recorder = {}
@@ -229,4 +232,104 @@ end)
 def("flush", function(self)
   closeFishing(self)
   closeCombat(self)
+end)
+
+-- Boss ----------------------------------------------------------------
+
+def("onEncounterStart", function(self, id, _name, _diff, _size)
+  id = DG.Safe.num(id)
+  if not id then
+    return
+  end
+  self.encounters = self.encounters or {}
+  self.encounters[id] = self.deps.now()
+end)
+
+def("onEncounterEnd", function(self, id, name, diff, size, success)
+  id = DG.Safe.num(id)
+  if not id then
+    return
+  end
+  local t = self.deps.now()
+  local from = self.encounters and self.encounters[id] or t
+  if self.encounters then
+    self.encounters[id] = nil
+  end
+  self.journal.add("encounter", {
+    id = id, name = DG.Safe.str(name), diff = DG.Safe.num(diff), size = DG.Safe.num(size),
+    ok = DG.Safe.num(success) == 1, from = from, to = t,
+  })
+end)
+
+-- Gruppo --------------------------------------------------------------
+
+local function nameKey(names)
+  local copy = {}
+  for i, n in ipairs(names) do
+    copy[i] = n
+  end
+  table.sort(copy)
+  return table.concat(copy, "\n")
+end
+
+def("onRoster", function(self, members)
+  local names, guild = {}, {}
+  for _, m in ipairs(type(members) == "table" and members or {}) do
+    local name = type(m) == "table" and DG.Safe.str(m.name)
+    if name then
+      names[#names + 1] = name
+      if DG.Safe.get(m.guild) == true then
+        guild[#guild + 1] = name
+      end
+    end
+  end
+  self.rosterToken = (self.rosterToken or 0) + 1
+  local token = self.rosterToken
+  self.deps.after(DG.Const.GROUP_SETTLE, function()
+    if self.rosterToken ~= token then
+      return
+    end
+    local ok, err = pcall(function()
+      local k = nameKey(names)
+      if k ~= (self.lastRoster or "") then
+        self.lastRoster = k
+        self.journal.add("group", { members = names, guild = guild })
+      end
+    end)
+    if not ok then
+      pcall(self.journal.logError, "Recorder.rosterSettle: " .. tostring(err))
+    end
+  end)
+end)
+
+-- Missioni, duelli, zone ----------------------------------------------
+
+def("onQuestDone", function(self, id, title, xp, money)
+  self.journal.add("quest", {
+    id = DG.Safe.num(id), title = DG.Safe.str(title), action = "done",
+    xp = DG.Safe.num(xp), money = DG.Safe.num(money),
+  })
+end)
+
+def("onQuestAbandon", function(self, id, title)
+  self.journal.add("quest", { id = DG.Safe.num(id), title = DG.Safe.str(title), action = "abandon" })
+end)
+
+def("onSystemMsg", function(self, msg)
+  msg = DG.Safe.str(msg)
+  if not msg then
+    return
+  end
+  local d = DG.Parse.duel(msg)
+  if d then
+    self.journal.add("duel", { winner = d.winner, loser = d.loser, how = d.how })
+  end
+end)
+
+def("onZone", function(self, zone)
+  zone = DG.Safe.str(zone)
+  if not zone then
+    return
+  end
+  self.journal.add("zone", { first = self.journal.firstVisit(zone) })
 end)
