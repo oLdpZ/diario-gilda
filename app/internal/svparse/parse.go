@@ -51,10 +51,14 @@ func Parse(src []byte) (map[string]any, error) {
 	}
 }
 
+// maxDepth limita l annidamento delle tabelle (file non fidato).
+const maxDepth = 200
+
 type parser struct {
-	src  []byte
-	pos  int
-	line int
+	src   []byte
+	pos   int
+	line  int
+	depth int
 }
 
 func (p *parser) errf(format string, a ...any) error {
@@ -218,7 +222,11 @@ loop:
 	}
 	txt := string(p.src[start:p.pos])
 	if !isFloat {
-		if n, err := strconv.ParseInt(txt, 0, 64); err == nil {
+		base := 10
+		if hex {
+			base = 0
+		}
+		if n, err := strconv.ParseInt(txt, base, 64); err == nil {
 			return n, nil
 		}
 	}
@@ -302,6 +310,11 @@ func (p *parser) quoted() (string, error) {
 
 // table legge il corpo dopo '{' fino alla '}'.
 func (p *parser) table() (any, error) {
+	p.depth++
+	defer func() { p.depth-- }()
+	if p.depth > maxDepth {
+		return nil, p.errf("annidamento troppo profondo")
+	}
 	m := map[string]any{}
 	n := 0 // elementi posizionali
 	arrayLike := true

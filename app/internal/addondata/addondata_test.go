@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/oLdpZ/diario-gilda/app/internal/svparse"
@@ -79,9 +80,14 @@ func TestSessionJSON(t *testing.T) {
 	if back["stop"] != float64(1793001395) || back["id"] != "Realm-Gino-1793000000" {
 		t.Fatalf("session = %v", back)
 	}
-	b2, _ := json.Marshal(db.Sessions[1])
+	b2, err := json.Marshal(db.Sessions[1])
+	if err != nil {
+		t.Fatal(err)
+	}
 	var back2 map[string]any
-	_ = json.Unmarshal(b2, &back2)
+	if err := json.Unmarshal(b2, &back2); err != nil {
+		t.Fatal(err)
+	}
 	if _, has := back2["stop"]; has {
 		t.Fatal("stop must be omitted when absent")
 	}
@@ -111,5 +117,34 @@ func TestDecodeMissingFieldsAndErrors(t *testing.T) {
 	// no sessions at all is fine (empty table decodes as []any{}, absent as nil)
 	if db, err := Decode(map[string]any{"v": int64(1), "sessions": []any{}}); err != nil || len(db.Sessions) != 0 {
 		t.Fatalf("db=%+v err=%v", db, err)
+	}
+}
+
+func TestDecodeSkipsMalformed(t *testing.T) {
+	good := func(id string) map[string]any { return map[string]any{"id": id} }
+	db, err := Decode(map[string]any{
+		"v": int64(1),
+		"sessions": []any{
+			good("a"),
+			"junk",
+			[]any{}, // empty table parsed as []any: still a table
+			map[string]any{"id": "b", "events": []any{"junk", map[string]any{"t": int64(5), "k": "level"}}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(db.Sessions) != 3 || db.Sessions[0].ID != "a" || db.Sessions[2].ID != "b" {
+		t.Fatalf("sessions = %+v", db.Sessions)
+	}
+	if len(db.Sessions[2].Events) != 1 {
+		t.Fatalf("events = %+v", db.Sessions[2].Events)
+	}
+	b, err := json.Marshal(db.Sessions[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"events":[]`) {
+		t.Fatalf("json = %s", b)
 	}
 }

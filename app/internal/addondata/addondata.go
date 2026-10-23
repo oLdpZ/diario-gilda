@@ -5,7 +5,8 @@ package addondata
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
+	"sort"
+	"strconv"
 )
 
 // DB e' il contenuto di DiarioGildaDB che interessa al programmino.
@@ -63,31 +64,57 @@ func Decode(globals map[string]any) (DB, error) {
 		return db, errors.New("formato non supportato")
 	}
 	db.V = int(v)
-	if globals["sessions"] == nil {
-		return db, nil
-	}
-	list, ok := globals["sessions"].([]any)
-	if !ok {
-		return db, errors.New("sessions: atteso un elenco")
-	}
-	for i, raw := range list {
-		m, ok := raw.(map[string]any)
+	for _, raw := range elems(globals["sessions"]) {
+		m, ok := asTable(raw)
 		if !ok {
-			return db, fmt.Errorf("sessions[%d]: attesa una tabella", i+1)
+			continue // sessione malformata: saltata, le altre restano
 		}
-		s, err := decodeSession(m)
-		if err != nil {
-			return db, fmt.Errorf("sessions[%d]: %w", i+1, err)
-		}
-		db.Sessions = append(db.Sessions, s)
+		db.Sessions = append(db.Sessions, decodeSession(m))
 	}
 	return db, nil
 }
 
-func decodeSession(m map[string]any) (Session, error) {
+// asTable accetta una mappa o una tabella vuota (che svparse decodifica come []any vuoto).
+func asTable(v any) (map[string]any, bool) {
+	switch t := v.(type) {
+	case map[string]any:
+		return t, true
+	case []any:
+		if len(t) == 0 {
+			return map[string]any{}, true
+		}
+	}
+	return nil, false
+}
+
+// elems restituisce gli elementi di un elenco; per una tabella con buchi
+// (decodificata come mappa) usa le chiavi intere in ordine.
+func elems(v any) []any {
+	switch t := v.(type) {
+	case []any:
+		return t
+	case map[string]any:
+		var keys []int
+		for k := range t {
+			if n, err := strconv.Atoi(k); err == nil {
+				keys = append(keys, n)
+			}
+		}
+		sort.Ints(keys)
+		out := make([]any, 0, len(keys))
+		for _, n := range keys {
+			out = append(out, t[strconv.Itoa(n)])
+		}
+		return out
+	}
+	return nil
+}
+
+func decodeSession(m map[string]any) Session {
 	s := Session{
 		ID: str(m["id"]), Char: str(m["char"]), Realm: str(m["realm"]), Guild: str(m["guild"]),
 		Class: str(m["class"]), Race: str(m["race"]), Build: str(m["build"]), Addon: str(m["addon"]),
+		Events: []Event{},
 	}
 	if n, ok := num(m["level"]); ok {
 		s.Level = int(n)
@@ -101,29 +128,23 @@ func decodeSession(m map[string]any) (Session, error) {
 	if n, ok := num(m["dropped"]); ok {
 		s.Dropped = int(n)
 	}
-	if m["events"] != nil {
-		evs, ok := m["events"].([]any)
+	for _, raw := range elems(m["events"]) {
+		em, ok := asTable(raw)
 		if !ok {
-			return s, errors.New("events: atteso un elenco")
+			continue
 		}
-		for i, raw := range evs {
-			em, ok := raw.(map[string]any)
-			if !ok {
-				return s, fmt.Errorf("events[%d]: attesa una tabella", i+1)
-			}
-			e := Event{K: str(em["k"]), Fields: make(map[string]any, len(em))}
-			if n, ok := num(em["t"]); ok {
-				e.T = n
-			}
-			for k, v := range em {
-				if k != "t" && k != "k" {
-					e.Fields[k] = v
-				}
-			}
-			s.Events = append(s.Events, e)
+		e := Event{K: str(em["k"]), Fields: make(map[string]any, len(em))}
+		if n, ok := num(em["t"]); ok {
+			e.T = n
 		}
+		for k, v := range em {
+			if k != "t" && k != "k" {
+				e.Fields[k] = v
+			}
+		}
+		s.Events = append(s.Events, e)
 	}
-	return s, nil
+	return s
 }
 
 func str(v any) string {

@@ -67,3 +67,25 @@ func TestParseErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestParseDepthLimit(t *testing.T) {
+	src := "A = " + strings.Repeat("{", 100000)
+	_, err := Parse([]byte(src))
+	if err == nil || !strings.Contains(err.Error(), "annidamento troppo profondo") {
+		t.Fatalf("err = %v", err)
+	}
+	ok := "A = " + strings.Repeat("{", 100) + strings.Repeat("}", 100)
+	if _, err := Parse([]byte(ok)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestParseDecimalLeadingZero(t *testing.T) {
+	got, err := Parse([]byte("A = 010\nB = 08\nC = 0x10"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["A"] != int64(10) || got["B"] != int64(8) || got["C"] != int64(16) {
+		t.Fatalf("got %#v", got)
+	}
+}
