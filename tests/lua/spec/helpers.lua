@@ -166,4 +166,71 @@ function H.slash(key, msg)
   _G.SlashCmdList[key](msg or "")
 end
 
+-- Serializza un valore come fa WoW nei SavedVariables: `nome = {`, righe `["chiave"] = valore,`, tabelle annidate
+-- indentate con tab, elementi di array come `valore, -- [n]`. Chiavi ordinate: l'output e' deterministico.
+local ESC = { ["\n"] = "\\n", ["\r"] = "\\r", ["\t"] = "\\t", ['"'] = '\\"', ["\\"] = "\\\\" }
+local function quote(s)
+  local r = s:gsub('[%c"\\]', function(c)
+    return ESC[c] or string.format("\\%03d", c:byte())
+  end)
+  return '"' .. r .. '"'
+end
+
+local function scalar(v)
+  local t = type(v)
+  if t == "string" then
+    return quote(v)
+  elseif t == "number" then
+    if v == math.floor(v) and math.abs(v) < 1e15 then
+      return string.format("%d", v)
+    end
+    return string.format("%.14g", v)
+  elseif t == "boolean" then
+    return tostring(v)
+  end
+  error("tipo non serializzabile: " .. t)
+end
+
+local function isArray(t)
+  local n = 0
+  for _ in pairs(t) do n = n + 1 end
+  return n == #t
+end
+
+local function emit(v, depth, out)
+  if type(v) ~= "table" then
+    out[#out + 1] = scalar(v)
+    return
+  end
+  local ind = string.rep("\t", depth + 1)
+  out[#out + 1] = "{\n"
+  if isArray(v) then
+    for i, x in ipairs(v) do
+      out[#out + 1] = ind
+      emit(x, depth + 1, out)
+      out[#out + 1] = ", -- [" .. i .. "]\n"
+    end
+  else
+    local keys = {}
+    for k in pairs(v) do keys[#keys + 1] = k end
+    table.sort(keys, function(a, b)
+      if type(a) == type(b) then return a < b end
+      return type(a) == "number"
+    end)
+    for _, k in ipairs(keys) do
+      out[#out + 1] = ind .. "[" .. scalar(k) .. "] = "
+      emit(v[k], depth + 1, out)
+      out[#out + 1] = ",\n"
+    end
+  end
+  out[#out + 1] = string.rep("\t", depth) .. "}"
+end
+
+function H.serialize(name, value)
+  local out = { name .. " = " }
+  emit(value, 0, out)
+  out[#out + 1] = "\n"
+  return table.concat(out)
+end
+
 return H
