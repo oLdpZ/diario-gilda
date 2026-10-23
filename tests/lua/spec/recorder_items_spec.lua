@@ -8,7 +8,7 @@ local RARE = "|cff0070dd|Hitem:2042::::::::|h[Staff of Westfall]|h|r"
 local GREEN = "|cff1eff00|Hitem:2043::::::::|h[Green Thing]|h|r"
 
 describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", function()
-  local DG, J, rec, clock, timers, items, secret
+  local DG, J, db, rec, clock, timers, items, secret
 
   local function events() return J.current().events end
   local function kinds()
@@ -29,7 +29,7 @@ describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", func
     DG.Safe.init(function(v) return secret[v] == true end)
     DG.Parse.init(GLOBALS)
     J = DG.Journal
-    J.load(nil, { now = function() return clock end, where = function() return { z = "Westfall" } end })
+    db = J.load(nil, { now = function() return clock end, where = function() return { z = "Westfall" } end })
     J.begin({ char = "Gino", realm = "R", class = "WARRIOR", race = "Human", level = 1, build = "1" }, false)
     rec = DG.Recorder.new(J, {
       now = function() return clock end,
@@ -72,25 +72,43 @@ describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", func
     secret[msg] = true
     rec:onLootMsg(msg)
     assert.equals(0, #events())
-    assert.equals(0, #DG.Journal.current().events)
+    assert.equals(0, #db.errors)
   end)
 
-  it("itemInfo in errore: nessun evento, errore registrato", function()
+  it("itemInfo in errore: nessun evento, un errore registrato", function()
     items[RARE] = "boom"
     rec:onLootMsg("You receive loot: " .. RARE .. ".")
     assert.equals(0, #events())
+    assert.equals(1, #db.errors)
+    assert.is_truthy(db.errors[1]:find("boom", 1, true))
   end)
 
-  it("itemInfo in errore finisce in errors", function()
-    items[RARE] = "boom"
-    local logged
-    local r = DG.Recorder.new({ add = J.add, logError = function(m) logged = m end }, {
-      now = function() return clock end,
-      itemInfo = function() error("boom") end,
-      after = function() end,
-    })
-    r:onLootMsg("You receive loot: " .. RARE .. ".")
-    assert.is_truthy(logged)
+  it("itemInfo nil: qualita, nome e id dal link", function()
+    items[RARE] = nil
+    rec:onLootMsg("You receive loot: " .. RARE .. ".")
+    local e = events()[1]
+    assert.equals("loot", e.k)
+    assert.equals(3, e.q)
+    assert.equals("Staff of Westfall", e.item)
+    assert.equals(2042, e.id)
+  end)
+
+  it("itemInfo nil: link verde scartato, formato |cnIQ4: accettato", function()
+    items[GREEN] = nil
+    rec:onLootMsg("You receive loot: " .. GREEN .. ".")
+    assert.equals(0, #events())
+    local epic = "|cnIQ4:|Hitem:77::::::::|h[Epic Thing]|h|r"
+    rec:onLootMsg("You receive loot: " .. epic .. ".")
+    assert.equals(4, events()[1].q)
+    assert.equals(77, events()[1].id)
+  end)
+
+  it("pesca: loot senza lancio programma il timer di chiusura", function()
+    rec:onLootReady(true, nil, { "Fish" })
+    assert.equals(1, #timers)
+    clock = 1200
+    timers[1].fn()
+    assert.same({ "fishing" }, kinds())
   end)
 
   it("pesca: due lanci e una cattura, un solo evento dopo il timeout", function()

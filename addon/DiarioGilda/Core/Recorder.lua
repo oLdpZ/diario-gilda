@@ -42,15 +42,33 @@ end
 
 -- Pesca ---------------------------------------------------------------
 
+local closeFishing
+
+-- Programma la chiusura per inattivita'; un timer piu' vecchio viene invalidato dal token.
+local function armIdle(self)
+  self.fishToken = self.fishToken + 1
+  local token = self.fishToken
+  self.deps.after(DG.Const.FISHING_IDLE, function()
+    if self.fishing and self.fishToken == token then
+      local ok, err = pcall(closeFishing, self)
+      if not ok then
+        pcall(self.journal.logError, "Recorder.fishIdle: " .. tostring(err))
+      end
+    end
+  end)
+end
+
 local function openFishing(self)
   if not self.fishing then
     local t = self.deps.now()
     self.fishing = { from = t, last = t, casts = 0, catches = {} }
+    armIdle(self)
+    return self.fishing, true
   end
-  return self.fishing
+  return self.fishing, false
 end
 
-local function closeFishing(self)
+closeFishing = function(self)
   local f = self.fishing
   if not f then
     return
@@ -79,23 +97,31 @@ def("onSpellcast", function(self, spellId)
   if not spellId or not DG.Const.FISHING_SPELLS[spellId] then
     return
   end
-  local f = openFishing(self)
+  local f, isNew = openFishing(self)
   f.casts = f.casts + 1
   f.last = self.deps.now()
-  self.fishToken = self.fishToken + 1
-  local token = self.fishToken
-  self.deps.after(DG.Const.FISHING_IDLE, function()
-    -- un lancio piu' recente ha invalidato questo timer
-    if self.fishing and self.fishToken == token then
-      local ok, err = pcall(closeFishing, self)
-      if not ok then
-        pcall(self.journal.logError, "Recorder.fishIdle: " .. tostring(err))
-      end
-    end
-  end)
+  if not isNew then
+    armIdle(self)
+  end
 end)
 
 -- Bottino -------------------------------------------------------------
+
+local COLOR_Q = {
+  ["9d9d9d"] = 0, ["ffffff"] = 1, ["1eff00"] = 2, ["0070dd"] = 3, ["a335ee"] = 4, ["ff8000"] = 5, ["e6cc80"] = 6,
+}
+
+-- Dati dal link: id, nome, qualita' (|cnIQ<q>: moderno o colore legacy |cffRRGGBB).
+local function parseLink(link)
+  local id = tonumber(link:match("|Hitem:(%d+)"))
+  local name = link:match("%[(.-)%]")
+  local q = tonumber(link:match("|cnIQ(%d+):"))
+  if not q then
+    local hex = link:match("|cff(%x%x%x%x%x%x)")
+    q = hex and COLOR_Q[hex:lower()]
+  end
+  return id, name, q
+end
 
 def("onLootReady", function(self, isFishing, sourceName, itemNames)
   if isFishing then
@@ -123,6 +149,11 @@ def("onLootMsg", function(self, msg)
   end
   local id, name, q = self.deps.itemInfo(p.link)
   id, name, q = DG.Safe.num(id), DG.Safe.str(name), DG.Safe.num(q)
+  if not name or not q then
+    -- oggetto non ancora in cache: ricava i dati dal link
+    local lid, lname, lq = parseLink(p.link)
+    id, name, q = id or lid, name or lname, q or lq
+  end
   if not name or not q or q < DG.Const.MIN_QUALITY then
     return
   end
