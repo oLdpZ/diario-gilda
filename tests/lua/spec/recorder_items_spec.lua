@@ -149,7 +149,15 @@ describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", func
     assert.equals(1100, events()[1].to)
   end)
 
-  it("LOOT_CLOSED azzera la sorgente: una ricompensa subito dopo non ha src", function()
+  it("LOOT_CLOSED: la sorgente resta 2 s (autoloot veloce), poi non c'e' piu'", function()
+    rec:onLootReady(false, "Murloc Forager")
+    rec:onLootClosed()
+    clock = 1001
+    rec:onLootMsg("You receive loot: " .. RARE .. ".")
+    assert.equals("Murloc Forager", events()[1].src)
+  end)
+
+  it("LOOT_CLOSED: 3 s dopo la sorgente e' scaduta", function()
     rec:onLootReady(false, "Murloc Forager")
     rec:onLootClosed()
     clock = 1003

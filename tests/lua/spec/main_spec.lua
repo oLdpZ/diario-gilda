@@ -401,6 +401,18 @@ describe("Main (collegamento al gioco)", function()
     assert.same({ "Pesce Gatto", "Pesce Gatto" }, find("fishing").catches)
   end)
 
+  it("LOOT_CLOSED perso: dopo 30 s un nuovo LOOT_READY viene gestito", function()
+    login()
+    v.fishing = true
+    v.loot = { "Pesce Gatto" }
+    H.fire("LOOT_READY")
+    v.now = v.now + 31
+    v.loot = { "Luccio" }
+    H.fire("LOOT_READY")
+    H.fire("PLAYER_LOGOUT")
+    assert.same({ "Pesce Gatto", "Luccio" }, find("fishing").catches)
+  end)
+
   it("LOOT_CLOSED: una ricompensa poco dopo non prende il mob come fonte", function()
     login()
     v.items[RARE] = { name = "Spada Rara", q = 3, id = 1234 }

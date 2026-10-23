@@ -3,7 +3,7 @@
 --                                           deps = { now(), itemInfo(link) -> id, name, q, after(sec, fn) }
 --   rec:onLootMsg(msg)                      messaggio CHAT_MSG_LOOT -> loot / craft
 --   rec:onLootReady(isFishing, src, names)  LOOT_READY: sorgente del bottino; se pesca, nomi alle catture
---   rec:onLootClosed()                      LOOT_CLOSED: dimentica la sorgente
+--   rec:onLootClosed()                      LOOT_CLOSED: la sorgente vale ancora 2 s
 --   rec:onFishCatch(name)                   aggiunge una cattura alla pesca in corso (la apre se serve)
 --   rec:onSpellcast(spellId)                lanci di pesca: apre/estende lo span, chiuso dopo FISHING_IDLE
 --   rec:onLevel(level) rec:onDead() rec:onBreath(active)
@@ -155,9 +155,13 @@ def("onLootReady", function(self, isFishing, sourceName, itemNames)
   self.srcAt = self.src and self.deps.now() or nil
 end)
 
--- Finestra di bottino chiusa: la sorgente non vale per i messaggi successivi (es. ricompense di missione).
+-- Finestra di bottino chiusa: con l'autoloot veloce CHAT_MSG_LOOT puo' arrivare subito dopo, quindi la sorgente
+-- resta ancora 2 s (la scadenza di SOURCE_TTL la scarta al massimo 2 s dopo), poi non vale piu'
+-- (es. ricompense di missione).
 def("onLootClosed", function(self)
-  self.src, self.srcAt = nil, nil
+  if self.src and self.srcAt then
+    self.srcAt = math.min(self.srcAt, self.deps.now() - (SOURCE_TTL - 2))
+  end
 end)
 
 def("onLootMsg", function(self, msg)

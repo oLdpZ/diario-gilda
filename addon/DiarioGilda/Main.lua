@@ -17,7 +17,7 @@ local ready = false   -- vero dopo il nostro ADDON_LOADED
 local rec = nil
 local debugCasts = false
 local shop = { merchant = false, auction = false, trainer = false }
-local lootOpen = false     -- LOOT_READY gia' gestito per la finestra di bottino corrente
+local lootOpen = nil       -- ora (time) del LOOT_READY gia' gestito per la finestra corrente; nil = nessuna aperta
 local regFailed = {}       -- eventi che il client ha rifiutato di registrare (scritti in errors dopo ADDON_LOADED)
 
 local function say(text)
@@ -169,6 +169,7 @@ handlers.ADDON_LOADED = function(name)
 end
 
 handlers.PLAYER_ENTERING_WORLD = function(isLogin, isReload)
+  lootOpen = nil
   -- anche i cambi di zona con schermata di caricamento passano di qui: quelli li gestisce ZONE_CHANGED_NEW_AREA
   if not (isLogin or isReload) then
     return
@@ -210,11 +211,13 @@ handlers.CHAT_MSG_LOOT = function(msg)
 end
 
 -- LOOT_READY puo' arrivare piu' volte per la stessa finestra: conta solo il primo fino a LOOT_CLOSED.
+-- Se LOOT_CLOSED si perde, la guardia si ripara da sola dopo 30 s.
 handlers.LOOT_READY = function()
-  if lootOpen then
+  local now = time()
+  if lootOpen and now - lootOpen < 30 then
     return
   end
-  lootOpen = true
+  lootOpen = now
   local isFishing = Safe.get((Safe.call(IsFishingLoot))) and true or false
   local source = nil
   if not isFishing and Safe.get((Safe.call(UnitIsDead, "target"))) == true then
@@ -235,7 +238,7 @@ handlers.LOOT_READY = function()
 end
 
 handlers.LOOT_CLOSED = function()
-  lootOpen = false
+  lootOpen = nil
   rec:onLootClosed()
 end
 

@@ -102,7 +102,8 @@ Prima di iniziare scrivi `/console scriptErrors 1` (vedi voce 15).
     del client: nelle serate lunghe fai un `/reload` ogni tanto;
   - la sessione della serata interrotta c'è, con gli eventi fino al primo `/reload` e `stop` = ora di quel `/reload` (lo scrive
     il logout dell'interfaccia; coincide più o meno con il suo ultimo evento). Non resta aperta;
-  - c'è una nuova sessione per il login dopo il crash, senza `stop` (in corso), con un `id` diverso.
+  - c'è una nuova sessione per il login dopo il crash, con un `id` diverso e `stop` = ora del secondo `/reload` (il suo
+    logout dell'interfaccia lo scrive su disco; viene riaperta solo in memoria).
   - Se fallisce: se la sessione interrotta manca del tutto, il primo `/reload` non ha scritto il file (ripeti aspettando
     qualche secondo dopo il `/reload`). Se la sessione interrotta è senza `stop`, o la nuova sessione manca o ha lo stesso `id`,
     è un bug in `Journal.begin`: copia le sessioni (`id`, `start`, `stop`, `t` dell'ultimo evento).
