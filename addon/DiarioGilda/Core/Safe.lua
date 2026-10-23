@@ -38,10 +38,14 @@ function Safe.num(v)
   return nil
 end
 
-function Safe.call(fn, ...)
-  local res = { pcall(fn, ...) }
-  if not res[1] then
+-- I ritorni passano come vararg: una tabella con nil in mezzo o in coda ne perderebbe alcuni.
+local function ret(ok, ...)
+  if not ok then
     return nil
   end
-  return unpack(res, 2, #res)
+  return ...
+end
+
+function Safe.call(fn, ...)
+  return ret(pcall(fn, ...))
 end

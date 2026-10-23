@@ -10,3 +10,4 @@ Core\Safe.lua
 Core\Journal.lua
 Core\Parse.lua
 Core\Recorder.lua
+Main.lua
