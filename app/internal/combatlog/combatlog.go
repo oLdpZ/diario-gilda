@@ -6,12 +6,12 @@
 // formato vecchio che non ha l'offset.
 //
 // Registro avanzato e suffissi: il blocco avanzato (17 campi, 19 in alcune
-// versioni) si riconosce dal primo campo con forma di GUID. La sua lunghezza si
-// deduce contando dalla fine della riga: il suffisso _DAMAGE ha 10 campi (11 con
-// baseAmount), il suffisso _HEAL 4 (5 con baseAmount). Si sceglie la combinazione
-// avanzato+suffisso che torna con il numero di campi; se nessuna torna si assume
-// il blocco da 17 e il suffisso è quello che resta. `critical` è letto dalla sua
-// posizione nel suffisso (dopo baseAmount se presente).
+// versioni) si riconosce dal primo campo con forma di GUID e si misura dal
+// davanti, dalla struttura: posX, posY, facing decimali e uiMapID intero (vedi
+// advFront). Poi si controlla che dopo il blocco il suffisso abbia la forma
+// attesa (interi, poi i flag "1"/nil; vedi suffixCrit), che dice anche se c'è
+// baseAmount dopo amount. I campi in più alla fine della riga (es. `ST`/`AOE`
+// dei client recenti) sono ignorati. Se nulla torna si assume il blocco da 17.
 package combatlog
 
 import (
@@ -261,9 +261,9 @@ func parseBody(t time.Time, body string) (Event, bool) {
 			ev.EnvType = f[0]
 			f = f[1:]
 		} else {
-			// blocco avanzato prima del tipo: si individua contando dalla fine
-			adv, suf := layout(len(f)-1, damageLens(sub))
-			if adv+1+suf > len(f) || adv >= len(f) {
+			// blocco avanzato prima del tipo
+			adv := pickAdv(f, sub, 1)
+			if adv >= len(f) {
 				return ev, true
 			}
 			ev.EnvType = f[adv]
@@ -271,13 +271,12 @@ func parseBody(t time.Time, body string) (Event, bool) {
 			return ev, true
 		}
 	}
-	lens := damageLens(sub)
-	if lens == nil {
+	if !isDamage(sub) && !isHeal(sub) {
 		return ev, true
 	}
 	adv := 0
 	if len(f) > 0 && isGUID(f[0]) {
-		adv, _ = layout(len(f), lens)
+		adv = pickAdv(f, sub, 0)
 	}
 	if adv >= len(f) {
 		return ev, true
@@ -305,31 +304,90 @@ func isDamage(sub string) bool {
 		sub == "DAMAGE_SHIELD" || sub == "DAMAGE_SPLIT"
 }
 
-// damageLens restituisce le lunghezze note del suffisso (senza e con baseAmount).
-func damageLens(sub string) []int {
-	switch {
-	case isDamage(sub):
-		return []int{10, 11}
-	case strings.HasSuffix(sub, "_HEAL"):
-		return []int{4, 5}
-	}
-	return nil
+func isHeal(sub string) bool { return strings.HasSuffix(sub, "_HEAL") }
+
+func isInt(s string) bool {
+	_, err := strconv.ParseInt(s, 10, 64)
+	return err == nil
 }
 
-// layout sceglie la lunghezza del blocco avanzato che, con un suffisso di
-// lunghezza nota, copre esattamente n campi. Altrimenti 17 e suffisso = resto.
-func layout(n int, sufLens []int) (adv, suf int) {
-	for _, a := range advLens {
-		for _, s := range sufLens {
-			if a+s == n {
-				return a, s
+func isDec(s string) bool {
+	if !strings.Contains(s, ".") {
+		return false
+	}
+	_, err := strconv.ParseFloat(s, 64)
+	return err == nil
+}
+
+// isFlag: critical, glancing, crushing, isOffHand valgono "1" o nil ("").
+func isFlag(s string) bool { return s == "" || s == "1" }
+
+func all(s []string, from, to int, ok func(string) bool) bool {
+	if to > len(s) {
+		return false
+	}
+	for _, v := range s[from:to] {
+		if !ok(v) {
+			return false
+		}
+	}
+	return true
+}
+
+// advFront riconosce la lunghezza del blocco avanzato dalla sua struttura: nel
+// blocco da 17 i campi 12, 13, 15 (posX, posY, facing) sono decimali con il punto
+// e il 14 (uiMapID) è intero; il blocco da 19 è lo stesso schema spostato di 2.
+// 0 = schema non riconosciuto.
+func advFront(f []string) int {
+	for _, n := range advLens {
+		p := n - 5
+		if p+3 < len(f) && isDec(f[p]) && isDec(f[p+1]) && isInt(f[p+2]) && isDec(f[p+3]) {
+			return n
+		}
+	}
+	return 0
+}
+
+// pickAdv sceglie la lunghezza del blocco avanzato (che inizia in f[0]); skip è il
+// numero di campi tra il blocco e il suffisso (1 per il tipo ambientale). Prima la
+// lunghezza indicata dalla struttura del blocco, poi l'altra; vince la prima dopo
+// la quale il suffisso ha la forma attesa. Se nessuna va bene: quella della
+// struttura, o 17.
+func pickAdv(f []string, sub string, skip int) int {
+	cands := []int{17, 19}
+	if advFront(f) == 19 {
+		cands = []int{19, 17}
+	}
+	for _, c := range cands {
+		if c+skip < len(f) && suffixCrit(sub, f[c+skip:]) >= 0 {
+			return c
+		}
+	}
+	return cands[0]
+}
+
+// suffixCrit restituisce la posizione di critical nel suffisso se questo ha la
+// forma attesa, altrimenti -1. Danni: amount, [baseAmount], overkill, school,
+// resisted, blocked, absorbed (interi) poi critical, glancing, crushing,
+// isOffHand ("1"/nil). Cure: amount, [baseAmount], overhealing, absorbed (interi)
+// poi critical. Si prova prima la forma con baseAmount; i campi in più alla fine
+// (es. `ST`/`AOE`) sono ignorati.
+func suffixCrit(sub string, s []string) int {
+	switch {
+	case isDamage(sub):
+		for _, n := range []int{7, 6} {
+			if all(s, 0, n, isInt) && all(s, n, n+4, isFlag) {
+				return n
+			}
+		}
+	case isHeal(sub):
+		for _, n := range []int{4, 3} {
+			if all(s, 0, n, isInt) && all(s, n, n+1, isFlag) {
+				return n
 			}
 		}
 	}
-	if n-advLens[0] < 0 {
-		return advLens[0], 0
-	}
-	return advLens[0], n - advLens[0]
+	return -1
 }
 
 func fillSuffix(ev *Event, sub string, s []string) {
@@ -339,17 +397,19 @@ func fillSuffix(ev *Event, sub string, s []string) {
 	if v, err := strconv.ParseInt(s[0], 10, 64); err == nil {
 		ev.Amount = v
 	}
-	critAt := -1
-	switch {
-	case isDamage(sub):
-		critAt = 6 // amount, overkill, school, resisted, blocked, absorbed, critical
-		if len(s) >= 11 {
-			critAt = 7 // con baseAmount dopo amount
-		}
-	case strings.HasSuffix(sub, "_HEAL"):
-		critAt = 3 // amount, overhealing, absorbed, critical
-		if len(s) >= 5 {
-			critAt = 4
+	critAt := suffixCrit(sub, s)
+	if critAt < 0 { // forma inattesa: posizione dalla lunghezza
+		switch {
+		case isDamage(sub):
+			critAt = 6
+			if len(s) >= 11 {
+				critAt = 7
+			}
+		case isHeal(sub):
+			critAt = 3
+			if len(s) >= 5 {
+				critAt = 4
+			}
 		}
 	}
 	if critAt >= 0 && critAt < len(s) {
@@ -377,26 +437,34 @@ func Files(logsDir string) []string {
 	return out
 }
 
-// Read legge i file in streaming e restituisce gli eventi con ora in [from, to].
+// Read legge i file in streaming e restituisce gli eventi con ora in [from, to],
+// ordinati per ora (ordinamento stabile: a parità d'ora resta l'ordine del file).
 // from zero = nessun limite inferiore, to zero = nessun limite superiore.
 // I file modificati prima di from vengono saltati senza aprirli. Le righe
-// malformate o più lunghe di MaxLine vengono ignorate.
+// malformate o più lunghe di MaxLine vengono ignorate, e così l'ultima riga del
+// file se non termina con un a capo (il client potrebbe starla scrivendo).
+// Un file che sparisce o non si riesce a leggere viene saltato: si continua con
+// gli altri e alla fine si restituiscono gli eventi letti insieme agli errori
+// uniti con errors.Join.
 func Read(paths []string, from, to time.Time, loc *time.Location) ([]Event, error) {
 	var out []Event
+	var errs []error
 	for _, p := range paths {
 		st, err := os.Stat(p)
 		if err != nil {
-			return out, fmt.Errorf("registro combattimenti %s: %w", p, err)
+			errs = append(errs, fmt.Errorf("registro combattimenti %s: %w", p, err))
+			continue
 		}
 		if !from.IsZero() && st.ModTime().Before(from) {
 			continue
 		}
 		out, err = readFile(p, st.ModTime(), from, to, loc, out)
 		if err != nil {
-			return out, err
+			errs = append(errs, err)
 		}
 	}
-	return out, nil
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Time.Before(out[j].Time) })
+	return out, errors.Join(errs...)
 }
 
 func readFile(p string, mod, from, to time.Time, loc *time.Location, out []Event) ([]Event, error) {
@@ -413,22 +481,21 @@ func readFile(p string, mod, from, to time.Time, loc *time.Location, out []Event
 	var buf []byte
 	tooLong := false
 	for {
-		chunk, isPrefix, err := r.ReadLine()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return out, nil
-			}
-			return out, fmt.Errorf("registro combattimenti %s: %w", p, err)
-		}
+		chunk, err := r.ReadSlice('\n')
 		if !tooLong {
-			if len(buf)+len(chunk) > MaxLine {
+			if len(buf)+len(chunk) > MaxLine+2 { // +2 per "\r\n"
 				tooLong, buf = true, buf[:0]
 			} else {
 				buf = append(buf, chunk...)
 			}
 		}
-		if isPrefix {
-			continue
+		switch {
+		case errors.Is(err, bufio.ErrBufferFull):
+			continue // riga più lunga del buffer: si continua ad accumulare
+		case errors.Is(err, io.EOF):
+			return out, nil // l'eventuale riga senza a capo è incompleta: ignorata
+		case err != nil:
+			return out, fmt.Errorf("registro combattimenti %s: %w", p, err)
 		}
 		if !tooLong {
 			if ev, ok := parseInWindow(string(buf), loc, year, mod, from, to); ok {

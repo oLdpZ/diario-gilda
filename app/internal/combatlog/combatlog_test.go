@@ -275,7 +275,8 @@ func TestReadLongLinesAndCRLF(t *testing.T) {
 	p := filepath.Join(dir, "WoWCombatLog.txt")
 	long := "10/24/2026 21:02:00.0000+2  COMBATANT_INFO," + strings.Repeat("x", 3<<20)
 	ok1 := line("SWING_DAMAGE", murl, gino, crit(dmg10, "nil"))
-	content := bom + ok1 + "\r\n" + long + "\r\n" + "rumore\r\n\r\n" + ok1 // ultima riga senza a capo
+	partial := strings.Replace(ok1, "Murloc Forager", "A metà", 1)
+	content := bom + ok1 + "\r\n" + long + "\r\n" + "rumore\r\n\r\n" + ok1 + "\n" + partial // ultima riga senza a capo: ignorata
 	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -283,8 +284,80 @@ func TestReadLongLinesAndCRLF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(evs) != 2 || evs[0].Amount != 58 || evs[1].Amount != 58 {
+	if len(evs) != 2 || evs[0].Amount != 58 || evs[1].Amount != 58 || evs[1].SrcName != "Murloc Forager" {
 		t.Fatalf("eventi %d %+v", len(evs), evs)
+	}
+}
+
+func TestReadMissingFileAndOrder(t *testing.T) {
+	dir := t.TempDir()
+	mod := time.Date(2026, 10, 24, 23, 0, 0, 0, rome)
+	late := filepath.Join(dir, "WoWCombatLog-b.txt")
+	early := filepath.Join(dir, "WoWCombatLog-a.txt")
+	l1 := "10/24/2026 21:05:00.0000+2  ZONE_CHANGE,1,\"x\",0\n"
+	l2 := "10/24/2026 21:01:00.0000+2  ZONE_CHANGE,2,\"y\",0\n"
+	l3 := "10/24/2026 21:03:00.0000+2  ZONE_CHANGE,3,\"z\",0\n"
+	for p, c := range map[string]string{late: l1 + l2, early: l3} {
+		if err := os.WriteFile(p, []byte(c), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(p, mod, mod); err != nil {
+			t.Fatal(err)
+		}
+	}
+	missing := filepath.Join(dir, "WoWCombatLog-sparito.txt")
+	evs, err := Read([]string{late, missing, early}, time.Time{}, time.Time{}, rome)
+	if err == nil || !strings.Contains(err.Error(), "sparito") {
+		t.Fatalf("errore atteso, %v", err)
+	}
+	if len(evs) != 3 {
+		t.Fatalf("eventi %d", len(evs))
+	}
+	for i, m := range []int{1, 3, 5} {
+		if evs[i].Time.Minute() != m {
+			t.Fatalf("ordine: %v", evs)
+		}
+	}
+}
+
+func TestParseLineTrailingExtraFields(t *testing.T) {
+	spell := `78,"Heroic Strike",0x1`
+	fl := `2061,"Flash Heal",0x2`
+	env := `0000000000000000,nil,0x80000000,0x80000000`
+	advG := `Player-1234-0A1B2C3D,0000000000000000,1960,1960,312,0,640,0,1,0,100,0,-9451.00,61.90,1429,4.7124,12`
+	cases := []struct {
+		name, line string
+		amount     int64
+		crit       bool
+		env        string
+	}{
+		{"danno 12 con avanzati", line("SPELL_DAMAGE", gino, murl, spell, adv17, `58,58,-1,1,0,0,0,1,nil,nil,nil,ST`), 58, true, ""},
+		{"danno 12 senza avanzati", line("SPELL_DAMAGE", gino, murl, spell, `58,58,-1,1,0,0,0,1,nil,nil,nil,AOE`), 58, true, ""},
+		{"danno 11 (10+extra) con avanzati 19", line("SWING_DAMAGE", murl, gino, adv19, `58,-1,1,0,0,0,1,nil,nil,nil,ST`), 58, true, ""},
+		{"swing 12 con avanzati", line("SWING_DAMAGE", murl, gino, adv17, `58,58,-1,1,0,0,0,nil,nil,nil,nil,ST`), 58, false, ""},
+		{"cura 6 con avanzati", line("SPELL_HEAL", gino, gino, fl, adv17, `640,640,0,0,1,X`), 640, true, ""},
+		{"cura 6 senza avanzati", line("SPELL_HEAL", gino, gino, fl, `640,640,0,0,1,X`), 640, true, ""},
+		{"cura 5 (4+extra) con avanzati", line("SPELL_HEAL", gino, gino, fl, adv17, `640,0,0,1,X`), 640, true, ""},
+		{"ambientale avanzati prima + extra", line("ENVIRONMENTAL_DAMAGE", env, gino, advG, "Falling", `340,340,-1,1,0,0,0,nil,nil,nil,nil,ST`), 340, false, "Falling"},
+		{"ambientale tipo prima + extra", line("ENVIRONMENTAL_DAMAGE", env, gino, "Lava", advG, `340,340,-1,4,0,0,0,1,nil,nil,nil,ST`), 340, true, "Lava"},
+		{"ambientale senza avanzati + extra", line("ENVIRONMENTAL_DAMAGE", env, gino, "Drowning", `340,-1,1,0,0,0,nil,nil,nil,nil,ST`), 340, false, "Drowning"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ev, ok := ParseLine(c.line, rome, 0)
+			if !ok || ev.Amount != c.amount || ev.Crit != c.crit || ev.EnvType != c.env {
+				t.Fatalf("ok %v %+v", ok, ev)
+			}
+		})
+	}
+}
+
+func TestAdvFront19Shifted(t *testing.T) {
+	// variante da 19 con i 2 campi in più prima della posizione: riconosciuta dalla struttura
+	adv := `Creature-0-5250-0-17-46-00003A1B01,0000000000000000,420,420,0,0,0,0,1,0,0,0,7,8,-9450.12,62.34,1429,1.5708,10`
+	ev, ok := ParseLine(line("SWING_DAMAGE", murl, gino, adv, `58,58,-1,1,0,0,0,1,nil,nil,nil`), rome, 0)
+	if !ok || ev.Amount != 58 || !ev.Crit {
+		t.Fatalf("%+v", ev)
 	}
 }
 
