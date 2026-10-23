@@ -3,11 +3,12 @@
 --                                           deps = { now(), itemInfo(link) -> id, name, q, after(sec, fn) }
 --   rec:onLootMsg(msg)                      messaggio CHAT_MSG_LOOT -> loot / craft
 --   rec:onLootReady(isFishing, src, names)  LOOT_READY: sorgente del bottino; se pesca, nomi alle catture
+--   rec:onLootClosed()                      LOOT_CLOSED: dimentica la sorgente
 --   rec:onFishCatch(name)                   aggiunge una cattura alla pesca in corso (la apre se serve)
 --   rec:onSpellcast(spellId)                lanci di pesca: apre/estende lo span, chiuso dopo FISHING_IDLE
 --   rec:onLevel(level) rec:onDead() rec:onBreath(active)
 --   rec:onMoney(money, where)               calo >= SPEND_MIN -> spend
---   rec:onCombat(inCombat) rec:onHealth(cur, max)
+--   rec:onCombat(inCombat) rec:onHealth(cur, max)  minHp solo se c'e' stata almeno una lettura valida
 --   rec:flush()                             chiude pesca e combattimento aperti (logout)
 -- Ogni metodo pubblico e' avvolto in pcall: l'errore va in journal.logError, nessuna eccezione esce.
 -- I valori passano da DG.Safe prima di essere letti. La parte 2 (Task 6) aggiunge metodi a DG.Recorder.
@@ -81,19 +82,29 @@ closeFishing = function(self)
   self.journal.add("fishing", { from = f.from, to = f.last, casts = f.casts, catches = f.catches })
 end
 
-local function addCatch(self, name)
+-- Accoda una cattura allo span aperto (senza toccare il timer).
+local function pushCatch(self, f, name)
   name = DG.Safe.str(name)
   if not name then
     return
   end
-  local f = openFishing(self)
   if #f.catches < DG.Const.MAX_CATCHES then
     f.catches[#f.catches + 1] = name
   end
   f.last = self.deps.now()
 end
 
-def("onFishCatch", addCatch)
+-- Anche una cattura senza lancio riprogramma il timer: lo span non si spezza ogni FISHING_IDLE.
+def("onFishCatch", function(self, name)
+  if not DG.Safe.str(name) then
+    return
+  end
+  local f, isNew = openFishing(self)
+  pushCatch(self, f, name)
+  if not isNew then
+    armIdle(self)
+  end
+end)
 
 def("onSpellcast", function(self, spellId)
   spellId = DG.Safe.num(spellId)
@@ -129,16 +140,24 @@ end
 def("onLootReady", function(self, isFishing, sourceName, itemNames)
   if isFishing then
     self.src = "fishing"
-    openFishing(self)
+    local f, isNew = openFishing(self)
     if type(itemNames) == "table" then
       for _, name in ipairs(itemNames) do
-        addCatch(self, name)
+        pushCatch(self, f, name)
       end
+    end
+    if not isNew then
+      armIdle(self)
     end
   else
     self.src = DG.Safe.str(sourceName)
   end
   self.srcAt = self.src and self.deps.now() or nil
+end)
+
+-- Finestra di bottino chiusa: la sorgente non vale per i messaggi successivi (es. ricompense di missione).
+def("onLootClosed", function(self)
+  self.src, self.srcAt = nil, nil
 end)
 
 def("onLootMsg", function(self, msg)
@@ -211,7 +230,8 @@ def("onCombat", function(self, inCombat)
   if DG.Safe.get(inCombat) then
     closeFishing(self)
     if not self.combat then
-      self.combat = { from = self.deps.now(), minHp = 100 }
+      -- minHp resta nil finche' non arriva una lettura valida della vita
+      self.combat = { from = self.deps.now() }
     end
   else
     closeCombat(self)
@@ -224,7 +244,7 @@ def("onHealth", function(self, cur, max)
     return
   end
   local pct = math.floor(100 * cur / max)
-  if pct < self.combat.minHp then
+  if self.combat.minHp == nil or pct < self.combat.minHp then
     self.combat.minHp = pct
   end
 end)

@@ -116,19 +116,45 @@ describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", func
     clock = 1010
     rec:onSpellcast(7620)
     rec:onLootReady(true, nil, { "Raw Brilliant Smallfish" })
-    assert.equals(2, #timers)
-    timers[1].fn() -- timer vecchio: non deve chiudere
+    assert.equals(3, #timers) -- anche la cattura riprogramma il timer
+    timers[1].fn() -- timer vecchi: non devono chiudere
+    timers[2].fn()
     assert.equals(0, #events())
     clock = 1130
-    assert.equals(120, timers[2].sec)
-    timers[2].fn()
+    assert.equals(120, timers[3].sec)
+    timers[3].fn()
     assert.same({ "fishing" }, kinds())
     local e = events()[1]
     assert.equals(2, e.casts)
     assert.same({ "Raw Brilliant Smallfish" }, e.catches)
     assert.equals(1000, e.from)
-    timers[2].fn() -- doppia chiamata: nessun secondo evento
+    timers[3].fn() -- doppia chiamata: nessun secondo evento
     assert.equals(1, #events())
+  end)
+
+  it("pesca: catture senza lanci non spezzano lo span ogni 120 s", function()
+    rec:onFishCatch("Fish A")
+    assert.equals(1, #timers)
+    clock = 1100
+    rec:onFishCatch("Fish B")
+    assert.equals(2, #timers)
+    clock = 1120
+    timers[1].fn() -- 120 s dalla prima cattura, ma solo 20 dall'ultima: resta aperto
+    assert.equals(0, #events())
+    clock = 1220
+    timers[2].fn()
+    assert.same({ "fishing" }, kinds())
+    assert.same({ "Fish A", "Fish B" }, events()[1].catches)
+    assert.equals(1000, events()[1].from)
+    assert.equals(1100, events()[1].to)
+  end)
+
+  it("LOOT_CLOSED azzera la sorgente: una ricompensa subito dopo non ha src", function()
+    rec:onLootReady(false, "Murloc Forager")
+    rec:onLootClosed()
+    clock = 1003
+    rec:onLootMsg("You receive loot: " .. RARE .. ".")
+    assert.is_nil(events()[1].src)
   end)
 
   it("spell non di pesca ignorata", function()
@@ -184,7 +210,21 @@ describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", func
     rec:onHealth(5, 100)
     rec:onHealth(50, 0)
     rec:onCombat(false)
-    assert.equals(100, events()[1].minHp)
+    assert.is_nil(events()[1].minHp)
+  end)
+
+  it("combattimento senza letture della vita: nessun campo minHp", function()
+    rec:onCombat(true)
+    rec:onCombat(false)
+    assert.equals("combat", events()[1].k)
+    assert.is_nil(events()[1].minHp)
+  end)
+
+  it("ingresso in combattimento al 40% senza danni: minHp 40", function()
+    rec:onCombat(true)
+    rec:onHealth(40, 100)
+    rec:onCombat(false)
+    assert.equals(40, events()[1].minHp)
   end)
 
   it("flush chiude combattimento aperto", function()
