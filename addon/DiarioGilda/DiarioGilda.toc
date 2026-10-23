@@ -6,3 +6,4 @@
 ## SavedVariables: DiarioGildaDB
 
 Core\Const.lua
+Core\Safe.lua
