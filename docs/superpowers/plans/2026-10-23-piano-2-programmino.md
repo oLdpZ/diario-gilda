@@ -18,7 +18,7 @@
 - Configurazione utente: `os.UserConfigDir()/DiarioGilda/config.json`; stato: `…/DiarioGilda/state.json`; coda: `…/DiarioGilda/outbox/`; log: `…/DiarioGilda/diario.log` (max 1 MB, ruotato).
 - Ogni testo visibile al giocatore è in italiano.
 - File inviato: gzip di JSON, sotto `MaxUpload = 8 * 1024 * 1024` byte (il limite di Discord senza boost è 10 MB).
-- Il programmino non scrive mai nei file di WoW tranne la cartella `Interface/AddOns/DiarioGilda/`.
+- Il programmino non scrive mai nei file di WoW tranne la cartella `Interface/AddOns/DiarioGilda/`. Durante l'installazione dell'addon può creare per poco le cartelle sorelle `Interface/AddOns/DiarioGilda.new` e `Interface/AddOns/DiarioGilda.old` (scambio atomico, vedi `addoninstall`), che rimuove a fine installazione.
 - Test: `cd app && go test ./... && go vet ./...`. Go va installato sul PC dell'autore se manca: `winget install GoLang.Go`.
 
 ## Review Focus

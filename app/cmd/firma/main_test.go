@@ -121,3 +121,48 @@ func TestSignWithSeed(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestVerifyCommand(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"keygen"}, func(string) string { return "" }, &out, &errOut); code != 0 {
+		t.Fatalf("keygen exit %d", code)
+	}
+	pub, priv := parseKeys(t, out.String())
+	otherOut := bytes.Buffer{}
+	run([]string{"keygen"}, func(string) string { return "" }, &otherOut, &errOut)
+	otherPub, _ := parseKeys(t, otherOut.String())
+
+	file := filepath.Join(t.TempDir(), "DiarioGilda-macos.zip")
+	if err := os.WriteFile(file, []byte("zip finto"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := run([]string{"sign", file}, func(k string) string { return map[string]string{"FIRMA_KEY": priv}[k] }, &out, &errOut); code != 0 {
+		t.Fatalf("sign exit %d: %s", code, errOut.String())
+	}
+	env := func(pub string) func(string) string {
+		return func(k string) string { return map[string]string{"PUBLIC_KEY": pub}[k] }
+	}
+	if code := run([]string{"verify", file}, env(pub), &out, &errOut); code != 0 {
+		t.Fatalf("verify good: exit %d: %s", code, errOut.String())
+	}
+	cases := map[string]struct {
+		file string
+		pub  string
+	}{
+		"other key":   {file, otherPub},
+		"no key":      {file, ""},
+		"missing sig": {file + ".nope", pub},
+	}
+	for name, c := range cases {
+		errOut.Reset()
+		if code := run([]string{"verify", c.file}, env(c.pub), &out, &errOut); code == 0 {
+			t.Errorf("%s: exit 0", name)
+		}
+	}
+	if err := os.WriteFile(file, []byte("zip cambiato"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := run([]string{"verify", file}, env(pub), &out, &errOut); code == 0 {
+		t.Error("tampered: exit 0")
+	}
+}
