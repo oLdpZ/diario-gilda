@@ -97,3 +97,6 @@ func (t *Tray) SetSending(on bool) {
 		t.send.Enable()
 	}
 }
+
+// CheckBuild dice se questa build puo' mostrare l'icona (qui sempre).
+func CheckBuild() error { return nil }

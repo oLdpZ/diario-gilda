@@ -29,6 +29,9 @@ const MaxNameLen = 40
 // ErrCanceled: il giocatore ha chiuso una finestra senza rispondere.
 var ErrCanceled = errors.New("annullato")
 
+// ErrSave avvolge l'errore di Setup.Save.
+var ErrSave = errors.New("salvataggio configurazione")
+
 // UI sono le finestre di dialogo; SelectDir ed Entry restituiscono
 // ErrCanceled se il giocatore annulla.
 type UI interface {
@@ -47,8 +50,11 @@ type Setup struct {
 	Enable func() error
 }
 
-// NeedsSetup e' vero se manca il nome o la cartella del client.
-func NeedsSetup(c config.Config) bool { return c.Player == "" || c.ClientDir == "" }
+// NeedsSetup e' vero se manca il nome o la cartella del client, anche quando
+// quella salvata non esiste piu' (WoW spostato o disinstallato).
+func NeedsSetup(c config.Config) bool { return c.Player == "" || !clientOK(c.ClientDir) }
+
+func clientOK(dir string) bool { return dir != "" && isDir(dir) }
 
 func isDir(p string) bool {
 	fi, err := os.Stat(p)
@@ -79,7 +85,8 @@ func FindClient(roots []string) (wowDir, clientDir string, ok bool) {
 	return "", "", false
 }
 
-// FirstRun chiede solo cio' che manca in cfg (cartella di WoW, poi nome), salva,
+// FirstRun chiede solo cio' che manca in cfg (cartella di WoW se assente o
+// sparita, poi nome), salva,
 // attiva l'avvio automatico e saluta. Se non manca nulla restituisce cfg cosi'
 // com'e'. ErrCanceled se il giocatore annulla: in quel caso non salva nulla.
 // Un errore dell'avvio automatico finisce nel log ma non ferma il primo avvio.
@@ -87,7 +94,10 @@ func FirstRun(cfg config.Config, s Setup) (config.Config, error) {
 	if !NeedsSetup(cfg) {
 		return cfg, nil
 	}
-	if cfg.ClientDir == "" {
+	if !clientOK(cfg.ClientDir) {
+		if cfg.ClientDir != "" {
+			log.Printf("cartella del client %s sparita: la si richiede", cfg.ClientDir)
+		}
 		w, c, ok := FindClient(s.Roots)
 		for !ok {
 			dir, err := s.UI.SelectDir(PromptWowDir)
@@ -108,7 +118,7 @@ func FirstRun(cfg config.Config, s Setup) (config.Config, error) {
 		cfg.Player = name
 	}
 	if err := s.Save(cfg); err != nil {
-		return cfg, fmt.Errorf("salvataggio configurazione: %w", err)
+		return cfg, fmt.Errorf("%w: %w", ErrSave, err)
 	}
 	if err := s.Enable(); err != nil {
 		log.Printf("avvio automatico non attivato: %v", err)

@@ -2,8 +2,12 @@ package desktop
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net"
+	"net/url"
 	"time"
 
 	"github.com/oLdpZ/diario-gilda/app/internal/update"
@@ -49,6 +53,10 @@ func (u *Updater) Once(ctx context.Context) bool {
 	}
 	log.Printf("aggiornamento disponibile: %s", rel.Version)
 	if err := u.Install(ctx, rel); err != nil {
+		if IsNetworkError(err) {
+			log.Printf("aggiornamento non scaricato (rete): %v", err)
+			return false
+		}
 		u.fail(err.Error())
 		return false
 	}
@@ -79,4 +87,15 @@ func (u *Updater) Loop(ctx context.Context, every time.Duration) {
 			}
 		}
 	}
+}
+
+// IsNetworkError riconosce gli errori di rete e di tempo scaduto (download
+// interrotto, PC offline): non vale la pena mostrarli al giocatore. Gli errori
+// di verifica e di applicazione invece si mostrano.
+func IsNetworkError(err error) bool {
+	var ue *url.Error
+	var ne net.Error
+	return errors.As(err, &ue) || errors.As(err, &ne) ||
+		errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) ||
+		errors.Is(err, io.ErrUnexpectedEOF)
 }

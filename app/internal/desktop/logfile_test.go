@@ -2,8 +2,10 @@ package desktop
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -66,5 +68,34 @@ func TestLogFileBigWrite(t *testing.T) {
 	defer w.Close()
 	if n, err := w.Write(bytes.Repeat([]byte("x"), 25)); err != nil || n != 25 {
 		t.Fatalf("Write = %d, %v", n, err)
+	}
+}
+
+// TestLogFileRotateFails: se il rename non riesce si continua sullo stesso
+// file, si segnala una volta sola e si riprova solo dopo altri max byte.
+func TestLogFileRotateFails(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "diario.log")
+	w, err := OpenLog(p, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tries := 0
+	w.rename = func(string, string) error { tries++; return errors.New("file in uso") }
+	line := append(bytes.Repeat([]byte("c"), 49), '\n') // 50 byte
+	for i := 0; i < 6; i++ {                            // 300 byte: 1-2 tentativi
+		if _, err := w.Write(line); err != nil {
+			t.Fatalf("Write %d: %v", i, err)
+		}
+	}
+	w.Close()
+	if tries < 1 || tries > 2 {
+		t.Errorf("tentativi di rotazione = %d, voglio 1 o 2", tries)
+	}
+	b, _ := os.ReadFile(p)
+	if n := strings.Count(string(b), "rotazione del log non riuscita"); n != 1 {
+		t.Errorf("avvisi nel log = %d, voglio 1\n%s", n, b)
+	}
+	if n := strings.Count(string(b), string(line)); n != 6 {
+		t.Errorf("righe scritte = %d, voglio 6", n)
 	}
 }

@@ -3,6 +3,8 @@ package desktop
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 	"testing"
 	"time"
 
@@ -134,5 +136,23 @@ func TestUpdaterLoop(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("Loop non si ferma alla cancellazione")
+	}
+}
+
+// TestUpdaterNetworkErrorQuiet: un download fallito per la rete va solo nel log.
+func TestUpdaterNetworkErrorQuiet(t *testing.T) {
+	for _, e := range []error{
+		fmt.Errorf("aggiornamento: %w", &url.Error{Op: "Get", URL: "https://x", Err: errors.New("dial tcp: no route")}),
+		fmt.Errorf("firma: %w", context.DeadlineExceeded),
+	} {
+		n := 0
+		u := &Updater{
+			Check:   func(context.Context) (*update.Release, error) { return &update.Release{}, nil },
+			Install: func(context.Context, *update.Release) error { return e },
+			Failed:  func(string) { n++ },
+		}
+		if u.Once(context.Background()) || n != 0 {
+			t.Errorf("%v: Failed chiamata %d volte", e, n)
+		}
 	}
 }

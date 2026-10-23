@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -42,17 +41,38 @@ const (
 func main() {
 	if err := start(); err != nil {
 		log.Printf("errore: %v", err)
+		msg := "Il Diario di Gilda non può partire."
+		var se *startError
+		if errors.As(err, &se) {
+			msg = se.msg
+		}
+		desktop.Dialogs{}.Error(msg + "\n\n" + err.Error())
 		os.Exit(1)
 	}
 }
 
+// startError e' un errore di avvio con il messaggio da mostrare al giocatore.
+type startError struct {
+	msg string
+	err error
+}
+
+func (e *startError) Error() string { return e.err.Error() }
+func (e *startError) Unwrap() error { return e.err }
+
+func fatal(msg string, err error) error { return &startError{msg: msg, err: err} }
+
 func start() error {
+	if err := desktop.CheckBuild(); err != nil {
+		return fatal(desktop.AppName, err)
+	}
+	const noDataDir = "Non riesco a usare la cartella dei dati del Diario di Gilda."
 	dir, err := config.Dir()
 	if err != nil {
-		return err
+		return fatal(noDataDir, err)
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("cartella dati: %w", err)
+		return fatal(noDataDir, err)
 	}
 	// prima il lock, poi il log: un secondo avvio esce senza toccare diario.log
 	lock, err := desktop.Acquire(dir)
@@ -60,19 +80,21 @@ func start() error {
 		return nil
 	}
 	if err != nil {
-		return err
+		return fatal(noDataDir, err)
 	}
 	defer lock.Release()
-	if lf, err := desktop.OpenLog(filepath.Join(dir, "diario.log"), desktop.LogMax); err == nil {
-		log.SetOutput(lf)
-		defer lf.Close()
+	lf, err := desktop.OpenLog(filepath.Join(dir, "diario.log"), desktop.LogMax)
+	if err != nil {
+		return fatal("Non riesco a scrivere il registro diario.log.", err)
 	}
+	log.SetOutput(lf)
+	defer lf.Close()
 	log.Printf("avvio Diario di Gilda %s (%s/%s)", build.Version, runtime.GOOS, runtime.GOARCH)
 
 	update.CleanupOld()
 	exe, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("percorso dell'eseguibile: %w", err)
+		return fatal("Non trovo il percorso del programma.", err)
 	}
 	if r, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = r
@@ -103,9 +125,11 @@ func start() error {
 		log.Printf("primo avvio annullato")
 		return nil
 	}
+	if errors.Is(err, desktop.ErrSave) {
+		return fatal("Non riesco a salvare la configurazione.", err)
+	}
 	if err != nil {
-		ui.Error("Non riesco a salvare la configurazione: " + err.Error())
-		return err
+		return fatal("Le finestre del primo avvio non funzionano.", err)
 	}
 	if translocated {
 		if firstRun {
@@ -166,7 +190,9 @@ type app struct {
 	watchStop context.CancelFunc
 	watchDone chan struct{}
 
-	sending, renaming atomic.Bool
+	clickStop context.CancelFunc // ferma l'"Invia ora" in corso
+
+	sending, renaming, restarting atomic.Bool
 }
 
 func (a *app) config() config.Config {
@@ -176,7 +202,8 @@ func (a *app) config() config.Config {
 }
 
 // env prepara il ciclo; il webhook resta dentro Send e non va mai nel log.
-func (a *app) env(cfg config.Config) run.Env {
+// Gli invii usano ctx: cancellarlo interrompe anche un upload in corso.
+func (a *app) env(ctx context.Context, cfg config.Config) run.Env {
 	e := run.Env{Cfg: cfg, DataDir: a.dir, Loc: time.Local, Log: log.Printf}
 	wh := config.EffectiveWebhook(cfg)
 	if wh == "" {
@@ -184,9 +211,9 @@ func (a *app) env(cfg config.Config) run.Env {
 		return e
 	}
 	e.Send = func(name string, data []byte) error {
-		ctx, cancel := context.WithTimeout(a.ctx, sendTimeout)
+		sctx, cancel := context.WithTimeout(ctx, sendTimeout)
 		defer cancel()
-		if err := discord.Upload(ctx, wh, name, data, ""); err != nil {
+		if err := discord.Upload(sctx, wh, name, data, ""); err != nil {
 			return err
 		}
 		a.markSent(time.Now())
@@ -246,9 +273,12 @@ func (a *app) ready(t *desktop.Tray) {
 }
 
 func (a *app) startWatch() {
+	if a.restarting.Load() {
+		return
+	}
 	ctx, cancel := context.WithCancel(a.ctx)
 	done := make(chan struct{})
-	env := a.env(a.config())
+	env := a.env(ctx, a.config())
 	a.mu.Lock()
 	a.watchStop, a.watchDone = cancel, done
 	a.mu.Unlock()
@@ -276,12 +306,15 @@ func (a *app) stopWatch() {
 }
 
 func (a *app) sendNow() {
-	if !a.sending.CompareAndSwap(false, true) {
+	if a.restarting.Load() || !a.sending.CompareAndSwap(false, true) {
 		return
 	}
 	defer a.sending.Store(false)
+	ctx, cancel := context.WithCancel(a.ctx)
+	defer cancel()
 	a.mu.Lock()
 	tray, before := a.tray, a.lastSent
+	a.clickStop = cancel
 	a.mu.Unlock()
 	tray.SetSending(true)
 	defer tray.SetSending(false)
@@ -291,11 +324,13 @@ func (a *app) sendNow() {
 		desktop.Notify("Questa versione non ha un canale Discord: non posso inviare.")
 		return
 	}
-	err := run.Cycle(a.ctx, a.env(cfg))
+	err := run.Cycle(ctx, a.env(ctx, cfg))
 	a.mu.Lock()
 	after := a.lastSent
 	a.mu.Unlock()
 	switch {
+	case err != nil && ctx.Err() != nil:
+		log.Printf("invio manuale interrotto: %v", err)
 	case err != nil:
 		log.Printf("invio manuale: %v", err)
 		desktop.Notify("Invio non riuscito: " + err.Error())
@@ -307,13 +342,13 @@ func (a *app) sendNow() {
 }
 
 func (a *app) rename() {
-	if !a.renaming.CompareAndSwap(false, true) {
+	if a.restarting.Load() || !a.renaming.CompareAndSwap(false, true) {
 		return
 	}
 	defer a.renaming.Store(false)
 	cfg := a.config()
 	name, err := desktop.AskName(a.ui, cfg.Player)
-	if err != nil || name == cfg.Player {
+	if err != nil || name == cfg.Player || a.restarting.Load() {
 		return
 	}
 	cfg.Player = name
@@ -343,6 +378,13 @@ func (a *app) openLogs() {
 // chiude questo. Il lock si libera prima, se no il nuovo processo uscirebbe subito;
 // se l'avvio fallisce lo si riprende e si continua con la versione in memoria.
 func (a *app) restart() error {
+	a.restarting.Store(true)
+	a.mu.Lock()
+	clickStop := a.clickStop
+	a.mu.Unlock()
+	if clickStop != nil {
+		clickStop() // interrompe un "Invia ora" in corso (al piu' un duplicato)
+	}
 	a.stopWatch()
 	a.mu.Lock()
 	lock := a.lock
@@ -357,6 +399,7 @@ func (a *app) restart() error {
 		} else {
 			log.Printf("lock non ripreso: %v", lerr)
 		}
+		a.restarting.Store(false)
 		a.startWatch()
 		return err
 	}

@@ -60,14 +60,17 @@ func okSetup(ui UI, roots ...string) Setup {
 }
 
 func TestNeedsSetup(t *testing.T) {
+	cl := mkClient(t, t.TempDir(), "_classic_")
+	gone := filepath.Join(t.TempDir(), "disinstallato")
 	cases := []struct {
 		c    config.Config
 		want bool
 	}{
 		{config.Config{}, true},
 		{config.Config{Player: "Gilda"}, true},
-		{config.Config{ClientDir: "x"}, true},
-		{config.Config{Player: "Gilda", ClientDir: "x"}, false},
+		{config.Config{ClientDir: cl}, true},
+		{config.Config{Player: "Gilda", ClientDir: cl}, false},
+		{config.Config{Player: "Gilda", ClientDir: gone}, true}, // cartella sparita
 	}
 	for _, c := range cases {
 		if got := NeedsSetup(c.c); got != c.want {
@@ -155,7 +158,8 @@ func TestFirstRunAsksFolder(t *testing.T) {
 
 func TestFirstRunKeepsKnownValues(t *testing.T) {
 	ui := &fakeUI{}
-	cfg := config.Config{Player: "Ciro", ClientDir: "c", WowDir: "w"}
+	root := t.TempDir()
+	cfg := config.Config{Player: "Ciro", ClientDir: mkClient(t, root, "_classic_"), WowDir: root}
 	got, err := FirstRun(cfg, okSetup(ui))
 	if err != nil || got != cfg || len(ui.prompts) != 0 {
 		t.Errorf("FirstRun = %+v, %v, domande %q", got, err, ui.prompts)
@@ -164,9 +168,29 @@ func TestFirstRunKeepsKnownValues(t *testing.T) {
 
 func TestFirstRunOnlyMissingName(t *testing.T) {
 	ui := &fakeUI{names: []string{"Ugo"}}
-	got, err := FirstRun(config.Config{ClientDir: "c", WowDir: "w"}, okSetup(ui))
-	if err != nil || got.Player != "Ugo" || got.ClientDir != "c" || len(ui.prompts) != 1 {
+	cl := mkClient(t, t.TempDir(), "_classic_")
+	got, err := FirstRun(config.Config{ClientDir: cl, WowDir: "w"}, okSetup(ui))
+	if err != nil || got.Player != "Ugo" || got.ClientDir != cl || len(ui.prompts) != 1 {
 		t.Errorf("FirstRun = %+v, %v, domande %q", got, err, ui.prompts)
+	}
+}
+
+// TestFirstRunClientGone: WoW spostato o disinstallato: si richiede la
+// cartella, il nome resta.
+func TestFirstRunClientGone(t *testing.T) {
+	root := t.TempDir()
+	cl := mkClient(t, root, "_classic_")
+	ui := &fakeUI{dirs: []string{root}}
+	cfg := config.Config{Player: "Vito", ClientDir: filepath.Join(t.TempDir(), "sparito"), WowDir: "vecchio"}
+	got, err := FirstRun(cfg, okSetup(ui, t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Player != "Vito" || got.ClientDir != cl || got.WowDir != root {
+		t.Errorf("config = %+v", got)
+	}
+	if len(ui.prompts) != 1 || ui.prompts[0] != PromptWowDir {
+		t.Errorf("domande = %q", ui.prompts)
 	}
 }
 
@@ -211,8 +235,8 @@ func TestFirstRunSaveError(t *testing.T) {
 	ui := &fakeUI{names: []string{"Ezio"}}
 	s := okSetup(ui, root)
 	s.Save = func(config.Config) error { return errors.New("disco") }
-	if _, err := FirstRun(config.Config{}, s); err == nil {
-		t.Fatal("errore di salvataggio ignorato")
+	if _, err := FirstRun(config.Config{}, s); !errors.Is(err, ErrSave) {
+		t.Fatalf("err = %v, voglio ErrSave", err)
 	}
 	if len(ui.infos) != 0 {
 		t.Errorf("messaggio di successo dopo un errore: %q", ui.infos)
@@ -237,3 +261,21 @@ func TestAskName(t *testing.T) {
 		t.Errorf("limite in byte invece che in caratteri")
 	}
 }
+
+// TestFirstRunDialogError: un errore delle finestre (non annullamento) non e'
+// un errore di salvataggio.
+func TestFirstRunDialogError(t *testing.T) {
+	boom := errors.New("zenity assente")
+	s := okSetup(errUI{boom}, t.TempDir())
+	_, err := FirstRun(config.Config{}, s)
+	if !errors.Is(err, boom) || errors.Is(err, ErrSave) || errors.Is(err, ErrCanceled) {
+		t.Errorf("err = %v", err)
+	}
+}
+
+type errUI struct{ err error }
+
+func (e errUI) SelectDir(string) (string, error)     { return "", e.err }
+func (e errUI) Entry(string, string) (string, error) { return "", e.err }
+func (errUI) Error(string)                           {}
+func (errUI) Info(string)                            {}
