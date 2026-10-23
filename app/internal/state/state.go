@@ -15,6 +15,9 @@ const (
 	maxAge   = 60 * 24 * time.Hour
 )
 
+// ErrCorrupt indica uno state.json leggibile ma non valido.
+var ErrCorrupt = errors.New("state: formato non valido")
+
 type State struct {
 	Sent            map[string]int64 `json:"sent"` // session id -> epoch queued/sent
 	LastUpdateCheck int64            `json:"lastUpdateCheck"`
@@ -44,7 +47,7 @@ func LoadAt(dir string, now int64) (*State, error) {
 		return nil, fmt.Errorf("state: leggi: %w", err)
 	}
 	if err := json.Unmarshal(b, st); err != nil {
-		return nil, fmt.Errorf("state: formato non valido: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrCorrupt, err)
 	}
 	if st.Sent == nil {
 		st.Sent = map[string]int64{}

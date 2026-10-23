@@ -470,7 +470,23 @@ func TestEmptyClientDirOnlyFlushes(t *testing.T) {
 	r := &recorder{}
 	env := tr.env(r, stop1)
 	env.Cfg.ClientDir = ""
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	_, _ = zw.Write([]byte(`{"sessione":{"id":"in-coda"}}`))
+	_ = zw.Close()
+	if err := os.MkdirAll(filepath.Join(tr.data, "outbox"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tr.data, "outbox", "a.json.gz"), buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cycle(t, env)
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != "in-coda" || got[0].name != "a.json.gz" {
+		t.Fatalf("la coda va inviata anche senza cartella del client: %v", got)
+	}
+	if n := outboxCount(t, tr); n != 0 {
+		t.Fatalf("outbox: %d", n)
+	}
 }
 
 // --- Watch ---
@@ -538,8 +554,11 @@ func TestWatchSurvivesCycleError(t *testing.T) {
 		watch(ctx, tr.env(r, stop1+601), 10*time.Millisecond, 20*time.Millisecond, 50*time.Millisecond)
 		close(done)
 	}()
-	if !waitFor(t, 2*time.Second, func() bool { return outboxCount(t, tr) == 1 }) {
-		t.Fatal("sessione non accodata")
+	if !waitFor(t, 2*time.Second, func() bool { return r.logged("giro non completato") }) {
+		t.Fatal("primo giro senza errore di invio")
+	}
+	if n := outboxCount(t, tr); n != 1 {
+		t.Fatalf("outbox: %d", n)
 	}
 	r.setFail(false)
 	// il giro periodico riprova l'invio dopo l'errore
@@ -551,4 +570,88 @@ func TestWatchSurvivesCycleError(t *testing.T) {
 	if strings.Contains(strings.Join(r.logs, "\n"), "segreto") {
 		t.Fatal("webhook nel log")
 	}
+}
+
+func TestSaveFailureSkipsFlush(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{}
+	env := tr.env(r, stop1+601)
+	env.saveState = func(string, *state.State) error { return errors.New("disco bloccato") }
+
+	for i := 0; i < 2; i++ {
+		if err := Cycle(context.Background(), env); err == nil {
+			t.Fatal("atteso errore di salvataggio")
+		}
+		if n := r.count(); n != 0 {
+			t.Fatalf("stato non salvato: nessun invio atteso, ottenuti %d", n)
+		}
+		if n := outboxCount(t, tr); n != 1 {
+			t.Fatalf("outbox: %d file (atteso 1, sovrascritto per nome)", n)
+		}
+	}
+
+	env.saveState = nil
+	cycle(t, env)
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id1 {
+		t.Fatalf("salvataggio ripristinato: atteso 1 invio, ottenuti %v", ids(got))
+	}
+	cycle(t, tr.env(r, stop1+700))
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("duplicato: %v", ids(got))
+	}
+}
+
+func TestTooOldSessionSkipped(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{}
+	cycle(t, tr.env(r, 1793000000+51*86400))
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("sessione di oltre 50 giorni: nessun invio atteso, ottenuti %v", ids(got))
+	}
+	if !r.logged("troppo vecchia") {
+		t.Errorf("log: %v", r.logs)
+	}
+}
+
+func TestWatchPeriodicNotStarvedByChanges(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{fail: true}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		watch(ctx, tr.env(r, stop1+601), 30*time.Millisecond, time.Hour, 60*time.Millisecond)
+		close(done)
+	}()
+	if !waitFor(t, 2*time.Second, func() bool { return r.logged("giro non completato") }) {
+		t.Fatal("primo giro senza errore di invio")
+	}
+	if n := outboxCount(t, tr); n != 1 {
+		t.Fatalf("outbox: %d", n)
+	}
+	r.setFail(false)
+	// il file cambia di continuo: il giro periodico deve partire lo stesso
+	stop := make(chan struct{})
+	go func() {
+		base := time.Now()
+		for i := 1; ; i++ {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			mt := base.Add(time.Duration(i) * time.Second)
+			_ = os.Chtimes(tr.svPath("ACC"), mt, mt)
+		}
+	}()
+	ok := waitFor(t, 3*time.Second, func() bool { return r.count() == 1 })
+	close(stop)
+	if !ok {
+		t.Fatal("modifiche continue hanno bloccato il giro periodico")
+	}
+	cancel()
+	<-done
 }

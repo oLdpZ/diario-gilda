@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/oLdpZ/diario-gilda/app/internal/addondata"
@@ -28,7 +29,8 @@ import (
 const (
 	reloadGap   = 600 // s: un /reload entro questo tempo riapre la sessione
 	crashAge    = 12 * 3600
-	logMargin   = 60 // s attorno alla sessione letti dal registro combattimenti
+	logMargin   = 60         // s attorno alla sessione letti dal registro combattimenti
+	maxAge      = 50 * 86400 // s: oltre non si invia (lo stato dimentica gli id dopo 60 giorni)
 	maxSVSize   = 64 << 20
 	fullEvery   = 5 * time.Minute
 	stateFile   = "state.json"
@@ -44,6 +46,8 @@ type Env struct {
 	Loc     *time.Location
 	Send    func(name string, data []byte) error
 	Log     func(format string, args ...any)
+
+	saveState func(dir string, st *state.State) error // solo per i test; nil = state.Save
 }
 
 func (e Env) logf(format string, args ...any) {
@@ -66,38 +70,51 @@ func (e Env) loc() *time.Location {
 	return time.Local
 }
 
+func (e Env) save(st *state.State) error {
+	if e.saveState != nil {
+		return e.saveState(e.DataDir, st)
+	}
+	return state.Save(e.DataDir, st)
+}
+
 func (e Env) outboxDir() string { return filepath.Join(e.DataDir, "outbox") }
+
+// cycleMu serializza i Cycle (Watch e il comando "Invia ora" dell'interfaccia):
+// due giri insieme accoderebbero e invierebbero la stessa sessione due volte.
+var cycleMu sync.Mutex
 
 // Cycle accoda le sessioni definitive non ancora accodate, salva lo stato e
 // svuota la coda. Un file SavedVariables illeggibile o a meta' scrittura viene
-// saltato (si riprova al giro dopo). L'errore restituito e' quello dello stato
-// o dell'invio; la coda resta su disco e il prossimo Cycle riprova.
+// saltato (si riprova al giro dopo). Se lo stato non si salva non si invia nulla
+// (altrimenti la stessa sessione partirebbe a ogni giro): i file restano in coda
+// e al giro dopo vengono riscritti con lo stesso nome. L'errore restituito e'
+// quello dello stato o dell'invio; il prossimo Cycle riprova. Sicuro da chiamare
+// da piu' goroutine: i giri sono serializzati.
 func Cycle(ctx context.Context, env Env) error {
+	cycleMu.Lock()
+	defer cycleMu.Unlock()
 	now := env.now().Unix()
 	st, err := loadState(env, now)
 	if err != nil {
 		return err
 	}
 
-	var errs []error
 	if env.Cfg.ClientDir == "" {
 		env.logf("cartella del client non impostata: solo invio della coda")
 	} else if queued := enqueue(env, st, now); queued > 0 {
-		if err := state.Save(env.DataDir, st); err != nil {
-			errs = append(errs, fmt.Errorf("salvataggio stato: %w", err))
+		if err := env.save(st); err != nil {
+			return fmt.Errorf("salvataggio stato (invio rimandato): %w", err)
 		}
 	}
 
-	if env.Send != nil {
-		n, err := outbox.Flush(ctx, env.outboxDir(), env.Send)
-		if n > 0 {
-			env.logf("inviati %d file", n)
-		}
-		if err != nil {
-			errs = append(errs, err)
-		}
+	if env.Send == nil {
+		return nil
 	}
-	return errors.Join(errs...)
+	n, err := outbox.Flush(ctx, env.outboxDir(), env.Send)
+	if n > 0 {
+		env.logf("inviati %d file", n)
+	}
+	return err
 }
 
 // loadState carica lo stato; se state.json e' corrotto lo mette da parte come
@@ -107,10 +124,10 @@ func loadState(env Env, now int64) (*state.State, error) {
 	if err == nil {
 		return st, nil
 	}
-	p := filepath.Join(env.DataDir, stateFile)
-	if _, rerr := os.ReadFile(p); rerr != nil {
+	if !errors.Is(err, state.ErrCorrupt) {
 		return nil, fmt.Errorf("lettura stato: %w", err) // errore di disco, non di formato
 	}
+	p := filepath.Join(env.DataDir, stateFile)
 	if rerr := os.Rename(p, filepath.Join(env.DataDir, corruptFile)); rerr != nil {
 		return nil, fmt.Errorf("stato corrotto non spostato: %w", rerr)
 	}
@@ -140,6 +157,13 @@ func enqueue(env Env, st *state.State, now int64) int {
 		seen[s.ID] = true
 		ok, interrupted := final(s, all, now)
 		if !ok {
+			continue
+		}
+		if now-s.Start > maxAge {
+			// segnata senza invio: dopo una lunga pausa lo stato potrebbe averla dimenticata
+			env.logf("sessione %s troppo vecchia, non inviata", s.ID)
+			st.MarkQueued(s.ID, now)
+			marked++
 			continue
 		}
 		name, data, err := build1(env, s, interrupted)
@@ -276,12 +300,15 @@ func watch(ctx context.Context, env Env, poll, stable, every time.Duration) {
 		case <-t.C:
 		}
 		cur := snapshot(env.Cfg.ClientDir)
-		if cur != last {
+		changed := cur != last
+		if changed {
 			last, pending, changedAt = cur, true, time.Now()
-			continue
 		}
-		if (pending && time.Since(changedAt) >= stable) || time.Since(lastRun) >= every {
-			pending = false
+		// il giro periodico parte anche se i file cambiano di continuo
+		if (!changed && pending && time.Since(changedAt) >= stable) || time.Since(lastRun) >= every {
+			if !changed {
+				pending = false
+			}
 			run()
 			lastRun = time.Now()
 		}
