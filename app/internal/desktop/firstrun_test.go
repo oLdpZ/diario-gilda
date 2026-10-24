@@ -96,11 +96,17 @@ func TestFindClientInRoots(t *testing.T) {
 func TestClientIn(t *testing.T) {
 	root := t.TempDir()
 	cl := mkClient(t, root, "_classic_era_")
-	if w, c, ok := ClientIn(root); !ok || c != cl || w != root {
-		t.Errorf("ClientIn(installazione) = %q %q %v", w, c, ok)
+	// installazione senza client Forever: non si sceglie da soli
+	if _, _, ok := ClientIn(root); ok {
+		t.Errorf("ClientIn(installazione senza Forever) ha scelto un client")
 	}
+	// il client scelto direttamente si accetta anche se non e' Forever
 	if w, c, ok := ClientIn(cl); !ok || c != cl || w != root {
 		t.Errorf("ClientIn(client) = %q %q %v", w, c, ok)
+	}
+	fv := mkClient(t, root, "_forever_")
+	if w, c, ok := ClientIn(root); !ok || c != fv || w != root {
+		t.Errorf("ClientIn(installazione) = %q %q %v", w, c, ok)
 	}
 	if _, _, ok := ClientIn(t.TempDir()); ok {
 		t.Error("ClientIn su cartella vuota")
@@ -109,7 +115,8 @@ func TestClientIn(t *testing.T) {
 
 func TestFirstRunFoundAutomatically(t *testing.T) {
 	root := t.TempDir()
-	cl := mkClient(t, root, "_classic_")
+	mkClient(t, root, "_classic_")
+	cl := mkClient(t, root, "_forever_")
 	ui := &fakeUI{names: []string{"  Aldo  "}}
 	var saved config.Config
 	var enabled bool
@@ -139,7 +146,7 @@ func TestFirstRunFoundAutomatically(t *testing.T) {
 func TestFirstRunAsksFolder(t *testing.T) {
 	wrong := t.TempDir()
 	root := t.TempDir()
-	cl := mkClient(t, root, "_classic_")
+	cl := mkClient(t, root, "_forever_")
 	ui := &fakeUI{dirs: []string{wrong, root}, names: []string{"", "Bea"}}
 	got, err := FirstRun(config.Config{}, okSetup(ui, t.TempDir()))
 	if err != nil {
@@ -179,7 +186,7 @@ func TestFirstRunOnlyMissingName(t *testing.T) {
 // cartella, il nome resta.
 func TestFirstRunClientGone(t *testing.T) {
 	root := t.TempDir()
-	cl := mkClient(t, root, "_classic_")
+	cl := mkClient(t, root, "_forever_")
 	ui := &fakeUI{dirs: []string{root}}
 	cfg := config.Config{Player: "Vito", ClientDir: filepath.Join(t.TempDir(), "sparito"), WowDir: "vecchio"}
 	got, err := FirstRun(cfg, okSetup(ui, t.TempDir()))
@@ -205,7 +212,7 @@ func TestFirstRunCanceled(t *testing.T) {
 	})
 	t.Run("nome", func(t *testing.T) {
 		root := t.TempDir()
-		mkClient(t, root, "_classic_")
+		mkClient(t, root, "_forever_")
 		saved := false
 		s := okSetup(&fakeUI{names: []string{cancel}}, root)
 		s.Save = func(config.Config) error { saved = true; return nil }
@@ -217,7 +224,7 @@ func TestFirstRunCanceled(t *testing.T) {
 
 func TestFirstRunAutostartFailureNotFatal(t *testing.T) {
 	root := t.TempDir()
-	mkClient(t, root, "_classic_")
+	mkClient(t, root, "_forever_")
 	ui := &fakeUI{names: []string{"Dino"}}
 	s := okSetup(ui, root)
 	s.Enable = func() error { return errors.New("registro") }
@@ -231,7 +238,7 @@ func TestFirstRunAutostartFailureNotFatal(t *testing.T) {
 
 func TestFirstRunSaveError(t *testing.T) {
 	root := t.TempDir()
-	mkClient(t, root, "_classic_")
+	mkClient(t, root, "_forever_")
 	ui := &fakeUI{names: []string{"Ezio"}}
 	s := okSetup(ui, root)
 	s.Save = func(config.Config) error { return errors.New("disco") }
@@ -279,3 +286,79 @@ func (e errUI) SelectDir(string) (string, error)     { return "", e.err }
 func (e errUI) Entry(string, string) (string, error) { return "", e.err }
 func (errUI) Error(string)                           {}
 func (errUI) Info(string)                            {}
+
+// Ruling F2: senza un client Forever non si sceglie da soli, si chiede.
+func TestFirstRunNoForeverAsks(t *testing.T) {
+	root := t.TempDir()
+	mkClient(t, root, "_classic_")
+	mkClient(t, root, "_retail_")
+	ui := &fakeUI{dirs: []string{root, filepath.Join(root, "_classic_")}, names: []string{"Lia"}}
+	got, err := FirstRun(config.Config{}, okSetup(ui, root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ClientDir != filepath.Join(root, "_classic_") || got.WowDir != root {
+		t.Errorf("config = %+v", got)
+	}
+	if len(ui.prompts) < 1 || ui.prompts[0] != PromptWowDir || !strings.Contains(PromptWowDir, "WoW Forever") {
+		t.Errorf("domande = %q", ui.prompts)
+	}
+	// la cartella di installazione senza Forever non basta: errore, poi il client scelto a mano
+	if len(ui.errors) != 1 || ui.errors[0] != MsgNoClient {
+		t.Errorf("errori = %q", ui.errors)
+	}
+}
+
+func TestFindClientOnlyForever(t *testing.T) {
+	a, b := t.TempDir(), t.TempDir()
+	mkClient(t, a, "_classic_")
+	want := mkClient(t, b, "_classic_beta_")
+	if w, c, ok := FindClient([]string{a, b}); !ok || c != want || w != b {
+		t.Fatalf("FindClient = %q %q %v", w, c, ok)
+	}
+	if _, _, ok := FindClient([]string{a}); ok {
+		t.Fatal("scelto da solo un client non Forever")
+	}
+}
+
+func TestPreferForever(t *testing.T) {
+	root := t.TempDir()
+	old := mkClient(t, root, "_classic_")
+	cfg := config.Config{Player: "Ivo", WowDir: root, ClientDir: old}
+	if got, changed := PreferForever(cfg); changed || got != cfg {
+		t.Fatalf("senza Forever: %+v %v", got, changed)
+	}
+	fv := mkClient(t, root, "_forever_")
+	got, changed := PreferForever(cfg)
+	if !changed || got.ClientDir != fv || got.WowDir != root || got.Player != "Ivo" {
+		t.Fatalf("con Forever: %+v %v", got, changed)
+	}
+	if again, changed := PreferForever(got); changed || again != got {
+		t.Fatalf("gia' Forever: %+v %v", again, changed)
+	}
+	// WowDir vuota: si usa la cartella che contiene il client
+	cfg.WowDir = ""
+	if got, changed := PreferForever(cfg); !changed || got.ClientDir != fv || got.WowDir != root {
+		t.Fatalf("senza WowDir: %+v %v", got, changed)
+	}
+	// cartella non impostata: nulla da fare
+	if _, changed := PreferForever(config.Config{}); changed {
+		t.Fatal("config vuota cambiata")
+	}
+}
+
+func TestChooseClient(t *testing.T) {
+	root := t.TempDir()
+	fv := mkClient(t, root, "_forever_")
+	ui := &fakeUI{dirs: []string{t.TempDir(), root}}
+	w, c, err := ChooseClient(ui)
+	if err != nil || w != root || c != fv {
+		t.Fatalf("ChooseClient = %q %q %v", w, c, err)
+	}
+	if len(ui.errors) != 1 {
+		t.Errorf("errori = %q", ui.errors)
+	}
+	if _, _, err := ChooseClient(&fakeUI{}); !errors.Is(err, ErrCanceled) {
+		t.Errorf("annullato: %v", err)
+	}
+}

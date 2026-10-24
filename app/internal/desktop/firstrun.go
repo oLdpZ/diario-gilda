@@ -15,10 +15,10 @@ import (
 
 // Testi del primo avvio.
 const (
-	PromptWowDir = "Dov'è installato World of Warcraft?"
+	PromptWowDir = "Scegli la cartella di WoW Forever"
 	PromptName   = "Con che nome vuoi comparire nel diario?"
 	MsgDone      = "Fatto! Il Diario di Gilda ora lavora da solo. Lo trovi vicino all'orologio."
-	MsgNoClient  = "In questa cartella non trovo World of Warcraft. Scegli la cartella dove è installato (quella che contiene _classic_ o simili)."
+	MsgNoClient  = "In questa cartella non trovo WoW Forever. Scegli la cartella di World of Warcraft che lo contiene, oppure direttamente la cartella del client di Forever (quella con Interface e WTF)."
 	MsgNameEmpty = "Scrivi un nome, per favore."
 	MsgNameLong  = "Il nome è troppo lungo: al massimo %d caratteri."
 )
@@ -61,28 +61,73 @@ func isDir(p string) bool {
 	return err == nil && fi.IsDir()
 }
 
-// ClientIn cerca un client dentro dir: dir stessa se ha Interface e WTF,
-// altrimenti il primo di wowdir.Clients(dir). Restituisce anche la cartella di
-// installazione (quella che contiene il client).
+// ClientIn cerca un client dentro la cartella scelta dal giocatore: dir stessa
+// se ha Interface e WTF (scelta esplicita, anche se non e' Forever), altrimenti
+// il primo client Forever di wowdir.Clients(dir). Un'installazione con soli
+// client non Forever non basta: si fa scegliere il client a mano. Restituisce
+// anche la cartella di installazione (quella che contiene il client).
 func ClientIn(dir string) (wowDir, clientDir string, ok bool) {
 	dir = filepath.Clean(dir)
 	if isDir(filepath.Join(dir, "Interface")) && isDir(filepath.Join(dir, "WTF")) {
 		return filepath.Dir(dir), dir, true
 	}
-	if cl := wowdir.Clients(dir); len(cl) > 0 {
-		return dir, cl[0], true
+	if cl := foreverIn(dir); cl != "" {
+		return dir, cl, true
 	}
 	return "", "", false
 }
 
-// FindClient prova le cartelle abituali, nell'ordine.
+// foreverIn e' il primo client Forever di root, o "".
+func foreverIn(root string) string {
+	if cl := wowdir.Clients(root); len(cl) > 0 && wowdir.IsForever(cl[0]) {
+		return cl[0]
+	}
+	return ""
+}
+
+// FindClient prova le cartelle abituali, nell'ordine, e accetta solo un client
+// Forever: un altro client (retail, classic) non si sceglie mai da solo.
 func FindClient(roots []string) (wowDir, clientDir string, ok bool) {
 	for _, r := range roots {
-		if cl := wowdir.Clients(r); len(cl) > 0 {
-			return r, cl[0], true
+		if cl := foreverIn(r); cl != "" {
+			return r, cl, true
 		}
 	}
 	return "", "", false
+}
+
+// ChooseClient chiede la cartella finche' non contiene un client (vedi
+// ClientIn). ErrCanceled se il giocatore annulla.
+func ChooseClient(ui UI) (wowDir, clientDir string, err error) {
+	for {
+		dir, err := ui.SelectDir(PromptWowDir)
+		if err != nil {
+			return "", "", err
+		}
+		if w, c, ok := ClientIn(dir); ok {
+			return w, c, nil
+		}
+		ui.Error(MsgNoClient)
+	}
+}
+
+// PreferForever passa al client Forever se quello salvato non lo e' e nella
+// stessa installazione ora ce n'e' uno (es. Forever installato dopo il primo
+// avvio). changed dice se cfg e' cambiata (va salvata).
+func PreferForever(cfg config.Config) (out config.Config, changed bool) {
+	if !clientOK(cfg.ClientDir) || wowdir.IsForever(cfg.ClientDir) {
+		return cfg, false
+	}
+	root := cfg.WowDir
+	if root == "" {
+		root = filepath.Dir(filepath.Clean(cfg.ClientDir))
+	}
+	cl := foreverIn(root)
+	if cl == "" {
+		return cfg, false
+	}
+	cfg.WowDir, cfg.ClientDir = root, cl
+	return cfg, true
 }
 
 // FirstRun chiede solo cio' che manca in cfg (cartella di WoW se assente o
@@ -99,13 +144,10 @@ func FirstRun(cfg config.Config, s Setup) (config.Config, error) {
 			log.Printf("cartella del client %s sparita: la si richiede", cfg.ClientDir)
 		}
 		w, c, ok := FindClient(s.Roots)
-		for !ok {
-			dir, err := s.UI.SelectDir(PromptWowDir)
-			if err != nil {
+		if !ok {
+			var err error
+			if w, c, err = ChooseClient(s.UI); err != nil {
 				return cfg, err
-			}
-			if w, c, ok = ClientIn(dir); !ok {
-				s.UI.Error(MsgNoClient)
 			}
 		}
 		cfg.WowDir, cfg.ClientDir = w, c

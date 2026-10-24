@@ -35,7 +35,7 @@ const (
 	pollEvery   = 10 * time.Second
 	stableFor   = 5 * time.Second
 	stopWait    = 10 * time.Second
-	msgMoveApp  = "Sposta il Diario di Gilda nella cartella Applicazioni e riaprilo da lì: così potrà partire da solo e aggiornarsi."
+	msgMoveApp  = "Sposta il Diario di Gilda nella cartella Applicazioni (se non sei amministratore del Mac, in quella della tua cartella Inizio) e riaprilo da lì: così potrà partire da solo e aggiornarsi."
 )
 
 func main() {
@@ -141,6 +141,14 @@ func start() error {
 			log.Printf("avvio automatico: %v", err)
 		}
 	}
+	// Forever installato dopo il primo avvio: si passa a quello (Ruling F2)
+	if c, changed := desktop.PreferForever(cfg); changed {
+		log.Printf("trovato il client Forever %s: lo uso al posto di %s", c.ClientDir, cfg.ClientDir)
+		if err := config.Save(dir, c); err != nil {
+			log.Printf("cartella del client non salvata: %v", err)
+		}
+		cfg = c
+	}
 	log.Printf("client: %s", cfg.ClientDir)
 
 	installAddon(cfg)
@@ -149,7 +157,7 @@ func start() error {
 	a := &app{dir: dir, exe: exe, ui: ui, ctx: ctx, stop: cancel, cfg: cfg, lock: lock}
 	a.lastSent = desktop.LoadLastSent(dir)
 	desktop.RunTray(desktop.TitleLabel(build.Version), desktop.LastSentLabel(a.lastSent, time.Now()),
-		desktop.Handlers{SendNow: a.sendNow, Rename: a.rename, OpenLogs: a.openLogs, Quit: desktop.QuitTray},
+		desktop.Handlers{SendNow: a.sendNow, Rename: a.rename, ChooseWowDir: a.chooseWowDir, OpenLogs: a.openLogs, Quit: desktop.QuitTray},
 		a.ready, a.exit)
 	log.Printf("uscita")
 	return nil
@@ -182,6 +190,7 @@ type app struct {
 	ctx      context.Context
 	stop     context.CancelFunc
 
+	cfgMu     sync.Mutex // serializza leggi-cambia-salva della configurazione
 	mu        sync.Mutex
 	cfg       config.Config
 	lock      *desktop.Lock
@@ -192,7 +201,7 @@ type app struct {
 
 	clickStop context.CancelFunc // ferma l'"Invia ora" in corso
 
-	sending, renaming, restarting atomic.Bool
+	sending, renaming, choosing, restarting atomic.Bool
 }
 
 func (a *app) config() config.Config {
@@ -337,7 +346,7 @@ func (a *app) sendNow() {
 	case after.After(before):
 		desktop.Notify("Diario inviato.")
 	default:
-		desktop.Notify("Niente di nuovo da inviare (una sessione parte quando chiudi World of Warcraft, o una decina di minuti dopo se era già chiuso).")
+		desktop.Notify("Niente di nuovo da inviare (una sessione parte una decina di minuti dopo che hai chiuso World of Warcraft).")
 	}
 }
 
@@ -351,17 +360,64 @@ func (a *app) rename() {
 	if err != nil || name == cfg.Player || a.restarting.Load() {
 		return
 	}
-	cfg.Player = name
-	if err := config.Save(a.dir, cfg); err != nil {
+	if _, err := a.updateConfig(func(c *config.Config) { c.Player = name }); err != nil {
 		log.Printf("cambio nome: %v", err)
 		a.ui.Error("Non riesco a salvare il nome: " + err.Error())
 		return
 	}
+	log.Printf("nome cambiato")
+	a.restartWatch()
+}
+
+// chooseWowDir e' la voce "Scegli cartella di WoW…": chiede la cartella come al
+// primo avvio, la salva, installa l'addon li' e riparte a guardare quella.
+func (a *app) chooseWowDir() {
+	if a.restarting.Load() || !a.choosing.CompareAndSwap(false, true) {
+		return
+	}
+	defer a.choosing.Store(false)
+	w, c, err := desktop.ChooseClient(a.ui)
+	if err != nil {
+		if !errors.Is(err, desktop.ErrCanceled) {
+			log.Printf("scelta cartella di WoW: %v", err)
+		}
+		return
+	}
+	if a.restarting.Load() {
+		return
+	}
+	if old := a.config(); old.ClientDir == c && old.WowDir == w {
+		return
+	}
+	cfg, err := a.updateConfig(func(cf *config.Config) { cf.WowDir, cf.ClientDir = w, c })
+	if err != nil {
+		log.Printf("scelta cartella di WoW: %v", err)
+		a.ui.Error("Non riesco a salvare la cartella: " + err.Error())
+		return
+	}
+	log.Printf("cartella del client cambiata: %s", cfg.ClientDir)
+	installAddon(cfg)
+	a.restartWatch()
+}
+
+// updateConfig applica f alla configurazione attuale e la salva; in memoria
+// cambia solo se il salvataggio riesce.
+func (a *app) updateConfig(f func(*config.Config)) (config.Config, error) {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	cfg := a.config()
+	f(&cfg)
+	if err := config.Save(a.dir, cfg); err != nil {
+		return cfg, err
+	}
 	a.mu.Lock()
 	a.cfg = cfg
 	a.mu.Unlock()
-	log.Printf("nome cambiato")
-	// Watch ha la configurazione vecchia: si riparte con quella nuova
+	return cfg, nil
+}
+
+// restartWatch fa ripartire Watch, che ha la configurazione vecchia.
+func (a *app) restartWatch() {
 	a.stopWatch()
 	if a.ctx.Err() == nil {
 		a.startWatch()

@@ -41,6 +41,15 @@ func rank(name string) int {
 	return 2
 }
 
+// IsForever dice se il nome della cartella del client e' quello di WoW Forever
+// (contiene "forever", o e' _classic_beta_): solo questi si scelgono da soli.
+func IsForever(clientDir string) bool {
+	if clientDir == "" {
+		return false
+	}
+	return rank(filepath.Base(clientDir)) < 2
+}
+
 // Clients restituisce le sottocartelle di root con Interface e WTF:
 // prima "forever", poi _classic_beta_, poi le altre (a pari rango, ordine alfabetico).
 func Clients(root string) []string {

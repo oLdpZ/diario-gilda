@@ -136,3 +136,23 @@ func TestClientsTieCaseInsensitive(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestIsForever(t *testing.T) {
+	for _, tc := range []struct {
+		dir  string
+		want bool
+	}{
+		{filepath.Join("C:", "WoW", "_forever_"), true},
+		{filepath.Join("WoW", "_Forever_"), true},
+		{filepath.Join("WoW", "WoW Forever"), true},
+		{filepath.Join("WoW", "_classic_beta_"), true},
+		{filepath.Join("WoW", "_classic_"), false},
+		{filepath.Join("WoW", "_retail_"), false},
+		{filepath.Join("forever", "_classic_"), false}, // conta solo il nome del client
+		{"", false},
+	} {
+		if got := IsForever(tc.dir); got != tc.want {
+			t.Errorf("IsForever(%q) = %v", tc.dir, got)
+		}
+	}
+}

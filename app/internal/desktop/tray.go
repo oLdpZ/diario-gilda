@@ -14,7 +14,7 @@ import (
 
 // Handlers sono le azioni del menu; ognuna parte in una goroutine sua.
 type Handlers struct {
-	SendNow, Rename, OpenLogs, Quit func()
+	SendNow, Rename, ChooseWowDir, OpenLogs, Quit func()
 }
 
 // Tray e' il menu dell'icona gia' costruito. I metodi sono sicuri su un *Tray nil.
@@ -45,6 +45,7 @@ func RunTray(title, status string, h Handlers, ready func(*Tray), exit func()) {
 		systray.AddSeparator()
 		t.send = systray.AddMenuItem(MenuSendNow, "")
 		rename := systray.AddMenuItem(MenuRename, "")
+		wowDir := systray.AddMenuItem(MenuWowDir, "")
 		logs := systray.AddMenuItem(MenuOpenLogs, "")
 		systray.AddSeparator()
 		quit := systray.AddMenuItem(MenuQuit, "")
@@ -60,6 +61,7 @@ func RunTray(title, status string, h Handlers, ready func(*Tray), exit func()) {
 		}
 		on(t.send, h.SendNow)
 		on(rename, h.Rename)
+		on(wowDir, h.ChooseWowDir)
 		on(logs, h.OpenLogs)
 		on(quit, h.Quit)
 		if ready != nil {

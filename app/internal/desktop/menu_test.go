@@ -56,3 +56,9 @@ func TestUpdateFailedLabel(t *testing.T) {
 		t.Errorf("etichetta lunga = %q (%d caratteri)", long, n)
 	}
 }
+
+func TestMenuWowDirLabel(t *testing.T) {
+	if MenuWowDir != "Scegli cartella di WoW…" {
+		t.Errorf("MenuWowDir = %q", MenuWowDir)
+	}
+}

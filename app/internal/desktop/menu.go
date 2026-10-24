@@ -13,6 +13,7 @@ import (
 const (
 	MenuSendNow  = "Invia ora"
 	MenuRename   = "Cambia nome…"
+	MenuWowDir   = "Scegli cartella di WoW…"
 	MenuOpenLogs = "Apri cartella dei registri"
 	MenuQuit     = "Esci"
 	NoSendYet    = "Nessun invio ancora"
