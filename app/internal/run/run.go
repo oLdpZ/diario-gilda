@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -49,6 +50,10 @@ type Env struct {
 	// GameRunning dice se WoW e' aperto (nil = chiuso). Con WoW aperto lo stop
 	// su disco puo' essere quello di un /reload: vedi final.
 	GameRunning func() bool
+	// NeedMain viene chiamata quando ci sono sessioni pronte ma Cfg.Main non e'
+	// scelto: quelle sessioni restano in attesa. chars sono i personaggi delle
+	// SavedVariables, il piu' recente prima.
+	NeedMain func(chars []config.Character)
 
 	saveState func(dir string, st *state.State) error // solo per i test; nil = state.Save
 }
@@ -141,20 +146,14 @@ func loadState(env Env, now int64) (*state.State, error) {
 }
 
 // enqueue legge tutte le SavedVariables del client e accoda le sessioni
-// definitive. Restituisce quante sessioni ha segnato nello stato.
+// definitive del personaggio principale; quelle degli altri personaggi si
+// segnano senza inviarle. Senza personaggio principale non accoda nulla e lo
+// chiede (NeedMain). Restituisce quante sessioni ha segnato nello stato.
 func enqueue(env Env, st *state.State, now int64) int {
-	var all []addondata.Session
-	for _, f := range wowdir.SavedVariables(env.Cfg.ClientDir) {
-		db, err := readSV(f)
-		if err != nil {
-			env.logf("%v (si riprova al prossimo giro)", err)
-			continue
-		}
-		all = append(all, db.Sessions...)
-	}
-
+	all := readAll(env)
 	running := env.gameRunning()
-	marked := 0
+	main := env.Cfg.Main
+	marked, waiting := 0, false
 	seen := map[string]bool{}
 	for _, s := range all {
 		if seen[s.ID] || st.Has(s.ID) {
@@ -163,6 +162,16 @@ func enqueue(env Env, st *state.State, now int64) int {
 		seen[s.ID] = true
 		ok, interrupted := final(s, all, now, running)
 		if !ok {
+			continue
+		}
+		if main.IsZero() {
+			waiting = true
+			continue
+		}
+		if !main.Is(s.Char, s.Realm) {
+			env.logf("sessione %s di %s: personaggio secondario, non inviata", s.ID, s.Char)
+			st.MarkQueued(s.ID, now)
+			marked++
 			continue
 		}
 		if now-s.Start > maxAge {
@@ -188,7 +197,61 @@ func enqueue(env Env, st *state.State, now int64) int {
 		marked++
 		env.logf("sessione %s in coda (%s)", s.ID, name)
 	}
+	if waiting {
+		env.logf("personaggio principale non scelto: sessioni in attesa")
+		if env.NeedMain != nil {
+			env.NeedMain(characters(all))
+		}
+	}
 	return marked
+}
+
+// readAll legge le sessioni di tutte le SavedVariables del client; un file
+// illeggibile si salta (si riprova al giro dopo).
+func readAll(env Env) []addondata.Session {
+	var all []addondata.Session
+	for _, f := range wowdir.SavedVariables(env.Cfg.ClientDir) {
+		db, err := readSV(f)
+		if err != nil {
+			env.logf("%v (si riprova al prossimo giro)", err)
+			continue
+		}
+		all = append(all, db.Sessions...)
+	}
+	return all
+}
+
+// Characters restituisce i personaggi delle SavedVariables di clientDir, il
+// piu' recente (ultima sessione iniziata) prima.
+func Characters(clientDir string) []config.Character {
+	return characters(readAll(Env{Cfg: config.Config{ClientDir: clientDir}}))
+}
+
+func characters(all []addondata.Session) []config.Character {
+	type seen struct {
+		c    config.Character
+		last int64
+	}
+	var out []seen
+outer:
+	for _, s := range all {
+		if s.Char == "" {
+			continue
+		}
+		for i := range out {
+			if out[i].c.Is(s.Char, s.Realm) {
+				out[i].last = max(out[i].last, s.Start)
+				continue outer
+			}
+		}
+		out = append(out, seen{config.Character{Char: s.Char, Realm: s.Realm}, s.Start})
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].last > out[j].last })
+	chars := make([]config.Character, len(out))
+	for i, x := range out {
+		chars[i] = x.c
+	}
+	return chars
 }
 
 func readSV(path string) (addondata.DB, error) {
