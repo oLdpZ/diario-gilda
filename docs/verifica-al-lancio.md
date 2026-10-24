@@ -12,7 +12,7 @@ Prima di iniziare scrivi `/console scriptErrors 1` (vedi voce 15).
     (non `DiarioGilda/DiarioGilda`) e che il TOC abbia `## Interface: 16001`; se Forever usa un altro numero di interfaccia,
     cambia il TOC. Se il percorso di WTF è diverso, aggiornalo nel Piano 2.
 
-- [ ] **2. `/diario` dopo il login.** Scrivi `/diario`: deve stampare tre righe: versione (0.1.0) e personaggio; eventi della
+- [ ] **2. `/diario` dopo il login.** Scrivi `/diario`: deve stampare tre righe: versione (0.1.1) e personaggio; eventi della
   sessione corrente e stato del registro combattimenti; sessioni salvate ed errori.
   - Se fallisce (nessuna risposta): l'addon non è stato caricato o è andato in errore al caricamento. Controlla l'elenco addon
     e gli errori Lua (voce 15). Un errore di sintassi indica il file da correggere. Se "errori" è maggiore di 0 subito dopo

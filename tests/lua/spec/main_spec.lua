@@ -188,7 +188,7 @@ describe("Main (collegamento al gioco)", function()
     H.slash("DIARIO", "")
     assert.is_true(printedHas("eventi"))
     assert.is_true(printedHas("Gino"))
-    assert.is_true(printedHas("0.1.0"))
+    assert.is_true(printedHas(H.load({ "Core/Const.lua" }).Const.VERSION))
   end)
 
   it("/diario debug stampa i lanci del giocatore", function()
