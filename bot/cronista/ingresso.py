@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from . import luasv
 from .discord import Discord, DiscordError
 from .stato import Stato
+from .testo import pulito
 
 MAX_DECOMPRESSO = 32 * 1024 * 1024
 MAX_EPOCH = 4_000_000_000
@@ -174,10 +175,11 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
             nome = str(a.get("filename", ""))
             if not (nome.lower().endswith(SUFFISSO_PACCHETTO) or nome.lower() == NOME_LUA):
                 continue
+            mostra = pulito(nome, 60)  # nome e messaggi vengono dai dati: corti e su una riga
             try:
                 buoni, scartate = _leggi(nome, d.scarica(a["url"]))
                 for e in scartate:
-                    r.avvisi.append(f"Pacchetto {nome} (messaggio {mid}): {e}")
+                    r.avvisi.append(f"Pacchetto {mostra} (messaggio {mid}): {pulito(e, 120)}")
                 for s in buoni:
                     id_ = s["sessione"]["id"]
                     if s["combattimenti"] and (id_ not in con_episodi or _chiave_migliore(s)
@@ -188,11 +190,11 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
                         migliori[id_] = s
                         r.messaggi[id_] = mid
             except DiscordError as e:
-                r.avvisi.append(f"Pacchetto {nome} (messaggio {mid}) saltato: {e}")
+                r.avvisi.append(f"Pacchetto {mostra} (messaggio {mid}) saltato: {pulito(e, 120)}")
                 if (e.status == 0 or e.status == 429 or e.status >= 500) and blocco is None:
                     blocco = int(mid)
             except (ValueError, KeyError) as e:
-                r.avvisi.append(f"Pacchetto {nome} (messaggio {mid}) saltato: {e}")
+                r.avvisi.append(f"Pacchetto {mostra} (messaggio {mid}) saltato: {pulito(e, 120)}")
     for id_, s in list(migliori.items()):
         altra = con_episodi.get(id_)
         if not s["combattimenti"] and altra is not None:

@@ -60,6 +60,15 @@ class TestPagina(unittest.TestCase):
         self.assertNotIn("@everyone", e["description"])
         self.assertNotIn("@Gino", e["description"])
 
+    def test_niente_link_ne_indirizzi(self):
+        msgs = pagina.embed("# T\n\nVisita [la taverna](https://male.example/x \"t\") o https://male.example/y, "
+                            "<http://male.example/z> e HTTPS://MALE.EXAMPLE/w. Fine.")
+        d = msgs[0][0]["description"]
+        self.assertNotIn("http", d.lower())
+        self.assertNotIn("](", d)
+        self.assertIn("la taverna", d)
+        self.assertIn("Fine.", d)
+
     def test_vuota(self):
         with self.assertRaises(ValueError):
             pagina.embed("  \n\n ")

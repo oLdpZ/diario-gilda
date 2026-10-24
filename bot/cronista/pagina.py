@@ -1,6 +1,8 @@
 """Pagina di diario (Markdown) -> messaggi di embed nei limiti di Discord."""
 from __future__ import annotations
 
+import re
+
 COLORE = 0xC8A15A
 PIEDE = "Il Cronista della Gilda"
 MAX_TITOLO = 256
@@ -8,6 +10,15 @@ MAX_DESCRIZIONE = 4096
 MAX_EMBED = 10
 MAX_MESSAGGIO = 6000
 _ZWSP = "​"
+
+
+_LINK = re.compile(r"\[([^\]\n]*)\]\([^)\n]*\)")  # [testo](indirizzo) -> testo
+_URL = re.compile(r"<?\bhttps?://[^\s>]*>?", re.IGNORECASE)
+
+
+def _senza_link(testo: str) -> str:
+    # la pagina non porta mai fuori: niente link Markdown né indirizzi
+    return _URL.sub("", _LINK.sub(r"\1", testo))
 
 
 def _senza_menzioni(testo: str) -> str:
@@ -69,7 +80,7 @@ def _titolo(riga: str) -> str:
 
 def embed(testo_md: str) -> list[list[dict]]:
     """Messaggi (liste di embed): `# Titolo` in testa diventa il titolo del primo embed."""
-    testo = _senza_menzioni(testo_md.replace("\r\n", "\n")).strip()
+    testo = _senza_menzioni(_senza_link(testo_md.replace("\r\n", "\n"))).strip()
     titolo = None
     if testo.startswith("# "):
         prima, _, testo = testo.partition("\n")

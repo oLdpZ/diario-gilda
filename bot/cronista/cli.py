@@ -1,4 +1,4 @@
-"""Comandi del Cronista: prepara | pubblica <file.md> [--prova] | chiudi [--ricorrenza TESTO]..."""
+"""Comandi del Cronista: prepara | pubblica <file.md> [--prova] | chiudi [--ricorrenze-file FILE]"""
 from __future__ import annotations
 
 import argparse
@@ -13,6 +13,7 @@ from pathlib import Path
 from . import ingresso, momenti, pagina, stato
 from .discord import Discord, DiscordError
 from .stato import Stato
+from .testo import pulito
 
 QUI = Path(__file__).resolve().parent.parent  # bot/
 CONFIG = QUI / "config.json"
@@ -21,7 +22,8 @@ TITOLO_GIORNO = "Cronache della Gilda — Giorno {n}, Era della Rinascita"
 TITOLO_RECUPERO = "Le Cronache dei primi giorni"
 MAX_RICORRENZE_GIORNO = 3
 MAX_RICORRENZE = 20
-MAX_LUNGHEZZA_RICORRENZA = 150
+MAX_LUNGHEZZA_RICORRENZA = 120
+MAX_FILE_RICORRENZE = 64 * 1024
 RITARDO_MAX_GIORNI = 7
 MAX_AVVISI_STAMPATI = 30
 ERRORI_DATI = (ValueError, TypeError, KeyError, OverflowError, OSError)
@@ -56,6 +58,15 @@ def _chiave(p: Path | str) -> str:
     return os.path.normcase(str(Path(p).resolve()))
 
 
+def _dentro(p: Path, cartella: Path) -> bool:
+    """True se `p` sta dentro `cartella` (dopo aver risolto i percorsi)."""
+    a, b = _chiave(p), _chiave(cartella)
+    try:
+        return os.path.commonpath([a, b]) == b and a != b
+    except ValueError:  # dischi diversi
+        return False
+
+
 def _canali(d: Discord, cfg: dict) -> tuple[str, str]:
     srv = d.server(cfg.get("server"))
     return d.canale(srv["id"], cfg["canale_diario"]), d.canale(srv["id"], cfg["canale_servizio"])
@@ -70,20 +81,20 @@ def _giocatori(sessioni: list[dict]) -> dict[str, str]:
     out: dict[str, str] = {}
     for s in sorted(sessioni, key=lambda s: s["sessione"]["start"]):
         se = s["sessione"]
-        parti = [str(se.get("char") or "")]
-        cr = " ".join(str(se[k]) for k in ("class", "race") if se.get(k))
+        parti = [pulito(se.get("char") or "")]
+        cr = " ".join(pulito(se[k], 40) for k in ("class", "race") if se.get(k))
         if cr:
             parti.append(cr)
         if se.get("level") is not None:
             parti.append(f"livello {se['level']}")
-        out[s["giocatore"]] = ", ".join(p for p in parti if p)
+        out[pulito(s["giocatore"])] = ", ".join(p for p in parti if p)
     return dict(sorted(out.items()))
 
 
 def _pulisci_lavoro(cartella: Path) -> None:
     cartella.mkdir(parents=True, exist_ok=True)
     for pat in ("giorno-*.md", "giorno-*.json", "pagina-*.md", "recupero.md",
-                "prepara.json", "prepara-chiuso.json"):
+                "prepara.json", "prepara-chiuso.json", "ricorrenze.txt"):
         for f in cartella.glob(pat):
             f.unlink()
 
@@ -98,8 +109,8 @@ def _per_giornata(sessioni: list[dict], fuso: str, inizio: str):
         try:
             g = ingresso.giornata(s["sessione"]["start"], fuso, inizio)
         except ERRORI_DATI as e:
-            avvisi.append(f"Sessione {s['sessione'].get('id')} di {s.get('giocatore')} ignorata: "
-                          f"giornata non calcolabile ({e})")
+            avvisi.append(f"Sessione {pulito(s['sessione'].get('id'), 60)} di {pulito(s.get('giocatore'), 40)} "
+                          f"ignorata: giornata non calcolabile ({pulito(e, 80)})")
             continue
         out.setdefault(g, []).append(s)
     return dict(sorted(out.items())), avvisi
@@ -139,7 +150,7 @@ def _dividi(sessioni: list[dict], st: Stato, cfg: dict, ora: float):
 def _stampa_avvisi(avvisi: list[str]) -> None:
     print(f"Avvisi: {len(avvisi)}")
     for a in avvisi[:MAX_AVVISI_STAMPATI]:
-        print(f"  - {a}")
+        print(f"  - {pulito(a, 200)}")
     if len(avvisi) > MAX_AVVISI_STAMPATI:
         print(f"  … e altri {len(avvisi) - MAX_AVVISI_STAMPATI} avvisi.")
 
@@ -147,7 +158,7 @@ def _stampa_avvisi(avvisi: list[str]) -> None:
 def _note(titolo: str, file_pagina: Path, ricorrenze: list[str]) -> list[str]:
     righe = ["", "## Per la pagina", "",
              f"Titolo: {titolo}", f"File da scrivere: {_mostra(file_pagina)}", "", "Ricorrenze:"]
-    righe += [f"- {r}" for r in ricorrenze] if ricorrenze else ["Nessuna."]
+    righe += [f"- {pulito(r, MAX_LUNGHEZZA_RICORRENZA)}" for r in ricorrenze] if ricorrenze else ["Nessuna."]
     return righe
 
 
@@ -190,16 +201,16 @@ def prepara(ora: float) -> int:
     for g, s in ritardo:
         pronte[giorni[0]].append(s)
         avvisi_extra[giorni[0]].append(
-            f"Sessione di {s['giocatore']} del {g} arrivata in ritardo: inclusa in questa giornata "
+            f"Sessione di {pulito(s['giocatore'], 40)} del {g} arrivata in ritardo: inclusa in questa giornata "
             f"(i suoi momenti hanno «in ritardo: {g}»).")
     if vecchie:
-        chi = ", ".join(sorted({s["giocatore"] for _, s in vecchie}))
+        chi = ", ".join(sorted({pulito(s["giocatore"], 40) for _, s in vecchie}))
         quando = ", ".join(sorted({g for g, _ in vecchie}))
         avvisi_extra[giorni[0]].append(
             f"{len(vecchie)} sessioni troppo vecchie ignorate (giocatori: {chi}; giornate: {quando}).")
     for g, s in future:
         avvisi_extra[giorni[0]].append(
-            f"Sessione di {s['giocatore']} con data nel futuro ({g}): ignorata (orologio del PC sbagliato?).")
+            f"Sessione di {pulito(s['giocatore'], 40)} con data nel futuro ({g}): ignorata (orologio del PC sbagliato?).")
     recupero = len(giorni) > 1 and not st.giorni_pubblicati
 
     # contatori a catena: ogni giornata vede quelli di prima, poi li aggiorna
@@ -274,7 +285,7 @@ def prepara(ora: float) -> int:
     _scrivi_json(cartella / "prepara.json", {"versione": 2, "creato": int(ora), "pagine": pagine,
                                              "pubblicate": [], "stato": pagine[-1]["stato"]})
 
-    tutti = sorted({s["giocatore"] for g in giorni for s in pronte[g]})
+    tutti = sorted({pulito(s["giocatore"]) for g in giorni for s in pronte[g]})
     print(f"Giornate pronte: {', '.join(giorni)}")
     print(f"Giocatori: {', '.join(tutti)}")
     _stampa_avvisi(avvisi_lettura + [a for g in giorni for a in avvisi_extra[g]])
@@ -323,6 +334,8 @@ def _stato_da(dati: dict) -> Stato:
 
 def _controlla(p: Path, prova: bool, prep_file: Path):
     """(messaggi, prepara.json, pagina attesa) o Errore: nulla è stato inviato."""
+    if not _dentro(p, prep_file.parent):
+        raise Errore(f"si pubblicano solo file dentro bot/lavoro/ ({_mostra(p)} è fuori)")
     try:
         testo = p.read_text(encoding="utf-8")
     except OSError as e:
@@ -389,19 +402,35 @@ def _ricorrenze(nuove: list[str]) -> tuple[list[str], list[str]]:
     """(ricorrenze accettate, messaggi di avviso)."""
     ok, avvisi = [], []
     for r in nuove:
-        r = " ".join(r.replace("@", "").split())
+        r = pulito(str(r).replace("@", ""), MAX_LUNGHEZZA_RICORRENZA)
         if not r:
             continue
         if len(ok) >= MAX_RICORRENZE_GIORNO:
             avvisi.append(f"Ricorrenza ignorata (massimo {MAX_RICORRENZE_GIORNO} al giorno): {r[:60]}")
             continue
-        if len(r) > MAX_LUNGHEZZA_RICORRENZA:
-            r = r[:MAX_LUNGHEZZA_RICORRENZA - 1].rstrip() + "…"
         ok.append(r)
     return ok, avvisi
 
 
-def chiudi(ricorrenze: list[str], ora: float) -> int:
+def _leggi_ricorrenze(file: str) -> list[str]:
+    """Righe del file delle ricorrenze (solo dentro bot/lavoro/); Errore se non va."""
+    p = Path(file)
+    if not _dentro(p, _lavoro()):
+        raise Errore(f"il file delle ricorrenze deve stare dentro bot/lavoro/ ({_mostra(p)}). Stato non salvato.")
+    try:
+        with p.open("rb") as f:
+            dati = f.read(MAX_FILE_RICORRENZE + 1)
+    except OSError as e:
+        raise Errore(f"file delle ricorrenze non leggibile: {_mostra(p)} ({e.strerror or e}). "
+                     "Stato non salvato.") from None
+    if len(dati) > MAX_FILE_RICORRENZE:
+        raise Errore("file delle ricorrenze troppo grande. Stato non salvato.")
+    return dati.decode("utf-8", "replace").split("\n")  # solo gli a capo veri separano le righe
+
+
+def chiudi(ricorrenze: list[str], ora: float, file_ricorrenze: str | None = None) -> int:
+    if file_ricorrenze:
+        ricorrenze = list(ricorrenze) + _leggi_ricorrenze(file_ricorrenze)
     prep_file = _lavoro() / "prepara.json"
     if not prep_file.exists():
         raise Errore("manca bot/lavoro/prepara.json: esegui prima `prepara` (e `pubblica`), poi `chiudi`")
@@ -436,7 +465,10 @@ def _parser() -> argparse.ArgumentParser:
     pb.add_argument("file")
     pb.add_argument("--prova", action="store_true", help="pubblica nel canale di servizio")
     ch = sub.add_parser("chiudi", help="salva lo stato su Discord dopo la pubblicazione")
-    ch.add_argument("--ricorrenza", action="append", default=[], metavar="TESTO")
+    ch.add_argument("--ricorrenze-file", metavar="FILE",
+                    help="file in bot/lavoro/ con una ricorrenza per riga (al massimo 3)")
+    ch.add_argument("--ricorrenza", action="append", default=[], metavar="TESTO",
+                    help=argparse.SUPPRESS)  # solo per i test: le istruzioni usano il file
     return ap
 
 
@@ -448,7 +480,7 @@ def main(argv: list[str] | None = None, ora: float | None = None) -> int:
             return prepara(ora)
         if args.comando == "pubblica":
             return pubblica(args.file, args.prova, ora)
-        return chiudi(args.ricorrenza, ora)
+        return chiudi(args.ricorrenza, ora, args.ricorrenze_file)
     except (Errore, DiscordError) as e:
         print(f"Errore: {e}", file=sys.stderr)
         return 1

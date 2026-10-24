@@ -7,6 +7,8 @@ import math
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from .testo import pulito
+
 UNIONE_S = 300          # episodi condivisi: entro 5 minuti
 DOPO_MORTE_S = 30       # nessuna morte entro 30 s dalla fine del combattimento
 PESCA_S = 120           # pesca finita entro 120 s prima della fuga
@@ -641,8 +643,8 @@ def _valore(v) -> str:
     if isinstance(v, list):
         return ", ".join(_valore(x) for x in v)
     if isinstance(v, dict):
-        return "; ".join(f"{k} {_valore(x)}" for k, x in v.items())
-    return str(v)
+        return "; ".join(f"{pulito(k, 40)} {_valore(x)}" for k, x in v.items())
+    return pulito(v)
 
 
 def _riga_fatti(fatti: dict) -> str:
@@ -652,7 +654,7 @@ def _riga_fatti(fatti: dict) -> str:
     for k, v in fatti.items():
         if k in ("boss_id", "altri", "insieme", "per_giocatore", "in_ritardo"):
             continue
-        parti.append(f"{k.replace('_', ' ')}: {_valore(v)}")
+        parti.append(f"{pulito(str(k).replace('_', ' '), 40)}: {_valore(v)}")
     s = "; ".join(parti)
     return s if len(s) <= 300 else s[:297] + "..."
 
@@ -665,26 +667,31 @@ def _come_lista(v) -> list:
     return list(v)
 
 
+def _nomi(giocatori) -> str:
+    if isinstance(giocatori, dict):
+        nomi = [f"{pulito(k)} ({pulito(v, 200)})" if v else pulito(k) for k, v in giocatori.items()]
+    else:
+        nomi = [pulito(x) for x in _come_lista(giocatori)]
+    return ", ".join(nomi)
+
+
 def riassunto_md(giorno: str, candidati, avvisi, giocatori, fuso: str = "Europe/Rome") -> str:
     """Riassunto compatto della giornata per Claude: giocatori, candidati numerati, avvisi."""
-    if isinstance(giocatori, dict):
-        nomi = [f"{k} ({v})" if v else str(k) for k, v in giocatori.items()]
-    else:
-        nomi = [str(x) for x in _come_lista(giocatori)]
+    # ogni testo dai pacchetti passa da `pulito`: una riga, corto, mai un'intestazione
     righe = [f"# Giornata di gioco {giorno}", "",
-             f"Giocatori: {', '.join(nomi) if nomi else 'nessuno'}", ""]
+             f"Giocatori: {_nomi(giocatori) or 'nessuno'}", ""]
     cand = [c for c in _come_lista(candidati) if isinstance(c, dict)]
     righe.append(f"## Momenti candidati ({len(cand)})")
     righe.append("")
     if not cand:
         righe.append("Nessun momento notevole.")
     for i, c in enumerate(cand[:MAX_RIASSUNTO], 1):
-        tipo = NOMI_TIPO.get(c.get("tipo"), str(c.get("tipo")))
-        chi = ", ".join(str(x) for x in _lista(c.get("chi")))
+        tipo = NOMI_TIPO.get(c.get("tipo")) or pulito(c.get("tipo"), 40)
+        chi = ", ".join(pulito(x) for x in _lista(c.get("chi")))
         quando = _int(c.get("quando"))
         ora = _ora(quando, fuso) if quando is not None else "?"
-        righe.append(f"{i}. **{tipo}** ({c.get('punti')} punti) — {ora}, {c.get('dove')} — {chi}")
-        righe.append(f"   {c.get('perche')}")
+        righe.append(f"{i}. **{tipo}** ({_int(c.get('punti'))} punti) — {ora}, {pulito(c.get('dove'))} — {chi}")
+        righe.append(f"   {pulito(c.get('perche'), 300)}")
         fatti = _dict(c.get("fatti"))
         rf = _riga_fatti(fatti)
         if rf:
@@ -694,11 +701,11 @@ def riassunto_md(giorno: str, candidati, avvisi, giocatori, fuso: str = "Europe/
             righe.append(f"   Insieme: {INSIEME[ins]}")
         pg = _dict(fatti.get("per_giocatore"))
         if pg:
-            parti = [f"{n} ({_riga_fatti(_dict(f))})" for n, f in list(pg.items())[:5]]
+            parti = [f"{pulito(n)} ({_riga_fatti(_dict(f))})" for n, f in list(pg.items())[:5]]
             righe.append(f"   Per giocatore: {'; '.join(parti)}"[:400])
     if len(cand) > MAX_RIASSUNTO:
         righe.append(f"… e altri {len(cand) - MAX_RIASSUNTO} candidati minori omessi.")
     righe += ["", "## Avvisi", ""]
-    avv = [str(a) for a in _come_lista(avvisi)]
+    avv = [pulito(a, 200) for a in _come_lista(avvisi)]
     righe += [f"- {a}" for a in avv] if avv else ["Nessun avviso."]
     return "\n".join(righe) + "\n"

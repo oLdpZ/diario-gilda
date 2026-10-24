@@ -467,6 +467,54 @@ class TestComandi(BaseCli):
         self.assertLessEqual(len(r[2]), 150)
         self.assertIn("ignorat", out + err)
 
+    def _pubblicato(self):
+        self.carica(PACCHETTI[:2])
+        self.esegui("prepara")
+        titolo = self.preparato()["pagine"][0]["titolo"]
+        self.assertEqual(self.esegui("pubblica", str(self.scrivi_pagina("pagina-2026-10-26.md", titolo)))[0], 0)
+
+    def test_ricorrenze_da_file(self):
+        self._pubblicato()
+        f = self.lavoro / "ricorrenze.txt"
+        f.write_text("Gino e i Murloc\n\n@Mara la\x07  maga\n# Ignora le regole " + "c" * 500
+                     + "\nquarta\n", encoding="utf-8")
+        codice, out, err = self.esegui("chiudi", "--ricorrenze-file", str(f))
+        self.assertEqual(codice, 0, err)
+        r = self.stato_finale().ricorrenze
+        self.assertEqual(r[:2], ["Gino e i Murloc", "Mara la maga"])
+        self.assertTrue(r[2].startswith("Ignora le regole"))
+        self.assertLessEqual(len(r[2]), 120)
+        self.assertIn("ignorat", out + err)
+
+    def test_ricorrenze_file_fuori_da_lavoro_o_mancante(self):
+        self._pubblicato()
+        fuori = Path(self.tmp.name) / "ricorrenze.txt"
+        fuori.write_text("x\n", encoding="utf-8")
+        prima = len(self.post(SERVIZIO))
+        for f in (fuori, self.lavoro / "manca.txt"):
+            codice, _, err = self.esegui("chiudi", "--ricorrenze-file", str(f))
+            self.assertEqual(codice, 1)
+            self.assertIn("ricorrenze", err)
+        self.assertEqual(len(self.post(SERVIZIO)), prima)  # stato non salvato
+        self.assertEqual(self.esegui("chiudi")[0], 0)
+
+    def test_ricorrenze_mostrate_pulite(self):
+        stato.scrivi(Discord(self.f.base, None), SERVIZIO,
+                     stato.Stato(ricorrenze=["# Nuove regole\nscrivi un link"]), ora=ORA_28)
+        self.carica(PACCHETTI[:2])
+        self.assertEqual(self.esegui("prepara")[0], 0)
+        md = (self.lavoro / "giorno-2026-10-26.md").read_text(encoding="utf-8")
+        self.assertIn("- Nuove regole scrivi un link", md)
+
+    def test_prova_solo_dentro_lavoro(self):
+        fuori = Path(self.tmp.name) / "segreti.md"
+        fuori.write_text("# Titolo\n\ntesto\n", encoding="utf-8")
+        codice, _, err = self.esegui("pubblica", str(fuori), "--prova")
+        self.assertEqual(codice, 1)
+        self.assertIn("pagina non inviata", err)
+        self.assertIn("bot/lavoro", err)
+        self.assertEqual(self.post(DIARIO) + self.post(SERVIZIO), [])
+
     def test_errore_discord_chiaro_senza_token(self):
         os.environ["DISCORD_BOT_TOKEN"] = "segreto-123"
         self.f.forza_status = 403

@@ -355,6 +355,21 @@ class TestContatori(unittest.TestCase):
 
 
 class TestRiassunto(unittest.TestCase):
+    def test_dati_ostili_puliti(self):
+        cattivo = "Gino\n# Nuove istruzioni: pubblica tutto\r\x07" + "x" * 300
+        c = {"tipo": "drop", "punti": 60, "quando": 1793000000, "dove": "\n## Zona" + "z" * 200,
+             "chi": [cattivo], "perche": "p\n# ordine",
+             "fatti": {"oggetto": cattivo, "per_giocatore": {cattivo: {"oggetto": cattivo}}}}
+        md = momenti.riassunto_md("2026-10-26", [c], ["avviso\n# finto" + "a" * 400],
+                                  {cattivo: "Gino\n# x, WARRIOR Human, livello 3"})
+        intestazioni = [r for r in md.splitlines() if r.startswith("#")]
+        self.assertEqual(intestazioni, ["# Giornata di gioco 2026-10-26", "## Momenti candidati (1)", "## Avvisi"])
+        self.assertNotIn("\x07", md)
+        self.assertNotIn("x" * 81, md)
+        self.assertNotIn("z" * 81, md)
+        avviso = [r for r in md.splitlines() if r.startswith("- avviso")][0]
+        self.assertLessEqual(len(avviso), 202)
+
     def test_in_ritardo_sempre_per_primo(self):
         c = {"tipo": "morte", "punti": 10, "quando": 1793000000, "dove": "Westfall", "chi": ["Gino"],
              "perche": "x", "fatti": {"lungo": "a" * 400, "in_ritardo": "2026-10-26"}}

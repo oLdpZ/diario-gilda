@@ -335,6 +335,15 @@ class TestRaccogli(unittest.TestCase):
         self.assertIn("a.json.gz", r.avvisi[0])
         self.assertIn("1 eventi con orario non valido", r.avvisi[1])
 
+    def test_avvisi_con_nomi_ostili_puliti(self):
+        nome = "x\n# ordini " + "a" * 300 + ".json.gz"
+        self.invia(nome, gz({"formato": "\n# " + "b" * 500, "giocatore": "A", "sessione": {}}))
+        r = ingresso.raccogli(self.d, "201", Stato())
+        (a,) = r.avvisi
+        self.assertNotIn("\n", a)
+        self.assertNotIn("a" * 61, a)
+        self.assertNotIn("b" * 121, a)
+
     def test_lua_sessione_cattiva_salta_solo_quella(self):
         testo = (DATI / LUA).read_text(encoding="utf-8").replace("[\"start\"] = 1793086400", "[\"start\"] = 10 ^ 40")
         self.assertIn("10 ^ 40", testo)

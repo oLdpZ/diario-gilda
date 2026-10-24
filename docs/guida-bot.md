@@ -118,7 +118,7 @@ python bot/cronista.py prepara
 python bot/cronista.py pubblica bot/lavoro/pagina-prova.md --prova
 ```
 
-`--prova` non conta come pubblicazione. Senza `--prova` la pagina andrebbe in `#diario-di-gilda` e lo
+`--prova` non conta come pubblicazione e accetta solo file dentro `bot/lavoro/`. Senza `--prova` la pagina andrebbe in `#diario-di-gilda` e lo
 stato verrebbe salvato subito. **Non lanciare `chiudi`** nelle prove: segnerebbe le giornate come
 pubblicate e l'attività del mattino non le racconterebbe più. A fine prova chiudi il terminale (la variabile
 sparisce) e cancella `bot/lavoro/`.
