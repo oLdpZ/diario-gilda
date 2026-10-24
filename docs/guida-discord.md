@@ -66,10 +66,14 @@ Nel server della gilda crea due canali di testo:
 Per una build di prova sul tuo PC (solo Windows):
 
 ```bash
-DIARIO_WEBHOOK='<url webhook>' DIARIO_PUBKEY='<PUBLIC_KEY>' bash scripts/build-app.sh
+read -rs DIARIO_WEBHOOK && export DIARIO_WEBHOOK   # incolla l'URL del webhook e premi Invio: non si vede
+DIARIO_PUBKEY='<PUBLIC_KEY>' bash scripts/build-app.sh
 ```
 
-Crea `dist/DiarioGilda-windows-amd64.zip`; con anche `FIRMA_KEY='<FIRMA_KEY>'` crea il `.sig`.
+Non scrivere il webhook (né `FIRMA_KEY`) direttamente sulla riga di comando: finirebbe nella cronologia della shell.
+`read -s` lo legge senza mostrarlo e senza salvarlo; se te ne dimentichi, lo script te lo chiede da solo nello
+stesso modo. Crea `dist/DiarioGilda-windows-amd64.zip`; per avere anche il `.sig`, prima del comando leggi la
+chiave allo stesso modo: `read -rs FIRMA_KEY && export FIRMA_KEY`.
 
 ## 6. Fare una release
 

@@ -17,8 +17,6 @@ import (
 	"io"
 	"os"
 	"strings"
-
-	"github.com/oLdpZ/diario-gilda/app/internal/update"
 )
 
 func main() {
@@ -98,5 +96,26 @@ func verify(file, pubB64 string) error {
 	if err != nil {
 		return fmt.Errorf("lettura firma: %w", err)
 	}
-	return update.Verify(data, sig, pubB64)
+	return verifySig(data, sig, pubB64)
+}
+
+// verifySig e' una copia di update.Verify (stesso controllo dell'app, vedi
+// TestVerifySigMatchesUpdate): cosi' il comando non dipende dal pacchetto
+// dell'aggiornamento e dalle sue dipendenze.
+func verifySig(data, sig []byte, pubKeyB64 string) error {
+	if pubKeyB64 == "" {
+		return errors.New("chiave pubblica assente")
+	}
+	pub, err := base64.StdEncoding.DecodeString(strings.TrimSpace(pubKeyB64))
+	if err != nil || len(pub) != ed25519.PublicKeySize {
+		return errors.New("chiave pubblica non valida")
+	}
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(sig)))
+	if err != nil || len(raw) != ed25519.SignatureSize {
+		return errors.New("firma non valida")
+	}
+	if !ed25519.Verify(ed25519.PublicKey(pub), data, raw) {
+		return errors.New("firma non corrispondente")
+	}
+	return nil
 }

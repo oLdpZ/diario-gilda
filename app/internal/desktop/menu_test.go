@@ -62,3 +62,9 @@ func TestMenuWowDirLabel(t *testing.T) {
 		t.Errorf("MenuWowDir = %q", MenuWowDir)
 	}
 }
+
+func TestMsgRunning(t *testing.T) {
+	if MsgRunning != "Diario di Gilda è già in esecuzione: lo trovi vicino all'orologio." {
+		t.Errorf("MsgRunning = %q", MsgRunning)
+	}
+}

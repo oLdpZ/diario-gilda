@@ -18,6 +18,7 @@ const (
 	MenuQuit     = "Esci"
 	NoSendYet    = "Nessun invio ancora"
 	MsgAddonNew  = "Addon aggiornato: scrivi /reload in gioco."
+	MsgRunning   = "Diario di Gilda è già in esecuzione: lo trovi vicino all'orologio."
 	UpdateFailed = "Aggiornamento non riuscito: "
 )
 

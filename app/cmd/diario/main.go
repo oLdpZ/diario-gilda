@@ -76,9 +76,10 @@ func start() error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fatal(noDataDir, err)
 	}
-	// prima il lock, poi il log: un secondo avvio esce senza toccare diario.log
+	// prima il lock, poi il log: un secondo avvio avvisa ed esce senza toccare diario.log
 	lock, err := desktop.Acquire(dir)
 	if errors.Is(err, desktop.ErrLocked) {
+		desktop.Dialogs{}.Info(desktop.MsgRunning)
 		return nil
 	}
 	if err != nil {

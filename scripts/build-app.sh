@@ -3,8 +3,13 @@
 # Crea dist/DiarioGilda-windows-amd64.zip con DiarioGilda.exe e VERSION (la versione e'
 # la riga "## Version:" del TOC dell'addon) e, se FIRMA_KEY e' impostata, anche il .sig.
 #
-#   DIARIO_WEBHOOK=<url webhook>  DIARIO_PUBKEY=<PUBLIC_KEY>  [FIRMA_KEY=<chiave>]  bash scripts/build-app.sh
+#   read -rs DIARIO_WEBHOOK && export DIARIO_WEBHOOK     # incolla l'URL, Invio (non si vede)
+#   read -rs FIRMA_KEY && export FIRMA_KEY               # facoltativo, per il .sig
+#   DIARIO_PUBKEY=<PUBLIC_KEY> bash scripts/build-app.sh
 #
+# I segreti non vanno sulla riga di comando: finirebbero nella cronologia della shell.
+# Se DIARIO_WEBHOOK non e' impostata e lo script gira in un terminale, lo chiede
+# (senza mostrarlo); Invio a vuoto = build senza webhook.
 # Senza DIARIO_WEBHOOK l'app non invia nulla; senza DIARIO_PUBKEY non si aggiorna da sola.
 # Il webhook non viene mai stampato. Funziona da Git Bash su Windows e su Linux:
 # usa zip se c'e', altrimenti python -m zipfile, altrimenti PowerShell Compress-Archive.
@@ -25,6 +30,10 @@ if [ -z "$VERSION" ]; then
 fi
 
 WEBHOOK="${DIARIO_WEBHOOK:-}"
+if [ -z "$WEBHOOK" ] && [ -t 0 ]; then
+  read -rsp "URL del webhook (non viene mostrato; Invio a vuoto = nessuno): " WEBHOOK
+  echo >&2
+fi
 PUBKEY="${DIARIO_PUBKEY:-}"
 [ -n "$WEBHOOK" ] || echo "ATTENZIONE: DIARIO_WEBHOOK vuota, questa build non inviera' nulla a Discord" >&2
 [ -n "$PUBKEY" ] || echo "ATTENZIONE: DIARIO_PUBKEY vuota, questa build non si aggiornera' da sola" >&2

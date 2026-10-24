@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -176,5 +178,56 @@ func TestVerifyCommand(t *testing.T) {
 	}
 	if code := run([]string{"verify", file}, env(pub), &out, &errOut); code == 0 {
 		t.Error("tampered: exit 0")
+	}
+}
+
+// verifySig e' una copia di update.Verify (il job di firma non deve caricare le
+// dipendenze dell'aggiornamento): devono dare sempre lo stesso esito.
+func TestVerifySigMatchesUpdate(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, _, _ := ed25519.GenerateKey(nil)
+	data := []byte("zip finto")
+	good := base64.StdEncoding.EncodeToString(ed25519.Sign(priv, data))
+	pubB64 := base64.StdEncoding.EncodeToString(pub)
+	cases := []struct {
+		name      string
+		data      []byte
+		sig, pubK string
+		ok        bool
+	}{
+		{"buona", data, good, pubB64, true},
+		{"buona con a capo e spazi", data, "  " + good + "\r\n", " " + pubB64 + "\n", true},
+		{"dati cambiati", []byte("zip finta"), good, pubB64, false},
+		{"altra chiave", data, good, base64.StdEncoding.EncodeToString(other), false},
+		{"chiave vuota", data, good, "", false},
+		{"chiave non base64", data, good, "!!", false},
+		{"chiave corta", data, good, base64.StdEncoding.EncodeToString([]byte("corta")), false},
+		{"firma non base64", data, "!!", pubB64, false},
+		{"firma corta", data, base64.StdEncoding.EncodeToString([]byte("x")), pubB64, false},
+	}
+	for _, c := range cases {
+		a := verifySig(c.data, []byte(c.sig), c.pubK)
+		b := update.Verify(c.data, []byte(c.sig), c.pubK)
+		if (a == nil) != c.ok || (b == nil) != c.ok {
+			t.Errorf("%s: firma=%v update=%v, atteso ok=%v", c.name, a, b, c.ok)
+		}
+	}
+}
+
+// Il comando non deve importare app/internal/update (go-selfupdate e il resto
+// non servono per firmare).
+func TestNoUpdateImport(t *testing.T) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "main.go", nil, parser.ImportsOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, imp := range f.Imports {
+		if strings.Contains(imp.Path.Value, "/internal/") {
+			t.Errorf("main.go importa %s", imp.Path.Value)
+		}
 	}
 }
