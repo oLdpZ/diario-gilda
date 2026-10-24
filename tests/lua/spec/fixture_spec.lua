@@ -116,7 +116,8 @@ describe("fixture SavedVariables", function()
     G = H.gameStub()
     v = G.v
     v.combatLog = true
-    H.load(FILES)
+    -- versione fissa: la fixture non deve cambiare a ogni release dell'addon
+    H.load(FILES).Const.VERSION = "0.1.0"
   end)
 
   after_each(function()
@@ -132,7 +133,7 @@ describe("fixture SavedVariables", function()
     v.combatLog = true
     v.guild = "I Murloc Rampanti"
     v.units.player.level = 13
-    H.load(FILES)
+    H.load(FILES).Const.VERSION = "0.1.0"
     _G.DiarioGildaDB = saved
     playCrashedSession()
     assert.equals(2, #DiarioGildaDB.sessions)
