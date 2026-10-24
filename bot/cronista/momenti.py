@@ -115,8 +115,10 @@ def _cronologia(sessioni) -> dict[str, dict]:
             for e in _lista(se.get("events")):
                 if isinstance(e, dict) and _int(e.get("t")) is not None and _str(e.get("k")):
                     p["eventi"].append(e)
-                    if e.get("k") == "group" and isinstance(e.get("members"), (list, dict)):
-                        m = e["members"] if isinstance(e["members"], list) else []
+                    m = e.get("members")
+                    if m == {}:
+                        m = []  # tabella Lua vuota = gruppo vuoto
+                    if e.get("k") == "group" and isinstance(m, list):
                         p["gruppi"].append((_int(e["t"]), {n for n in map(_nome_base, m) if n}))
             for ep in _lista(s.get("combattimenti")):
                 if isinstance(ep, dict) and _int(ep.get("to")) is not None:
@@ -221,6 +223,7 @@ def _da_boss(g: str, p: dict, cont: dict) -> list[dict]:
     prec = _dict(cont.get("boss"))
     insegui = _dict(cont.get("inseguiti"))
     wipe: dict[str, list[dict]] = {}
+    wipe_oggi: dict[str, int] = {}
     oggi: dict[str, int] = {}
     uccisi_oggi: dict[str, int] = {}
     uccisi: list[dict] = []
@@ -229,6 +232,7 @@ def _da_boss(g: str, p: dict, cont: dict) -> list[dict]:
         oggi[key] = oggi.get(key, 0) + 1
         if not inc["ok"]:
             wipe.setdefault(key, []).append(e)
+            wipe_oggi[key] = wipe_oggi.get(key, 0) + 1
             continue
         n_wipe = len(wipe.pop(key, []))
         uccisi_oggi[key] = uccisi_oggi.get(key, 0) + 1
@@ -238,13 +242,15 @@ def _da_boss(g: str, p: dict, cont: dict) -> list[dict]:
         prima = _int(_dict(prec.get(f"{g}|{key}")).get("tentativi")) or 0
         totale = prima + oggi[key]
         if n_wipe:
-            perche = f"{inc['nome']} abbattuto dopo {n_wipe} wipe ({n_wipe + 1} tentativi oggi)"
+            perche = f"{inc['nome']} abbattuto dopo {n_wipe} wipe ({n_wipe + 1} tentativi)"
             if prima > 0:
                 perche += f", {totale}° tentativo in tutto"
         elif totale == 1:
             perche = f"{inc['nome']} abbattuto al primo tentativo"
-        else:
+        elif not wipe_oggi.get(key):
             perche = f"{inc['nome']} abbattuto senza wipe oggi, al {totale}° tentativo in tutto"
+        else:
+            perche = f"{inc['nome']} abbattuto di nuovo senza altri wipe, al {totale}° tentativo in tutto"
         if prima > 0:
             fatti["tentativi_totali"] = totale
         size = _int(e.get("size"))
@@ -486,10 +492,16 @@ def _legame(gruppo: list[dict], c: dict, cron: dict) -> str | None:
         rel = _insieme(cron[x["_g"]], x["quando"], cron[c["_g"]], c["quando"])
         vicini = abs(x["quando"] - c["quando"]) <= UNIONE_S
         bx, bc = x["fatti"].get("boss_id"), c["fatti"].get("boss_id")
-        if bx is not None and bx == bc:
+        if bx is not None or bc is not None:
+            if bx != bc:
+                continue  # boss diversi (o boss e non boss): mai uniti
             sovrapposti = x["_fin"][0] <= c["_fin"][1] and c["_fin"][0] <= x["_fin"][1]
-            if rel == "gruppo" and (sovrapposti or vicini):
+            if not (sovrapposti or vicini):
+                continue
+            if rel == "gruppo":
                 return "gruppo"
+            if rel == "nodati" and x["_zona"] and x["_zona"] == c["_zona"]:
+                return "stessa_zona"
             continue
         if not vicini:
             continue

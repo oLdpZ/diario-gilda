@@ -255,8 +255,44 @@ class TestInsieme(unittest.TestCase):
     def test_un_lato_senza_dati(self):
         self.assertEqual(self.boss([gruppo(10, "A", "B"), kill(500)], [kill(500)]), [["A", "B"]])
 
-    def test_boss_senza_dati_di_gruppo_no(self):
-        self.assertEqual(self.boss([kill(500)], [kill(500)]), [["A"], ["B"]])
+    def test_boss_senza_dati_di_gruppo_stessa_zona(self):
+        cand = momenti.candidati([sessione("A", [kill(500)], start=1), sessione("B", [kill(650)], start=2)], {})
+        (b,) = per_tipo(cand, "boss_ucciso")
+        self.assertEqual((b["chi"], b["fatti"]["insieme"]), (["A", "B"], "stessa_zona"))
+        altrove = dict(kill(500), inst="SM", z="SM")
+        self.assertEqual(self.boss([kill(500)], [altrove]), [["A"], ["B"]])
+        self.assertEqual(self.boss([kill(500)], [kill(500 + 3600)]), [["A"], ["B"]])
+
+    def test_boss_diversi_mai_uniti(self):
+        x = lambda t, **k: dict(kill(t, **k), id=1, name="X")
+        y = lambda t, **k: dict(kill(t, **k), id=2, name="Y")
+        a = [gruppo(10, "A", "B"), x(500), y(700)]
+        b = [gruppo(20, "B", "A"), y(701)]
+        self.assertEqual(self.boss(a, b), [["A"], ["A", "B"]])
+        cand = momenti.candidati([sessione("A", a, start=1), sessione("B", b, start=2)], {})
+        uccisi = {c["fatti"]["boss"]: c["chi"] for c in per_tipo(cand, "boss_ucciso")}
+        self.assertEqual(uccisi, {"X": ["A"], "Y": ["A", "B"]})
+        # bottino: boss diversi, e boss contro non boss
+        loot = lambda t, src: {"t": t, "k": "loot", "inst": "DM", "z": "DM", "item": "L" + src, "q": 4, "src": src}
+        a2 = a + [loot(510, "X")]
+        b2 = b + [loot(705, "Y"), loot(520, "Lupo")]
+        cand = momenti.candidati([sessione("A", a2, start=1), sessione("B", b2, start=2)], {})
+        self.assertEqual(sorted(c["chi"] for c in per_tipo(cand, "drop")), [["A"], ["B"], ["B"]])
+        # wipe ripetuti su boss diversi
+        a3 = [gruppo(10, "A", "B")] + [x(100 * i, ok=False) for i in range(1, 4)]
+        b3 = [gruppo(20, "B", "A")] + [y(100 * i + 1, ok=False) for i in range(1, 4)]
+        cand = momenti.candidati([sessione("A", a3, start=1), sessione("B", b3, start=2)], {})
+        self.assertEqual(sorted(c["chi"] for c in per_tipo(cand, "wipe_ripetuti")), [["A"], ["B"]])
+        b4 = [gruppo(20, "B", "A")] + [x(100 * i + 1, ok=False) for i in range(1, 4)]
+        cand = momenti.candidati([sessione("A", a3, start=1), sessione("B", b4, start=2)], {})
+        self.assertEqual([c["chi"] for c in per_tipo(cand, "wipe_ripetuti")], [["A", "B"]])
+
+    def test_membri_non_lista(self):
+        # members non lista: nessun dato di gruppo da quell'evento ("x"), {} = gruppo vuoto
+        self.assertEqual(self.boss([{"t": 10, "k": "group", "members": "x"}, kill(500)],
+                                   [gruppo(20, "B", "A"), kill(500)]), [["A", "B"]])
+        self.assertEqual(self.boss([gruppo(10, "A", "B"), {"t": 400, "k": "group", "members": {}}, kill(500)],
+                                   [gruppo(20, "B", "A"), kill(500)]), [["A"], ["B"]])
 
     def test_altri_tipi(self):
         mk = lambda g, ev: sessione(g, ev + [{"t": 1000, "k": "level", "z": "DM", "level": 30}], start=len(g))
@@ -301,6 +337,12 @@ class TestContatori(unittest.TestCase):
         self.assertIn("senza wipe oggi, al 5° tentativo", b["perche"])
         (b,) = per_tipo(momenti.candidati([sessione("Gino", ev1)], {}), "boss_ucciso")
         self.assertIn("primo tentativo", b["perche"])
+        # wipe, uccisione, uccisione: la seconda non e' "senza wipe oggi"
+        ev2 = [kill(10, ok=False), kill(20), kill(30)]
+        kills = per_tipo(momenti.candidati([sessione("Gino", ev2)], {}), "boss_ucciso")
+        seconda = [k for k in kills if k["quando"] == 30][0]
+        self.assertNotIn("senza wipe oggi", seconda["perche"])
+        self.assertIn("3° tentativo", seconda["perche"])
         # drop epico che arriva dopo varie uccisioni
         ev = [{"t": 10, "k": "encounter", "inst": "DM", "id": 593, "name": "Edwin VanCleef", "ok": True},
               {"t": 20, "k": "loot", "inst": "DM", "item": "Lama", "q": 4, "src": "Edwin VanCleef"}]
