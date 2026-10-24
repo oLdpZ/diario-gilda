@@ -1,2 +1,4 @@
 *.out
 dist/
+bot/lavoro/
+__pycache__/
