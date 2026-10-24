@@ -23,6 +23,8 @@ class Raccolta:
     sessioni: list[dict] = field(default_factory=list)
     avvisi: list[str] = field(default_factory=list)
     ultimo_messaggio: str | None = None
+    # id sessione -> id del messaggio da cui viene la copia scelta
+    messaggi: dict[str, str] = field(default_factory=dict)
 
 
 def conta_eventi(s: dict) -> int:
@@ -168,6 +170,7 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
                     id_ = s["sessione"]["id"]
                     if id_ not in migliori or _chiave_migliore(s) > _chiave_migliore(migliori[id_]):
                         migliori[id_] = s
+                        r.messaggi[id_] = mid
             except DiscordError as e:
                 r.avvisi.append(f"Pacchetto {nome} (messaggio {mid}) saltato: {e}")
                 if (e.status == 0 or e.status == 429 or e.status >= 500) and blocco is None:
@@ -181,6 +184,8 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
         gia = visto.get("eventi") if visto else None
         if not _intero(gia) or conta_eventi(s) > gia:
             r.sessioni.append(s)
+        else:
+            r.messaggi.pop(id_, None)
     if blocco is not None and r.ultimo_messaggio is not None and int(r.ultimo_messaggio) >= blocco:
         r.ultimo_messaggio = str(blocco - 1)
     r.sessioni.sort(key=lambda s: (s["sessione"]["start"], s["sessione"]["id"]))
