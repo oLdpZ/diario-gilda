@@ -312,9 +312,11 @@ func macBundle(t *testing.T) (root, bundle, exe string) {
 func macZip(t *testing.T) []byte {
 	return makeZip(t, map[string]string{
 		"VERSION": "0.2.0\n",
+
 		"DiarioGilda.app/Contents/MacOS/DiarioGilda":    "nuovo",
 		"DiarioGilda.app/Contents/Info.plist":           "plist nuovo",
 		"DiarioGilda.app/Contents/Resources/icona.icns": "icona",
+
 		"altro/fuori.txt": "ignorato",
 	})
 }
