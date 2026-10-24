@@ -25,6 +25,29 @@ func (r *RetryAfter) Error() string {
 	return fmt.Sprintf("discord: troppe richieste, riprova tra %.1f s", r.Seconds)
 }
 
+// HTTPError is a non-2xx, non-429 answer from Discord.
+type HTTPError struct {
+	Status int
+	Msg    string // body, at most 200 characters
+}
+
+func (e *HTTPError) Error() string { return fmt.Sprintf("discord: HTTP %d: %s", e.Status, e.Msg) }
+
+// Permanent reports whether err is a rejection that retrying the same file
+// will not fix: any 4xx except 401/403/404 (webhook revoked or wrong: the file
+// is fine and a new webhook will take it) and 429 (rate limit).
+func Permanent(err error) bool {
+	var he *HTTPError
+	if !errors.As(err, &he) || he.Status < 400 || he.Status >= 500 {
+		return false
+	}
+	switch he.Status {
+	case http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusTooManyRequests:
+		return false
+	}
+	return true
+}
+
 // Upload posts data as files[0] with a payload_json {"content": content}.
 // The webhook URL is a secret and never appears in returned errors.
 func Upload(ctx context.Context, webhookURL, filename string, data []byte, content string) error {
@@ -88,5 +111,5 @@ func Upload(ctx context.Context, webhookURL, filename string, data []byte, conte
 	if r := []rune(msg); len(r) > 200 {
 		msg = string(r[:200])
 	}
-	return fmt.Errorf("discord: HTTP %d: %s", resp.StatusCode, msg)
+	return &HTTPError{Status: resp.StatusCode, Msg: msg}
 }

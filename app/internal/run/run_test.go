@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/oLdpZ/diario-gilda/app/internal/config"
+	"github.com/oLdpZ/diario-gilda/app/internal/outbox"
 	"github.com/oLdpZ/diario-gilda/app/internal/state"
 )
 
@@ -703,5 +704,26 @@ func TestInterruptedWhileGameRunning(t *testing.T) {
 	cycle(t, env)
 	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id2 || got[0].doc["interrotta"] != true {
 		t.Fatalf("regola delle 12 ore invariata: ottenuti %v", ids(got))
+	}
+}
+
+func TestRejectedFileSetAside(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{}
+	env := tr.env(r, stop1+601)
+	env.Send = func(string, []byte) error { return fmt.Errorf("HTTP 413: %w", outbox.ErrRejected) }
+	cycle(t, env)
+	es, err := os.ReadDir(filepath.Join(tr.data, "outbox", outbox.RejectedDir))
+	if err != nil || len(es) != 1 {
+		t.Fatalf("scartati: %v %v", es, err)
+	}
+	if !readState(t, tr).Has(id1) || !r.logged(outbox.RejectedDir) {
+		t.Fatalf("stato o log: %v", r.logs)
+	}
+	env.Send = r.send
+	cycle(t, env)
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("lo scartato non va reinviato: %v", ids(got))
 	}
 }

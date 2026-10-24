@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -23,6 +24,7 @@ import (
 	"github.com/oLdpZ/diario-gilda/app/internal/config"
 	"github.com/oLdpZ/diario-gilda/app/internal/desktop"
 	"github.com/oLdpZ/diario-gilda/app/internal/discord"
+	"github.com/oLdpZ/diario-gilda/app/internal/outbox"
 	"github.com/oLdpZ/diario-gilda/app/internal/run"
 	"github.com/oLdpZ/diario-gilda/app/internal/update"
 	"github.com/oLdpZ/diario-gilda/app/internal/wowdir"
@@ -223,6 +225,9 @@ func (a *app) env(ctx context.Context, cfg config.Config) run.Env {
 		sctx, cancel := context.WithTimeout(ctx, sendTimeout)
 		defer cancel()
 		if err := discord.Upload(sctx, wh, name, data, ""); err != nil {
+			if discord.Permanent(err) {
+				return fmt.Errorf("%w: %w", outbox.ErrRejected, err) // va in outbox/scartati
+			}
 			return err
 		}
 		a.markSent(time.Now())

@@ -3,6 +3,8 @@ package discord
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -84,5 +86,34 @@ func TestUploadErrorRedactsURL(t *testing.T) {
 	err := Upload(context.Background(), url, "a", nil, "")
 	if err == nil || strings.Contains(err.Error(), "SECRET") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestPermanent(t *testing.T) {
+	for _, tc := range []struct {
+		code int
+		want bool
+	}{
+		{400, true}, {413, true}, {422, true},
+		{401, false}, {403, false}, {404, false}, {429, false}, {500, false}, {502, false},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(tc.code)
+			_, _ = w.Write([]byte(`{"message":"no"}`))
+		}))
+		err := Upload(context.Background(), srv.URL, "a", nil, "")
+		srv.Close()
+		if got := Permanent(err); got != tc.want {
+			t.Errorf("HTTP %d: Permanent = %v (err %v)", tc.code, got, err)
+		}
+		if err == nil || (tc.code != 429 && !strings.Contains(err.Error(), fmt.Sprint(tc.code))) {
+			t.Errorf("HTTP %d: err = %v", tc.code, err)
+		}
+	}
+	if Permanent(nil) || Permanent(errors.New("rete assente")) {
+		t.Error("errori non HTTP permanenti")
+	}
+	if !Permanent(fmt.Errorf("outbox: invio: %w", &HTTPError{Status: 400})) {
+		t.Error("errore avvolto non riconosciuto")
 	}
 }

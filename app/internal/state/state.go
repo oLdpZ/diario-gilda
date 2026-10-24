@@ -76,8 +76,9 @@ func Save(dir string, st *State) error {
 	}
 	tmp := f.Name()
 	_, werr := f.Write(b)
+	serr := f.Sync() // su disco prima della rinomina: niente stato vuoto dopo un blackout
 	cerr := f.Close()
-	if err := errors.Join(werr, cerr); err != nil {
+	if err := errors.Join(werr, serr, cerr); err != nil {
 		os.Remove(tmp)
 		return fmt.Errorf("state: scrittura: %w", err)
 	}

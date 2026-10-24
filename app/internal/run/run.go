@@ -115,7 +115,7 @@ func Cycle(ctx context.Context, env Env) error {
 	if env.Send == nil {
 		return nil
 	}
-	n, err := outbox.Flush(ctx, env.outboxDir(), env.Send)
+	n, err := outbox.Flush(ctx, env.outboxDir(), env.Log, env.Send)
 	if n > 0 {
 		env.logf("inviati %d file", n)
 	}
