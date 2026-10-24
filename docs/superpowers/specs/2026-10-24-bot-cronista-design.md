@@ -11,9 +11,11 @@ alla WoW, ore 10:00, giornata 06:00–06:00, attività programmata di Claude Cod
 - **Attività programmata di Claude Code** (claude.ai/code/routines) sul repository `oLdpZ/diario-gilda`,
   ogni giorno alle **10:07** ora italiana (i minuti tondi possono partire in ritardo). Usa l'abbonamento
   dell'autore. Il prompt dell'attività è una riga: «Segui `bot/ISTRUZIONI.md`».
-- **Ambiente cloud**: accesso di rete *Custom* con `discord.com` (più i gestori di pacchetti predefiniti).
-  Il token del bot è un **Network secret** per `discord.com`, header `Authorization`, prefisso `Bot`:
-  il proxy lo aggiunge alle richieste, il token non è mai nell'ambiente né nei file.
+- **Ambiente cloud**: accesso di rete *Custom* con `discord.com`, `cdn.discordapp.com` e
+  `media.discordapp.net` (gli allegati si scaricano da questi due), più i gestori di pacchetti predefiniti.
+  Il token del bot è un **Network secret** solo per `discord.com`, header `Authorization`, prefisso `Bot`:
+  il proxy lo aggiunge alle richieste, il token non è mai nell'ambiente né nei file, né va verso i domini
+  degli allegati.
 - **Nulla viene scritto nel repository** (è pubblico): niente dati dei giocatori, niente pagine, niente
   stato. Tutto vive su Discord.
 
@@ -26,12 +28,13 @@ alla WoW, ore 10:00, giornata 06:00–06:00, attività programmata di Claude Cod
      sessione alla giornata di gioco in cui è iniziata (06:00–06:00 Europe/Rome), e per ogni giornata non
      ancora pubblicata con dati scrive `lavoro/giorno-AAAA-MM-GG.json` e un riassunto leggibile
      `lavoro/giorno-AAAA-MM-GG.md` con i **momenti candidati** già calcolati e ordinati per interesse.
-   - `pubblica <pagina.md> [--prova]`: pubblica la pagina in `#diario-gilda` (o in `#diario-servizio` con
+   - `pubblica <pagina.md> [--prova]`: pubblica la pagina in `#diario-di-gilda` (o in `#diario-servizio` con
      `--prova`) come uno o più embed nei limiti di Discord.
    - `chiudi`: aggiorna lo stato (giorni pubblicati, numero del giorno, ultimo messaggio letto, sessioni già
      viste, contatori, ricorrenze) e lo carica come allegato `stato.json` in `#diario-servizio`.
    - Il token: se c'è `DISCORD_BOT_TOKEN` (prove in locale) lo usa, altrimenti si affida al proxy.
-   - I canali si trovano per nome (`diario-gilda`, `diario-servizio`) nel server dove il bot è invitato;
+   - I canali si trovano per nome (`diario-di-gilda`, `diario-servizio`) nel server dove il bot è invitato
+     (nome reale: diario-di-gilda (R3));
      `bot/config.json` contiene solo nomi, fuso orario e orari, niente segreti.
 2. **Momenti candidati** (in `prepara`): punteggi semplici e spiegati, per esempio drop epico/leggendario,
    boss ucciso (con quanti tentativi), wipe ripetuti, morti (soprattutto caduta/annegamento o tante nella

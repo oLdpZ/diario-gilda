@@ -33,3 +33,15 @@ jobs:
           sudo luarocks --lua-version=5.1 install luacheck
       - name: Test Lua
         run: bash scripts/test-lua.sh
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Test Python
+        run: python -m unittest discover -s bot/tests -t .
