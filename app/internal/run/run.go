@@ -221,7 +221,8 @@ func build1(env Env, s addondata.Session, interrupted bool) (string, []byte, err
 		end = *s.Stop
 	}
 	from, to := time.Unix(s.Start-logMargin, 0), time.Unix(end+logMargin, 0)
-	evs, err := combatlog.Read(combatlog.Files(wowdir.LogsDir(env.Cfg.ClientDir)), from, to, env.loc())
+	// solo le righe che riguardano il giocatore: una serata in raid ne ha milioni
+	evs, err := combatlog.ReadFiltered(combatlog.Files(wowdir.LogsDir(env.Cfg.ClientDir)), from, to, env.loc(), episodes.Relevant(s))
 	if err != nil {
 		env.logf("registro combattimenti (sessione %s): %v", s.ID, err)
 	}

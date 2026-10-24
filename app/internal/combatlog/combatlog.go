@@ -447,6 +447,13 @@ func Files(logsDir string) []string {
 // gli altri e alla fine si restituiscono gli eventi letti insieme agli errori
 // uniti con errors.Join.
 func Read(paths []string, from, to time.Time, loc *time.Location) ([]Event, error) {
+	return ReadFiltered(paths, from, to, loc, nil)
+}
+
+// ReadFiltered e' Read che tiene solo gli eventi per cui keep restituisce true
+// (nil = tutti); keep vede le righe valide nella finestra, nell'ordine dei file,
+// cosi' in memoria resta solo quel che serve.
+func ReadFiltered(paths []string, from, to time.Time, loc *time.Location, keep func(Event) bool) ([]Event, error) {
 	var out []Event
 	var errs []error
 	for _, p := range paths {
@@ -458,7 +465,7 @@ func Read(paths []string, from, to time.Time, loc *time.Location) ([]Event, erro
 		if !from.IsZero() && st.ModTime().Before(from) {
 			continue
 		}
-		out, err = readFile(p, st.ModTime(), from, to, loc, out)
+		out, err = readFile(p, st.ModTime(), from, to, loc, keep, out)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -467,7 +474,7 @@ func Read(paths []string, from, to time.Time, loc *time.Location) ([]Event, erro
 	return out, errors.Join(errs...)
 }
 
-func readFile(p string, mod, from, to time.Time, loc *time.Location, out []Event) ([]Event, error) {
+func readFile(p string, mod, from, to time.Time, loc *time.Location, keep func(Event) bool, out []Event) ([]Event, error) {
 	fh, err := os.Open(p)
 	if err != nil {
 		return out, fmt.Errorf("registro combattimenti %s: %w", p, err)
@@ -498,7 +505,7 @@ func readFile(p string, mod, from, to time.Time, loc *time.Location, out []Event
 			return out, fmt.Errorf("registro combattimenti %s: %w", p, err)
 		}
 		if !tooLong {
-			if ev, ok := parseInWindow(string(buf), loc, year, mod, from, to); ok {
+			if ev, ok := parseInWindow(string(buf), loc, year, mod, from, to); ok && (keep == nil || keep(ev)) {
 				out = append(out, ev)
 			}
 		}

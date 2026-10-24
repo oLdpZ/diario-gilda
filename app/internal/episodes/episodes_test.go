@@ -127,3 +127,77 @@ func TestForeignPlayerIgnored(t *testing.T) {
 		t.Errorf("%+v", e)
 	}
 }
+
+func TestPlayerMatcher(t *testing.T) {
+	m := PlayerMatcher(addondata.Session{Char: "Gino", Realm: "Tarren Mill"})
+	for _, tc := range []struct {
+		name string
+		want bool
+	}{
+		{"Gino", true},
+		{"Gino-Tarren Mill", true},
+		{"Gino-TarrenMill", true},
+		{"Gino-tarrenmill", true},
+		{"Gino-Ragnaros", false},
+		{"Ginox", false},
+		{"Gin", false},
+		{"Mara-TarrenMill", false},
+		{"", false},
+	} {
+		if got := m(tc.name); got != tc.want {
+			t.Errorf("%q: %v, atteso %v", tc.name, got, tc.want)
+		}
+	}
+	ap := PlayerMatcher(addondata.Session{Char: "Gino", Realm: "Mal'Ganis"})
+	if !ap("Gino-MalGanis") || !ap("Gino-Mal'Ganis") || !ap("Gino-Mal’Ganis") {
+		t.Error("apostrofo nel reame")
+	}
+	if PlayerMatcher(addondata.Session{})("") {
+		t.Error("sessione senza personaggio: nessun nome")
+	}
+}
+
+// Il registro scrive il reame senza spazi: "Gino-TarrenMill" e' il giocatore.
+func TestRealmWithoutSpacesInLog(t *testing.T) {
+	evs := load(t, filepath.Join("..", "combatlog", "testdata", "murloc.txt"))
+	for i := range evs {
+		for _, n := range []*string{&evs[i].SrcName, &evs[i].DstName} {
+			if *n == "Gino-Realm" {
+				*n = "Gino-TarrenMill"
+			}
+		}
+		evs[i].SrcGUID = strings.Replace(evs[i].SrcGUID, "Player-1234-0A1B2C3D", "Player-9-X", 1)
+		evs[i].DstGUID = strings.Replace(evs[i].DstGUID, "Player-1234-0A1B2C3D", "Player-9-X", 1)
+	}
+	s := sess(addondata.Event{T: at(21, 2, 22), K: "combat", Fields: map[string]any{"from": at(21, 2, 3), "to": at(21, 2, 21)}})
+	s.Realm = "Tarren Mill"
+	e := Build(s, evs, loc)[0]
+	if e.EnemyCount != 6 || e.BiggestHitDone == nil || len(e.Kills) != 1 {
+		t.Fatalf("giocatore non riconosciuto: %+v", e)
+	}
+}
+
+func TestRelevantKeepsPlayerAndDeaths(t *testing.T) {
+	all := load(t, filepath.Join("..", "combatlog", "testdata", "murloc.txt"))
+	s := sess(addondata.Event{T: at(21, 2, 22), K: "combat", Fields: map[string]any{"from": at(21, 2, 3), "to": at(21, 2, 21)}})
+	keep := Relevant(s)
+	var kept []combatlog.Event
+	for _, e := range all {
+		if keep(e) {
+			kept = append(kept, e)
+		}
+	}
+	if len(kept) == 0 || len(kept) >= len(all) {
+		t.Fatalf("filtro: tenuti %d di %d", len(kept), len(all))
+	}
+	full, part := Build(s, all, loc)[0], Build(s, kept, loc)[0]
+	a, _ := json.Marshal(full)
+	b, _ := json.Marshal(part)
+	if string(a) != string(b) {
+		t.Fatalf("il filtro cambia l'episodio:\n%s\n%s", a, b)
+	}
+	other := combatlog.Event{Sub: "SPELL_DAMAGE", SrcName: "Mara-Realm", DstName: "Murloc Netter", SrcGUID: "Player-1-2", DstGUID: "Creature-0-1"}
+	if keep(other) {
+		t.Error("riga senza il giocatore tenuta")
+	}
+}

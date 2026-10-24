@@ -415,3 +415,30 @@ func TestReadYearlessLines(t *testing.T) {
 		t.Fatalf("%v %v", evs[0].Time, evs[1].Time)
 	}
 }
+
+func TestReadFiltered(t *testing.T) {
+	dir := t.TempDir()
+	p := copyMurloc(t, dir, "WoWCombatLog.txt", time.Date(2026, 10, 24, 23, 0, 0, 0, rome))
+	all, err := Read([]string{p}, time.Time{}, time.Time{}, rome)
+	if err != nil {
+		t.Fatal(err)
+	}
+	same, err := ReadFiltered([]string{p}, time.Time{}, time.Time{}, rome, nil)
+	if err != nil || len(same) != len(all) {
+		t.Fatalf("filtro nil: %d eventi (attesi %d), err %v", len(same), len(all), err)
+	}
+	calls := 0
+	died, err := ReadFiltered([]string{p}, time.Time{}, time.Time{}, rome, func(e Event) bool {
+		calls++
+		return e.Sub == "UNIT_DIED"
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(died) != 1 || died[0].Sub != "UNIT_DIED" {
+		t.Fatalf("filtro: %+v", died)
+	}
+	if calls != len(all) {
+		t.Errorf("filtro chiamato %d volte, attese %d (solo righe valide nella finestra)", calls, len(all))
+	}
+}

@@ -53,7 +53,7 @@ type Episode struct {
 // (loc e' gia' stato applicato da combatlog). Finestre inclusive.
 func Build(s addondata.Session, evs []combatlog.Event, loc *time.Location) []Episode {
 	_ = loc
-	b := builder{full: s.Char + "-" + s.Realm, short: s.Char, evs: evs}
+	b := builder{isPlayerName: PlayerMatcher(s), evs: evs}
 	out := []Episode{}
 	for _, e := range s.Events {
 		switch e.K {
@@ -95,11 +95,62 @@ func fieldInt(f map[string]any, k string, def int64) int64 {
 }
 
 type builder struct {
-	full, short string
-	evs         []combatlog.Event
+	isPlayerName func(string) bool
+	evs          []combatlog.Event
 }
 
-func (b *builder) isPlayerName(n string) bool { return n == b.full || n == b.short }
+// PlayerMatcher riconosce il nome del giocatore della sessione nel registro
+// combattimenti: "Char" oppure "Char-Reame", con il reame confrontato senza
+// spazi, apostrofi e trattini e senza badare alle maiuscole (il registro scrive
+// "Gino-TarrenMill" per il reame "Tarren Mill"). Senza reame nella sessione
+// vale qualsiasi "Char-…".
+func PlayerMatcher(s addondata.Session) func(name string) bool {
+	char, realm := s.Char, normRealm(s.Realm)
+	return func(n string) bool {
+		if char == "" {
+			return false
+		}
+		if n == char {
+			return true
+		}
+		rest, ok := strings.CutPrefix(n, char+"-")
+		if !ok {
+			return false
+		}
+		return realm == "" || normRealm(rest) == realm
+	}
+}
+
+var realmPunct = strings.NewReplacer(" ", "", "'", "", "’", "", "-", "")
+
+func normRealm(r string) string { return strings.ToLower(realmPunct.Replace(r)) }
+
+// Relevant e' il filtro per combatlog.ReadFiltered: tiene solo le righe che
+// servono a Build, cioe' quelle con il giocatore come sorgente o bersaglio (per
+// nome o per il GUID imparato dalla prima riga con il suo nome) e le morti
+// (UNIT_DIED non ha sorgente, serve per contare le uccisioni). Ha stato: un
+// filtro per lettura.
+func Relevant(s addondata.Session) func(combatlog.Event) bool {
+	isName := PlayerMatcher(s)
+	guid := ""
+	return func(e combatlog.Event) bool {
+		if e.Sub == "UNIT_DIED" {
+			return true
+		}
+		for _, p := range [][2]string{{e.SrcName, e.SrcGUID}, {e.DstName, e.DstGUID}} {
+			if isName(p[0]) {
+				if guid == "" && strings.HasPrefix(p[1], "Player-") {
+					guid = p[1]
+				}
+				return true
+			}
+			if guid != "" && p[1] == guid {
+				return true
+			}
+		}
+		return false
+	}
+}
 
 func isDamage(sub string) bool { return strings.HasSuffix(sub, "_DAMAGE") }
 func isHeal(sub string) bool   { return strings.HasSuffix(sub, "_HEAL") }

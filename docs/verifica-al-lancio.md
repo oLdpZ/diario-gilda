@@ -48,6 +48,11 @@ Prima di iniziare scrivi `/console scriptErrors 1` (vedi voce 15).
     suffisso dei danni `amount,[baseAmount],overkill,school,resisted,blocked,absorbed,critical,glancing,crushing,isOffHand`
     e delle cure `amount,[baseAmount],overhealing,absorbed,critical`. Se le righe di Forever sono diverse (conta i campi di
     una `SWING_DAMAGE` e di una `SPELL_HEAL`), correggi `advLens`, `advFront` e `suffixCrit` in `combatlog.go`.
+  - Controlla anche come compare il nome del tuo personaggio nelle righe (campi sorgente/bersaglio): `Gino`,
+    `Gino-Reame` o `Gino-ReameSenzaSpazi` (es. `Gino-TarrenMill`). Il programmino accetta il nome da solo e `Nome-Reame`
+    con il reame confrontato senza spazi, apostrofi, trattini e maiuscole (`episodes.PlayerMatcher`). Se il nome compare
+    in un'altra forma (altro separatore, reame abbreviato), gli episodi restano vuoti: correggi `PlayerMatcher` e aggiungi
+    il caso al test `TestPlayerMatcher`.
 
 ## Dati registrati
 
