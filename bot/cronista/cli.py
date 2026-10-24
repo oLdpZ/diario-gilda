@@ -89,15 +89,21 @@ def _pulisci_lavoro(cartella: Path) -> None:
 # --- prepara -------------------------------------------------------------------
 
 def _dividi(sessioni: list[dict], st: Stato, cfg: dict, ora: float):
-    """(pronte {giorno: sessioni}, in_ritardo [(giorno, s)], trattenute [s], vecchie [(giorno, s)])."""
+    """Sessioni divise in: pronte {giorno: [s]}, ritardo, trattenute, vecchie, future.
+
+    ritardo/vecchie/future sono liste di (giorno, s); trattenute di s (oggi e domani).
+    """
     fuso, inizio = cfg.get("fuso", "Europe/Rome"), cfg.get("inizio_giornata", "06:00")
     oggi = ingresso.giornata(int(ora), fuso, inizio)
+    domani = (date.fromisoformat(oggi) + timedelta(days=1)).isoformat()
     pubblicati = set(st.giorni_pubblicati)
     ultimo_pubbl = max(pubblicati, default="")
     pronte: dict[str, list[dict]] = {}
-    ritardo, trattenute = [], []
+    ritardo, trattenute, future = [], [], []
     for g, ss in ingresso.per_giornata(sessioni, fuso, inizio).items():
-        if g >= oggi:
+        if g > domani:
+            future.extend((g, s) for s in ss)  # orologio sbagliato: non si aspetta per sempre
+        elif g >= oggi:
             trattenute.extend(ss)  # giornata non ancora finita
         elif g in pubblicati or g < ultimo_pubbl:
             ritardo.extend((g, s) for s in ss)
@@ -109,7 +115,7 @@ def _dividi(sessioni: list[dict], st: Stato, cfg: dict, ora: float):
         limite = (primo - timedelta(days=RITARDO_MAX_GIORNI)).isoformat()
         vecchie = [(g, s) for g, s in ritardo if g < limite]
         ritardo = [(g, s) for g, s in ritardo if g >= limite]
-    return pronte, ritardo, trattenute, vecchie
+    return pronte, ritardo, trattenute, vecchie, future
 
 
 def _note(titolo: str, file_pagina: Path, ricorrenze: list[str]) -> list[str]:
@@ -117,6 +123,22 @@ def _note(titolo: str, file_pagina: Path, ricorrenze: list[str]) -> list[str]:
              f"Titolo: {titolo}", f"File da scrivere: {_mostra(file_pagina)}", "", "Ricorrenze:"]
     righe += [f"- {r}" for r in ricorrenze] if ricorrenze else ["Nessuna."]
     return righe
+
+
+def _visti(sessioni, ora: float) -> dict[str, dict]:
+    return {s["sessione"]["id"]: {"eventi": ingresso.conta_eventi(s), "visto": int(ora)} for s in sessioni}
+
+
+def _istantanea(st: Stato, giorni: list[str], numero: int, contatori: dict,
+                viste: dict[str, dict], cursore: str | None) -> dict:
+    """Stato dopo la pubblicazione di una pagina (lo scrive `pubblica`)."""
+    nuovo = Stato(**{k: v for k, v in asdict(st).items() if k != "versione"})
+    nuovo.giorni_pubblicati = sorted(set(st.giorni_pubblicati) | set(giorni))
+    nuovo.numero_giorno = numero
+    nuovo.contatori = contatori
+    nuovo.sessioni_viste = {**st.sessioni_viste, **viste}
+    nuovo.ultimo_messaggio = cursore
+    return asdict(nuovo)
 
 
 def prepara(ora: float) -> int:
@@ -127,24 +149,33 @@ def prepara(ora: float) -> int:
     _, servizio = _canali(d, cfg)
     st = stato.leggi(d, servizio)
     racc = ingresso.raccogli(d, servizio, st)
-    pronte, ritardo, trattenute, vecchie = _dividi(racc.sessioni, st, cfg, ora)
+    pronte, ritardo, trattenute, vecchie, future = _dividi(racc.sessioni, st, cfg, ora)
     if not pronte:
         print(NIENTE)
         return 0
 
+    fuso, inizio = cfg.get("fuso", "Europe/Rome"), cfg.get("inizio_giornata", "06:00")
     giorni = sorted(pronte)
+    extra = [s for _, s in vecchie + future]  # viste con la prima pagina, mai raccontate
     avvisi_extra: dict[str, list[str]] = {g: [] for g in giorni}
     for g, s in ritardo:
         pronte[giorni[0]].append(s)
         avvisi_extra[giorni[0]].append(
-            f"Sessione di {s['giocatore']} del {g} arrivata in ritardo: inclusa in questa giornata.")
-    avvisi_extra[giorni[0]] += [f"Sessione di {s['giocatore']} del {g} troppo vecchia: ignorata."
-                                for g, s in vecchie]
+            f"Sessione di {s['giocatore']} del {g} arrivata in ritardo: inclusa in questa giornata "
+            f"(i suoi momenti hanno «in ritardo: {g}»).")
+    if vecchie:
+        chi = ", ".join(sorted({s["giocatore"] for _, s in vecchie}))
+        quando = ", ".join(sorted({g for g, _ in vecchie}))
+        avvisi_extra[giorni[0]].append(
+            f"{len(vecchie)} sessioni troppo vecchie ignorate (giocatori: {chi}; giornate: {quando}).")
+    for g, s in future:
+        avvisi_extra[giorni[0]].append(
+            f"Sessione di {s['giocatore']} con data nel futuro ({g}): ignorata (orologio del PC sbagliato?).")
     recupero = len(giorni) > 1 and not st.giorni_pubblicati
-    fuso = cfg.get("fuso", "Europe/Rome")
 
     # contatori a catena: ogni giornata vede quelli di prima, poi li aggiorna
     contatori = st.contatori
+    dopo: dict[str, dict] = {}  # contatori dopo ciascuna giornata
     riassunti: dict[str, str] = {}
     pagine = []
     n = st.numero_giorno
@@ -152,6 +183,13 @@ def prepara(ora: float) -> int:
         ss = sorted(pronte[g], key=lambda s: (s["sessione"]["start"], s["sessione"]["id"]))
         cand = momenti.candidati(ss, contatori)
         contatori = momenti.aggiorna_contatori(contatori, ss)
+        dopo[g] = contatori
+        for c in cand:
+            q = c.get("quando")
+            if isinstance(q, int) and not isinstance(q, bool):
+                gq = ingresso.giornata(q, fuso, inizio)
+                if gq < g and isinstance(c.get("fatti"), dict):
+                    c["fatti"]["in_ritardo"] = gq
         avv = (racc.avvisi if i == 0 else []) + avvisi_extra[g]
         gioc = _giocatori(ss)
         md = momenti.riassunto_md(g, cand, avv, gioc, fuso=fuso)
@@ -181,28 +219,28 @@ def prepara(ora: float) -> int:
         pagine.append({"numero": n, "titolo": TITOLO_RECUPERO, "giorni": giorni,
                        "riassunti": [str(cartella / "recupero.md")], "pagina": str(file_pagina)})
 
-    # stato in attesa: lo scrive `chiudi` dopo la pubblicazione
-    nuovo = Stato(**{k: v for k, v in asdict(st).items() if k != "versione"})
-    nuovo.giorni_pubblicati = sorted(set(st.giorni_pubblicati) | set(giorni))
-    nuovo.numero_giorno = n
-    nuovo.contatori = contatori
-    viste = dict(st.sessioni_viste)
-    for g in giorni:
-        for s in pronte[g]:
-            viste[s["sessione"]["id"]] = {"eventi": ingresso.conta_eventi(s), "visto": int(ora)}
-    for _, s in vecchie:
-        viste[s["sessione"]["id"]] = {"eventi": ingresso.conta_eventi(s), "visto": int(ora)}
-    nuovo.sessioni_viste = viste
+    # cursore finale: le giornate non finite si rileggono domani, prima del loro messaggio
     cursore = racc.ultimo_messaggio
     attesa = [int(racc.messaggi[s["sessione"]["id"]]) for s in trattenute
               if s["sessione"]["id"] in racc.messaggi]
     if attesa:
-        # le giornate non finite si rileggono domani: il cursore resta prima del loro messaggio
         blocco = str(min(attesa) - 1)
         cursore = blocco if cursore is None or int(blocco) < int(cursore) else cursore
-    nuovo.ultimo_messaggio = cursore
-    _scrivi_json(cartella / "prepara.json", {"versione": 1, "creato": int(ora), "pagine": pagine,
-                                             "pubblicate": [], "stato": asdict(nuovo)})
+
+    # un'istantanea dello stato per pagina: `pubblica` la salva subito dopo ogni pagina
+    viste: dict[str, dict] = {}
+    fatti: list[str] = []
+    for k, p in enumerate(pagine):
+        for g in p["giorni"]:
+            viste.update(_visti(pronte[g], ora))
+        if k == 0:
+            viste.update(_visti(extra, ora))
+        fatti += p["giorni"]
+        ultima = k == len(pagine) - 1
+        p["stato"] = _istantanea(st, fatti, p["numero"], dopo[p["giorni"][-1]], viste,
+                                 cursore if ultima else st.ultimo_messaggio)
+    _scrivi_json(cartella / "prepara.json", {"versione": 2, "creato": int(ora), "pagine": pagine,
+                                             "pubblicate": [], "stato": pagine[-1]["stato"]})
 
     tutti = sorted({s["giocatore"] for g in giorni for s in pronte[g]})
     print(f"Giornate pronte: {', '.join(giorni)}")
@@ -220,41 +258,84 @@ def prepara(ora: float) -> int:
     return 0
 
 
+# --- prepara.json --------------------------------------------------------------
+
+def _carica_prep(prep_file: Path) -> dict:
+    """prepara.json letto e controllato; Errore chiaro se manca o è rovinato."""
+    if not prep_file.exists():
+        raise Errore("manca bot/lavoro/prepara.json: esegui prima `prepara`")
+    try:
+        prep = json.loads(prep_file.read_text(encoding="utf-8"))
+        if not isinstance(prep, dict) or not isinstance(prep.get("stato"), dict):
+            raise ValueError("manca lo stato")
+        pagine = prep["pagine"]
+        if not isinstance(pagine, list) or not pagine:
+            raise ValueError("nessuna pagina")
+        for p in pagine:
+            if not (isinstance(p, dict) and isinstance(p.get("pagina"), str)
+                    and isinstance(p.get("titolo"), str) and isinstance(p.get("stato"), dict)):
+                raise ValueError("pagina non valida")
+        if not isinstance(prep.get("pubblicate", []), list):
+            raise ValueError("elenco delle pagine pubblicate non valido")
+        prep.setdefault("pubblicate", [])
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        raise Errore(f"bot/lavoro/prepara.json rovinato ({e}): esegui di nuovo `prepara`") from None
+    return prep
+
+
+def _stato_da(dati: dict) -> Stato:
+    try:
+        return Stato(**{k: v for k, v in dati.items() if k != "versione"})
+    except TypeError as e:
+        raise Errore(f"stato in attesa non valido in prepara.json ({e}): esegui di nuovo `prepara`") from None
+
+
 # --- pubblica ------------------------------------------------------------------
 
-def pubblica(file: str, prova: bool) -> int:
+def pubblica(file: str, prova: bool, ora: float) -> int:
     p = Path(file)
     try:
         testo = p.read_text(encoding="utf-8")
     except OSError as e:
         raise Errore(f"pagina non leggibile: {file} ({e.strerror or e})") from None
+    testo = testo.lstrip("﻿")
     if not testo.lstrip().startswith("# "):
         raise Errore("la pagina deve iniziare con il titolo: una riga «# Titolo»")
+    prep_file = _lavoro() / "prepara.json"
+    prep = attesa = None
+    if not prova:
+        prep = _carica_prep(prep_file)
+        per_chiave = {_chiave(x["pagina"]): x for x in prep["pagine"]}
+        attesa = per_chiave.get(_chiave(p))
+        if attesa is None:
+            raise Errore(f"{_mostra(p)} non è una delle pagine attese da `prepara`: "
+                         + ", ".join(_mostra(Path(x["pagina"])) for x in prep["pagine"]))
+        prima = testo.split("\n", 1)[0].rstrip()
+        if prima != f"# {attesa['titolo']}":
+            raise Errore(f"la prima riga deve essere esattamente «# {attesa['titolo']}»")
+        if _chiave(p) in {_chiave(x) for x in prep["pubblicate"]}:
+            raise Errore(f"{_mostra(p)} è già stata pubblicata: non la ripubblico")
     try:
         messaggi = pagina.embed(testo)
     except ValueError as e:
         raise Errore(f"pagina non valida: {e}") from None
-    prep_file = _lavoro() / "prepara.json"
-    prep = None
-    if not prova and prep_file.exists():
-        prep = json.loads(prep_file.read_text(encoding="utf-8"))
-        if _chiave(p) in {_chiave(x) for x in prep.get("pubblicate", [])}:
-            raise Errore(f"{_mostra(p)} è già stata pubblicata: non la ripubblico")
     cfg = _config()
     d = Discord()
     diario, servizio = _canali(d, cfg)
-    canale = servizio if prova else diario
     for m in messaggi:
-        d.invia(canale, embed=m)
+        d.invia(servizio if prova else diario, embed=m)
     nome = cfg["canale_servizio"] if prova else cfg["canale_diario"]
     print(f"Pubblicata {_mostra(p)} in #{nome}: {len(messaggi)} messaggi.")
-    if prep is not None:
-        attese = {_chiave(x["pagina"]) for x in prep.get("pagine", [])}
-        if _chiave(p) in attese:
-            prep["pubblicate"].append(str(p.resolve()))
-            _scrivi_json(prep_file, prep)
-        else:
-            print("Attenzione: questo file non è una delle pagine attese da `prepara`.")
+    if prova:
+        return 0
+    prep["pubblicate"].append(str(p.resolve()))
+    _scrivi_json(prep_file, prep)
+    # lo stato si salva subito: se poi qualcosa fallisce, domani questa pagina non si ripete
+    try:
+        stato.scrivi(d, servizio, _stato_da(attesa["stato"]), ora=ora)
+    except DiscordError as e:
+        raise Errore(f"pagina pubblicata ma stato non salvato: {e}") from None
+    print(f"Stato salvato: Giorno {attesa['numero']}.")
     return 0
 
 
@@ -280,15 +361,13 @@ def chiudi(ricorrenze: list[str], ora: float) -> int:
     prep_file = _lavoro() / "prepara.json"
     if not prep_file.exists():
         raise Errore("manca bot/lavoro/prepara.json: esegui prima `prepara` (e `pubblica`), poi `chiudi`")
-    prep = json.loads(prep_file.read_text(encoding="utf-8"))
-    fatte = {_chiave(x) for x in prep.get("pubblicate", [])}
-    mancanti = [x["pagina"] for x in prep.get("pagine", []) if _chiave(x["pagina"]) not in fatte]
+    prep = _carica_prep(prep_file)
+    fatte = {_chiave(x) for x in prep["pubblicate"]}
+    mancanti = [x["pagina"] for x in prep["pagine"] if _chiave(x["pagina"]) not in fatte]
     if mancanti:
         raise Errore("pagine non ancora pubblicate: "
                      + ", ".join(_mostra(Path(x)) for x in mancanti) + ". Stato non salvato.")
-    dati = dict(prep["stato"])
-    dati.pop("versione", None)
-    nuovo = Stato(**dati)
+    nuovo = _stato_da(prep["stato"])
     ok, avvisi = _ricorrenze(ricorrenze)
     nuovo.ricorrenze = (list(nuovo.ricorrenze) + ok)[-MAX_RICORRENZE:]
     for a in avvisi:
@@ -324,7 +403,7 @@ def main(argv: list[str] | None = None, ora: float | None = None) -> int:
         if args.comando == "prepara":
             return prepara(ora)
         if args.comando == "pubblica":
-            return pubblica(args.file, args.prova)
+            return pubblica(args.file, args.prova, ora)
         return chiudi(args.ricorrenza, ora)
     except (Errore, DiscordError) as e:
         print(f"Errore: {e}", file=sys.stderr)

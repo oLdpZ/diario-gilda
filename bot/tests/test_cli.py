@@ -128,6 +128,8 @@ class TestFlusso(BaseCli):
         self.assertIn("sessione_corrotta.json.gz", g26)  # avviso
         js = json.loads((self.lavoro / "giorno-2026-10-26.json").read_text(encoding="utf-8"))
         self.assertTrue(js["candidati"])
+        fughe = [c for c in js["candidati"] if c["tipo"] == "fuga"]
+        self.assertEqual([c["chi"] for c in fughe], [["Gino"]])  # episodi presi dal pacchetto
 
         prep = self.preparato()
         self.assertEqual(len(prep["pagine"]), 1)
@@ -223,6 +225,9 @@ class TestFlusso(BaseCli):
         self.assertEqual([p["giorni"] for p in prep["pagine"]], [["2026-10-27"]])
         md = (self.lavoro / "giorno-2026-10-27.md").read_text(encoding="utf-8")
         self.assertIn("in ritardo", md)
+        js = json.loads((self.lavoro / "giorno-2026-10-27.json").read_text(encoding="utf-8"))
+        rit = {c["fatti"].get("in_ritardo") for c in js["candidati"]}
+        self.assertEqual(rit, {"2026-10-26", None})
         self.assertEqual(set(prep["stato"]["sessioni_viste"]), {"Realm-Mara-1793010000", "Realm-Mara-2"})
 
     def test_solo_ritardi_niente_pagina(self):
@@ -231,6 +236,56 @@ class TestFlusso(BaseCli):
         self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(genera.mara()), autore="555")
         codice, out, _ = self.esegui("prepara")
         self.assertEqual((codice, out.strip()), (0, "Niente da raccontare oggi."))
+
+
+class TestStatoPerPagina(BaseCli):
+    def test_pagina_2_fallita_non_ripete_la_1(self):
+        stato.scrivi(Discord(self.f.base, None), SERVIZIO,
+                     stato.Stato(giorni_pubblicati=["2026-10-20"], numero_giorno=5), ora=ORA_28)
+        m = genera.mara()
+        self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(m), autore="555")
+        self.f.aggiungi_allegato(SERVIZIO, "", "b.json.gz", _gz(_sposta(m, 86400, "Realm-Mara-2")), autore="555")
+        self.assertEqual(self.esegui("prepara")[0], 0)
+        p1, p2 = self.preparato()["pagine"]
+        self.assertEqual(p1["stato"]["giorni_pubblicati"], ["2026-10-20", "2026-10-26"])
+        self.assertEqual(p1["stato"]["numero_giorno"], 6)
+        self.assertEqual(set(p1["stato"]["sessioni_viste"]), {"Realm-Mara-1793010000"})
+        self.assertIsNone(p1["stato"]["ultimo_messaggio"])  # cursore vecchio
+        self.assertIsNotNone(p2["stato"]["ultimo_messaggio"])
+        codice, out, err = self.esegui("pubblica", str(self.scrivi_pagina("pagina-2026-10-26.md", p1["titolo"])))
+        self.assertEqual(codice, 0, err)
+        self.assertEqual(self.stato_finale().numero_giorno, 6)  # stato salvato subito
+        self.f.post_status[DIARIO] = 500
+        codice, _, err = self.esegui("pubblica", str(self.scrivi_pagina("pagina-2026-10-27.md", p2["titolo"])))
+        self.assertEqual(codice, 1)
+        self.assertIn("500", err)
+        self.assertNotEqual(self.esegui("chiudi")[0], 0)
+        self.f.post_status.clear()
+        self.assertEqual(len([r for r in self.post(DIARIO) if r.get("payload")]), 1)  # solo la pagina 1 riuscita
+
+        # domani: nuova cartella di lavoro, si riparte dallo stato salvato dopo la pagina 1
+        os.environ["CRONISTA_LAVORO"] = str(Path(self.tmp.name) / "lavoro2")
+        self.lavoro = Path(self.tmp.name) / "lavoro2"
+        codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        pagine = self.preparato()["pagine"]
+        self.assertEqual([(p["numero"], p["giorni"]) for p in pagine], [(7, ["2026-10-27"])])
+        prima = len(self.post(DIARIO))
+        self.assertEqual(self.esegui("pubblica", str(self.scrivi_pagina("pagina-2026-10-27.md",
+                                                                          pagine[0]["titolo"])))[0], 0)
+        self.assertEqual(len(self.post(DIARIO)), prima + 1)
+        titoli = [r["payload"]["embeds"][0]["title"] for r in self.post(DIARIO) if r.get("payload")]
+        self.assertEqual(titoli.count(p1["titolo"]), 1)  # la pagina 1 mai ripubblicata
+
+    def test_stato_non_salvato_dopo_la_pagina(self):
+        self.carica(PACCHETTI[:2])
+        self.esegui("prepara")
+        titolo = self.preparato()["pagine"][0]["titolo"]
+        self.f.post_status[SERVIZIO] = 500
+        codice, _, err = self.esegui("pubblica", str(self.scrivi_pagina("pagina-2026-10-26.md", titolo)))
+        self.assertEqual(codice, 1)
+        self.assertIn("pagina pubblicata ma stato non salvato", err)
+        self.assertEqual(len(self.post(DIARIO)), 1)
 
 
 class TestComandi(BaseCli):
@@ -273,10 +328,67 @@ class TestComandi(BaseCli):
         self.assertIn("titolo", err)
         self.assertEqual(self.post(DIARIO), [])
 
+    def test_pubblica_solo_pagine_attese(self):
+        p = self.scrivi_pagina_senza_prepara()
+        codice, _, err = self.esegui("pubblica", str(p))
+        self.assertNotEqual(codice, 0)
+        self.assertIn("prepara", err)
+        self.carica(PACCHETTI[:2])
+        self.esegui("prepara")
+        titolo = self.preparato()["pagine"][0]["titolo"]
+        altro = self.scrivi_pagina("pagina-altra.md", titolo)
+        codice, _, err = self.esegui("pubblica", str(altro))
+        self.assertNotEqual(codice, 0)
+        self.assertIn("non è una delle pagine attese", err)
+        sbagliata = self.scrivi_pagina("pagina-2026-10-26.md", "Cronache della Gilda — Giorno 9, Era della Rinascita")
+        codice, _, err = self.esegui("pubblica", str(sbagliata))
+        self.assertNotEqual(codice, 0)
+        self.assertIn(titolo, err)
+        self.assertEqual(self.post(DIARIO) + self.post(SERVIZIO), [])
+        self.assertEqual(self.esegui("pubblica", str(altro), "--prova")[0], 0)  # --prova libera
+        self.assertEqual(len(self.post(SERVIZIO)), 1)
+
+    def scrivi_pagina_senza_prepara(self) -> Path:
+        self.lavoro.mkdir(parents=True, exist_ok=True)
+        return self.scrivi_pagina("pagina-x.md", "Titolo")
+
+    def test_prepara_json_rovinato(self):
+        self.lavoro.mkdir(parents=True)
+        (self.lavoro / "prepara.json").write_text("{rotto", encoding="utf-8")
+        for argv in (("chiudi",), ("pubblica", str(self.scrivi_pagina("pagina-x.md", "T")))):
+            codice, _, err = self.esegui(*argv)
+            self.assertEqual(codice, 1)
+            self.assertIn("rovinato", err)
+            self.assertNotIn("Traceback", err)
+
+    def test_sessioni_vecchie_e_future(self):
+        stato.scrivi(Discord(self.f.base, None), SERVIZIO,
+                     stato.Stato(giorni_pubblicati=["2026-10-26"], numero_giorno=1), ora=ORA_28)
+        m = genera.mara()
+        for i, sec in enumerate((-10 * 86400, -11 * 86400, 86400, 30 * 86400)):
+            self.f.aggiungi_allegato(SERVIZIO, "", f"{i}.json.gz", _gz(_sposta(m, sec, f"S{i}")), autore="555")
+        codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        md = (self.lavoro / "giorno-2026-10-27.md").read_text(encoding="utf-8")
+        self.assertEqual(md.count("troppo vecchie"), 1)
+        self.assertIn("2 sessioni troppo vecchie", md)
+        self.assertIn("nel futuro (2026-11-25)", md)
+        p = self.preparato()["pagine"][0]
+        self.assertEqual(set(p["stato"]["sessioni_viste"]), {"S0", "S1", "S2", "S3"})
+
+    def test_domani_trattenuto_non_futuro(self):
+        m = genera.mara()
+        self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(m), autore="555")
+        self.f.aggiungi_allegato(SERVIZIO, "", "b.json.gz", _gz(_sposta(m, 3 * 86400, "S-domani")), autore="555")
+        self.assertEqual(self.esegui("prepara")[0], 0)  # ora: 28; S-domani e' del 29
+        st = self.preparato()["stato"]
+        self.assertNotIn("S-domani", st["sessioni_viste"])
+
     def test_ricorrenze_al_massimo_tre_e_brevi(self):
         self.carica(PACCHETTI[:2])
         self.esegui("prepara")
-        self.esegui("pubblica", str(self.scrivi_pagina("pagina-2026-10-26.md", "T")))
+        titolo = self.preparato()["pagine"][0]["titolo"]
+        self.esegui("pubblica", str(self.scrivi_pagina("pagina-2026-10-26.md", titolo)))
         codice, out, err = self.esegui("chiudi", "--ricorrenza", "a", "--ricorrenza", "@b",
                                        "--ricorrenza", "c" * 500, "--ricorrenza", "d")
         self.assertEqual(codice, 0, err)

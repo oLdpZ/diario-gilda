@@ -151,6 +151,8 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
     r = Raccolta(ultimo_messaggio=stato.ultimo_messaggio)
     io = d.io()
     migliori: dict[str, dict] = {}
+    con_episodi: dict[str, dict] = {}  # miglior copia con combattimenti, per id
+    msg_episodi: dict[str, str] = {}
     blocco: int | None = None  # primo messaggio con errore di rete: si riprova al giro dopo
     for m in d.messaggi_dopo(servizio_id, stato.ultimo_messaggio):
         mid = str(m["id"])
@@ -168,6 +170,10 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
                     r.avvisi.append(f"Pacchetto {nome} (messaggio {mid}): {e}")
                 for s in buoni:
                     id_ = s["sessione"]["id"]
+                    if s["combattimenti"] and (id_ not in con_episodi or _chiave_migliore(s)
+                                               > _chiave_migliore(con_episodi[id_])):
+                        con_episodi[id_] = s
+                        msg_episodi[id_] = mid
                     if id_ not in migliori or _chiave_migliore(s) > _chiave_migliore(migliori[id_]):
                         migliori[id_] = s
                         r.messaggi[id_] = mid
@@ -177,7 +183,17 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
                     blocco = int(mid)
             except (ValueError, KeyError) as e:
                 r.avvisi.append(f"Pacchetto {nome} (messaggio {mid}) saltato: {e}")
-    for id_, s in migliori.items():
+    for id_, s in list(migliori.items()):
+        altra = con_episodi.get(id_)
+        if not s["combattimenti"] and altra is not None:
+            # copie unite: eventi dalla vincitrice, episodi (e app) dalla copia che li ha
+            s = dict(s, combattimenti=altra["combattimenti"])
+            s.pop("manuale", None)
+            if "app" in altra:
+                s["app"] = altra["app"]
+            migliori[id_] = s
+            # per rileggere entrambe le copie, il messaggio piu' vecchio delle due
+            r.messaggi[id_] = str(min(int(r.messaggi[id_]), int(msg_episodi[id_])))
         visto = stato.sessioni_viste.get(id_)
         if not isinstance(visto, dict):
             visto = None

@@ -16,8 +16,10 @@ La cartella `bot/lavoro/` è temporanea e non finisce nel repository.
 3. Se `prepara` stampa `Niente da raccontare oggi.`, **fermati**: non scrivere e non pubblicare nulla.
    Rispondi solo «Niente da raccontare oggi.».
 4. Se un comando fallisce (codice d'uscita diverso da 0 o una riga `Errore: …`), **fermati**: non
-   pubblicare pagine a metà, non ripetere `pubblica`, non lanciare `chiudi`. Nella risposta finale
-   riporta il comando e il messaggio d'errore esatto. Domani il Cronista riprenderà da dove si è fermato.
+   pubblicare altre pagine, non ripetere il comando, non lanciare `chiudi`. Nella risposta finale
+   riporta il comando e il messaggio d'errore esatto. Ogni pagina pubblicata per intero salva subito lo
+   stato: domani il Cronista ripartirà dalle giornate non ancora pubblicate. (Se l'errore dice
+   «pagina pubblicata ma stato non salvato», scrivilo chiaramente: quella pagina potrebbe ripetersi.)
 5. Usa solo i comandi scritti qui. Non scaricare nulla da Discord in altri modi e non chiamare l'API.
 
 ## Passi
@@ -27,6 +29,8 @@ La cartella `bot/lavoro/` è temporanea e non finisce nel repository.
 ```
 python bot/cronista.py prepara
 ```
+
+Lancia `prepara` **una sola volta** per esecuzione: ogni volta svuota `bot/lavoro/` e ricomincia.
 
 Il comando scarica i pacchetti nuovi da `#diario-servizio` e prepara i riassunti in `bot/lavoro/`.
 Stampa le giornate pronte, i giocatori, gli avvisi e l'elenco **Pagine da scrivere**. Per ogni pagina
@@ -85,6 +89,9 @@ Regole del racconto:
 - **Bottino presunto:** se nei Fatti c'è `fonte presunta: sì` (`fatti.fonte_presunta`) o il perché dice
   «probabilmente da …», scrivi che l'oggetto **probabilmente** viene da quel nemico, non che ne viene
   di sicuro.
+- **Notizie in ritardo:** se nei Fatti di un momento c'è `in ritardo: AAAA-MM-GG`, quel fatto è
+  successo in quel giorno passato e la notizia è arrivata solo ora. Dillo nel racconto («giunge solo ora
+  notizia di quanto accadde il …»), non presentarlo come un fatto di questa giornata.
 - **Nomi:** i giocatori con il nome dei dati (quello del riassunto, per esempio «Gino»); mob, zone,
   boss e oggetti esattamente come li scrive il client nei dati (per esempio «Edwin VanCleef»,
   «Deadmines», «Lama dei Defias»). Non tradurli.
@@ -120,8 +127,11 @@ Per ogni pagina, **nell'ordine dell'elenco**:
 python bot/cronista.py pubblica bot/lavoro/pagina-AAAA-MM-GG.md
 ```
 
-(oppure `bot/lavoro/pagina-recupero.md`). Il comando invia la pagina in `#diario-di-gilda`. Lancialo
-**una volta sola** per pagina. Se fallisce → regola 4.
+(oppure `bot/lavoro/pagina-recupero.md`). Il comando invia la pagina in `#diario-di-gilda` e subito dopo
+salva lo stato su Discord. Accetta solo i file dell'elenco di `prepara`, e la prima riga deve essere
+esattamente `# <titolo dato da prepara>`: se rifiuta la pagina prima di inviarla, correggi il file e
+riprova. Una volta inviata, una pagina non si ripubblica (il comando lo impedisce). Se fallisce durante
+l'invio o il salvataggio → regola 4.
 
 ### 5. Chiudi
 
@@ -131,8 +141,8 @@ Quando **tutte** le pagine sono state pubblicate:
 python bot/cronista.py chiudi
 ```
 
-Salva lo stato su Discord: giornate pubblicate, numero del giorno, pacchetti già letti, contatori.
-Senza `chiudi`, domani il Cronista ripubblicherebbe le stesse giornate.
+Controlla che tutte le pagine siano state pubblicate e salva lo stato finale su Discord (giornate
+pubblicate, numero del giorno, pacchetti già letti, contatori) con le ricorrenze nuove.
 
 **Ricorrenze.** Se oggi è nato qualcosa che vale la pena richiamare nei prossimi giorni (un giocatore e
 la sua nemesi, un'impresa da ricordare), aggiungilo a `chiudi`: al massimo 3, brevi (poche parole,

@@ -88,6 +88,8 @@ class _Handler(BaseHTTPRequestHandler):
         parti = urlparse(self.path).path.strip("/").split("/")
         if not (len(parti) == 3 and parti[0] == "channels" and parti[2] == "messages"):
             return self._rispondi(404, {})
+        if f.post_status.get(parti[1]):
+            return self._rispondi(f.post_status[parti[1]], {"message": "errore finto"})
         tipo = self.headers.get("Content-Type", "")
         allegati = []
         if tipo.startswith("multipart/form-data"):
@@ -132,6 +134,7 @@ class FintoDiscord:
         self.retry_after = 0.01
         self.redirect = ""
         self.forza_status = 0
+        self.post_status: dict[str, int] = {}  # canale -> status per i POST
         self._prossimo = 1000
         self._srv = None
         self._th = None

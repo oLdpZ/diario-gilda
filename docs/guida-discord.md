@@ -6,7 +6,7 @@ Da fare una volta sola prima di distribuire il programma, poi a ogni nuova versi
 
 Nel server della gilda crea due canali di testo:
 
-- **`#diario-gilda`**: qui il bot pubblica il racconto delle sessioni. È il canale che leggono tutti.
+- **`#diario-di-gilda`**: qui il bot pubblica il racconto delle sessioni. È il canale che leggono tutti.
 - **`#diario-servizio`**: qui il programma invia i file delle sessioni (uno per sessione, `sessione_….json.gz`).
   Lascialo **visibile** ai membri (serve anche per l'invio a mano descritto nella guida di installazione), ma
   imposta le notifiche del canale su **Niente** (tasto destro sul canale → Silenzia canale / Impostazioni di
@@ -30,7 +30,7 @@ Nel server della gilda crea due canali di testo:
    Prendi il token del bot e tienilo da parte per il Piano 3 (non va in questo repository).
 2. **OAuth2 → URL Generator**: scope `bot`, nessun permesso a livello di server. Apri l'URL e aggiungi il bot
    al server della gilda.
-3. Permessi **solo su quei due canali**: nelle impostazioni di `#diario-gilda` e di `#diario-servizio` →
+3. Permessi **solo su quei due canali**: nelle impostazioni di `#diario-di-gilda` e di `#diario-servizio` →
    **Permessi** → aggiungi il bot (o il suo ruolo) e concedi:
    - `View Channel` (Visualizzare il canale)
    - `Read Message History` (Leggere la cronologia dei messaggi)

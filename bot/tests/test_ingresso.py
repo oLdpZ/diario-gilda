@@ -192,6 +192,17 @@ class TestRaccogli(unittest.TestCase):
         self.assertIn(rotto["id"], r.avvisi[0])
         self.assertEqual(r.ultimo_messaggio, ultimo["id"])
 
+    def test_copie_unite_episodi_dalla_copia_che_li_ha(self):
+        g = self.invia(GINO, (DATI / GINO).read_bytes())  # 4 eventi, con combattimenti
+        self.invia(LUA, (DATI / LUA).read_bytes())  # stessa sessione: piu' eventi, senza episodi
+        r = ingresso.raccogli(self.d, "201", Stato())
+        s = [x for x in r.sessioni if x["sessione"]["id"] == "Realm-Gino-1793000000"][0]
+        self.assertGreater(len(s["sessione"]["events"]), 4)  # eventi dalla vincitrice (.lua)
+        self.assertEqual(len(s["combattimenti"]), 1)  # episodi dal pacchetto
+        self.assertEqual(s["app"], "0.1.0")
+        self.assertNotIn("manuale", s)
+        self.assertEqual(r.messaggi["Realm-Gino-1793000000"], g["id"])  # si rileggono entrambe
+
     def test_solo_messaggi_ignorati_avanza_il_cursore(self):
         self.f.aggiungi("201", "chiacchiere", autore="555")
         m = self.f.aggiungi("201", "mio", autore="999")
