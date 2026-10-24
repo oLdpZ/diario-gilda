@@ -204,7 +204,7 @@ func (a *app) config() config.Config {
 // env prepara il ciclo; il webhook resta dentro Send e non va mai nel log.
 // Gli invii usano ctx: cancellarlo interrompe anche un upload in corso.
 func (a *app) env(ctx context.Context, cfg config.Config) run.Env {
-	e := run.Env{Cfg: cfg, DataDir: a.dir, Loc: time.Local, Log: log.Printf}
+	e := run.Env{Cfg: cfg, DataDir: a.dir, Loc: time.Local, Log: log.Printf, GameRunning: desktop.WoWRunning}
 	wh := config.EffectiveWebhook(cfg)
 	if wh == "" {
 		log.Printf("nessun webhook in questa build: le sessioni restano in coda")
@@ -337,7 +337,7 @@ func (a *app) sendNow() {
 	case after.After(before):
 		desktop.Notify("Diario inviato.")
 	default:
-		desktop.Notify("Niente di nuovo da inviare (una sessione parte una decina di minuti dopo il logout).")
+		desktop.Notify("Niente di nuovo da inviare (una sessione parte quando chiudi World of Warcraft, o una decina di minuti dopo se era già chiuso).")
 	}
 }
 

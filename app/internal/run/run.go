@@ -46,6 +46,9 @@ type Env struct {
 	Loc     *time.Location
 	Send    func(name string, data []byte) error
 	Log     func(format string, args ...any)
+	// GameRunning dice se WoW e' aperto (nil = chiuso). Con WoW aperto lo stop
+	// su disco puo' essere quello di un /reload: vedi final.
+	GameRunning func() bool
 
 	saveState func(dir string, st *state.State) error // solo per i test; nil = state.Save
 }
@@ -69,6 +72,8 @@ func (e Env) loc() *time.Location {
 	}
 	return time.Local
 }
+
+func (e Env) gameRunning() bool { return e.GameRunning != nil && e.GameRunning() }
 
 func (e Env) save(st *state.State) error {
 	if e.saveState != nil {
@@ -148,6 +153,7 @@ func enqueue(env Env, st *state.State, now int64) int {
 		all = append(all, db.Sessions...)
 	}
 
+	running := env.gameRunning()
 	marked := 0
 	seen := map[string]bool{}
 	for _, s := range all {
@@ -155,7 +161,7 @@ func enqueue(env Env, st *state.State, now int64) int {
 			continue
 		}
 		seen[s.ID] = true
-		ok, interrupted := final(s, all, now)
+		ok, interrupted := final(s, all, now, running)
 		if !ok {
 			continue
 		}
@@ -223,12 +229,16 @@ func build1(env Env, s addondata.Session, interrupted bool) (string, []byte, err
 	return payload.Build(env.Cfg.Player, build.Version, s, eps, interrupted)
 }
 
-// final dice se la sessione e' definitiva e se e' interrotta (crash).
-func final(s addondata.Session, all []addondata.Session, now int64) (ok, interrupted bool) {
+// final dice se la sessione e' definitiva e se e' interrotta (crash). Con WoW
+// aperto (running) uno stop vecchio non basta: dopo un /reload il file ha lo
+// stop del reload ma l'addon ha riaperto la sessione in memoria, quindi conta
+// solo una sessione piu' nuova dello stesso personaggio. La regola dei 600 s
+// vale a gioco chiuso.
+func final(s addondata.Session, all []addondata.Session, now int64, running bool) (ok, interrupted bool) {
 	if s.Stop == nil {
 		return now-lastTime(s) > crashAge, true
 	}
-	if now-*s.Stop > reloadGap {
+	if !running && now-*s.Stop > reloadGap {
 		return true, false
 	}
 	k := charKey(s)

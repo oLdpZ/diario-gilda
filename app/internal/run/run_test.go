@@ -655,3 +655,53 @@ func TestWatchPeriodicNotStarvedByChanges(t *testing.T) {
 	cancel()
 	<-done
 }
+
+// Ruling F1: dopo un /reload il file su disco ha stop = ora del reload ma
+// l'addon ha riaperto la sessione in memoria. Finche' WoW e' aperto la regola
+// dei 10 minuti non vale: solo una sessione piu' nuova la rende definitiva.
+func TestReloadWhileGameRunning(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{}
+	running := true
+	env := tr.env(r, stop1+3600)
+	env.GameRunning = func() bool { return running }
+
+	cycle(t, env)
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("WoW aperto, stop+1h: nessun invio atteso, ottenuti %v", ids(got))
+	}
+	if readState(t, tr).Has(id1) {
+		t.Fatal("WoW aperto: la sessione non deve risultare in coda")
+	}
+
+	running = false
+	cycle(t, env)
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id1 {
+		t.Fatalf("WoW chiuso: atteso %s, ottenuti %v", id1, ids(got))
+	}
+}
+
+func TestNewerSessionFinalWhileGameRunning(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", fixture(t))
+	r := &recorder{}
+	env := tr.env(r, stop1+60)
+	env.GameRunning = func() bool { return true }
+	cycle(t, env)
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id1 {
+		t.Fatalf("WoW aperto ma sessione piu' nuova: atteso %s, ottenuti %v", id1, ids(got))
+	}
+}
+
+func TestInterruptedWhileGameRunning(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only2(t))
+	r := &recorder{}
+	env := tr.env(r, lastEvt2+13*3600)
+	env.GameRunning = func() bool { return true }
+	cycle(t, env)
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id2 || got[0].doc["interrotta"] != true {
+		t.Fatalf("regola delle 12 ore invariata: ottenuti %v", ids(got))
+	}
+}
