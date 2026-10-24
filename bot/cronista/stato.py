@@ -28,18 +28,49 @@ class Stato:
     def pota(self, ora: float | None = None) -> None:
         """Toglie le sessioni viste da più di 60 giorni."""
         limite = (time.time() if ora is None else ora) - GIORNI_CONSERVAZIONE * 86400
-        self.sessioni_viste = {k: v for k, v in self.sessioni_viste.items()
-                               if v.get("visto", 0) >= limite}
+        def recente(v) -> bool:
+            t = v.get("visto") if isinstance(v, dict) else None
+            return isinstance(t, (int, float)) and not isinstance(t, bool) and t >= limite
+        self.sessioni_viste = {k: v for k, v in self.sessioni_viste.items() if recente(v)}
 
 
-def _da_dict(d: dict, ora: float) -> Stato:
+def _intero(v) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def _lista_str(v) -> bool:
+    return isinstance(v, list) and all(isinstance(x, str) for x in v)
+
+
+def _da_dict(d, ora: float) -> Stato:
+    """Stato dal JSON; ValueError se la forma non è quella attesa."""
+    if not isinstance(d, dict):
+        raise ValueError("non è un oggetto JSON")
     s = Stato()
-    for k in ("ultimo_messaggio", "giorni_pubblicati", "numero_giorno", "contatori", "ricorrenze"):
+    um = d.get("ultimo_messaggio")
+    if _intero(um):
+        um = str(um)
+    if um is not None and not (isinstance(um, str) and um.isdigit()):
+        raise ValueError("ultimo_messaggio non valido")
+    s.ultimo_messaggio = um
+    for k, ok in (("giorni_pubblicati", _lista_str), ("ricorrenze", _lista_str),
+                  ("numero_giorno", lambda v: _intero(v) and v >= 0),
+                  ("contatori", lambda v: isinstance(v, dict))):
         if k in d:
+            if not ok(d[k]):
+                raise ValueError(f"{k} non valido")
             setattr(s, k, d[k])
-    for k, v in d.get("sessioni_viste", {}).items():
+    viste = d.get("sessioni_viste", {})
+    if not isinstance(viste, dict):
+        raise ValueError("sessioni_viste non valido")
+    for k, v in viste.items():
         # tollera la forma vecchia (solo numero di eventi)
-        s.sessioni_viste[k] = dict(v) if isinstance(v, dict) else {"eventi": int(v), "visto": ora}
+        if isinstance(v, dict):
+            s.sessioni_viste[k] = dict(v)
+        elif _intero(v):
+            s.sessioni_viste[k] = {"eventi": v, "visto": ora}
+        else:
+            raise ValueError(f"sessioni_viste[{k[:40]!r}] non valido")
     return s
 
 
@@ -60,7 +91,12 @@ def leggi(d: Discord, canale_id: str) -> Stato:
                 continue
             for a in m.get("attachments", []):
                 if a.get("filename") == NOME_FILE:
-                    return _da_dict(json.loads(d.scarica(a["url"]).decode("utf-8")), time.time())
+                    dati = d.scarica(a["url"])
+                    try:
+                        return _da_dict(json.loads(dati.decode("utf-8")), time.time())
+                    except (ValueError, RecursionError) as e:  # anche JSON e UTF-8 rotti
+                        raise DiscordError(0, f"{NOME_FILE} rovinato nel messaggio {m['id']} di questo "
+                                              f"canale ({str(e)[:120]}): va sistemato a mano") from None
         if len(pag) < 100:
             return Stato()
         prima = str(min(int(m["id"]) for m in pag))

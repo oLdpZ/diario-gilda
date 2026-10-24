@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from datetime import datetime
+from unittest import mock
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -231,6 +232,50 @@ class TestFlusso(BaseCli):
         rit = {c["fatti"].get("in_ritardo") for c in js["candidati"]}
         self.assertEqual(rit, {"2026-10-26", None})
         self.assertEqual(set(prep["stato"]["sessioni_viste"]), {"Realm-Mara-1793010000", "Realm-Mara-2"})
+
+    def test_niente_da_raccontare_mostra_gli_avvisi(self):
+        self.carica(["sessione_corrotta.json.gz"])
+        codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        righe = out.strip().splitlines()
+        self.assertEqual(righe[-1], "Niente da raccontare oggi.")
+        self.assertIn("Avvisi: 1", out)
+        self.assertIn("sessione_corrotta.json.gz", out)
+
+    def test_evento_con_orario_assurdo_non_blocca(self):
+        m = genera.mara()
+        m["sessione"]["events"] += [{"t": 10**15, "k": "level", "level": 60, "z": "Westfall"},
+                                    {"t": 0, "k": "level", "level": 20, "z": "Westfall"}]
+        self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(m), autore="555")
+        codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        self.assertIn("2 eventi con orario non valido", out)
+        js = json.loads((self.lavoro / "giorno-2026-10-26.json").read_text(encoding="utf-8"))
+        self.assertNotIn("livello", [c["tipo"] for c in js["candidati"]])
+
+    def test_errore_su_una_sessione_diventa_avviso(self):
+        m = genera.mara()
+        self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(m), autore="555")
+        self.f.aggiungi_allegato(SERVIZIO, "", "b.json.gz", _gz(_sposta(m, 3600, "S-rotta")), autore="555")
+        vera = cli.ingresso.giornata
+        rotta = m["sessione"]["start"] + 3600
+
+        def giornata(t, *a):
+            if t == rotta:
+                raise OverflowError("finto")
+            return vera(t, *a)
+        with mock.patch.object(cli.ingresso, "giornata", giornata):
+            codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        self.assertIn("S-rotta", out)
+        self.assertEqual(len(self.preparato()["pagine"]), 1)
+
+    def test_stato_rovinato_niente_traceback(self):
+        self.f.aggiungi_allegato(SERVIZIO, "Stato del Cronista — x", "stato.json", b"{rotto")
+        codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 1)
+        self.assertIn("stato.json", err)
+        self.assertNotIn("Traceback", err)
 
     def test_solo_ritardi_niente_pagina(self):
         stato.scrivi(Discord(self.f.base, None), SERVIZIO,

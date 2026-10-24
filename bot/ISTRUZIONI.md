@@ -13,8 +13,9 @@ La cartella `bot/lavoro/` è temporanea e non finisce nel repository.
 1. **Non fare commit né push.** Non modificare file del repository. Scrivi solo dentro `bot/lavoro/`.
 2. **Non cercare, stampare o leggere token o segreti** (variabili d'ambiente, configurazioni di rete,
    header). L'autenticazione con Discord è già pronta: i comandi funzionano così come sono.
-3. Se `prepara` stampa `Niente da raccontare oggi.`, **fermati**: non scrivere e non pubblicare nulla.
-   Rispondi solo «Niente da raccontare oggi.».
+3. Se `prepara` stampa `Niente da raccontare oggi.` (sempre come ultima riga), **fermati**: non scrivere
+   e non pubblicare nulla. Rispondi «Niente da raccontare oggi.» e, se `prepara` ha stampato degli
+   avvisi (righe sotto `Avvisi:`), riportali nella risposta finale.
 4. Se un comando fallisce (codice d'uscita diverso da 0 o una riga `Errore: …`), **fermati**: non
    pubblicare altre pagine, non ripetere il comando, non lanciare `chiudi`. **Unica eccezione:** se
    l'errore di `pubblica` contiene «pagina non inviata», nulla è stato inviato: correggi ciò che dice

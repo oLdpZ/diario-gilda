@@ -23,6 +23,8 @@ MAX_RICORRENZE_GIORNO = 3
 MAX_RICORRENZE = 20
 MAX_LUNGHEZZA_RICORRENZA = 150
 RITARDO_MAX_GIORNI = 7
+MAX_AVVISI_STAMPATI = 30
+ERRORI_DATI = (ValueError, TypeError, KeyError, OverflowError, OSError)
 
 
 class Errore(Exception):
@@ -88,8 +90,23 @@ def _pulisci_lavoro(cartella: Path) -> None:
 
 # --- prepara -------------------------------------------------------------------
 
+def _per_giornata(sessioni: list[dict], fuso: str, inizio: str):
+    """({giorno: [s]} in ordine, avvisi): una sessione che dà errore diventa un avviso."""
+    out: dict[str, list[dict]] = {}
+    avvisi = []
+    for s in sessioni:
+        try:
+            g = ingresso.giornata(s["sessione"]["start"], fuso, inizio)
+        except ERRORI_DATI as e:
+            avvisi.append(f"Sessione {s['sessione'].get('id')} di {s.get('giocatore')} ignorata: "
+                          f"giornata non calcolabile ({e})")
+            continue
+        out.setdefault(g, []).append(s)
+    return dict(sorted(out.items())), avvisi
+
+
 def _dividi(sessioni: list[dict], st: Stato, cfg: dict, ora: float):
-    """Sessioni divise in: pronte {giorno: [s]}, ritardo, trattenute, vecchie, future.
+    """Sessioni divise in: pronte {giorno: [s]}, ritardo, trattenute, vecchie, future, avvisi.
 
     ritardo/vecchie/future sono liste di (giorno, s); trattenute di s (oggi e domani).
     """
@@ -100,7 +117,8 @@ def _dividi(sessioni: list[dict], st: Stato, cfg: dict, ora: float):
     ultimo_pubbl = max(pubblicati, default="")
     pronte: dict[str, list[dict]] = {}
     ritardo, trattenute, future = [], [], []
-    for g, ss in ingresso.per_giornata(sessioni, fuso, inizio).items():
+    per_g, avvisi = _per_giornata(sessioni, fuso, inizio)
+    for g, ss in per_g.items():
         if g > domani:
             future.extend((g, s) for s in ss)  # orologio sbagliato: non si aspetta per sempre
         elif g >= oggi:
@@ -115,7 +133,15 @@ def _dividi(sessioni: list[dict], st: Stato, cfg: dict, ora: float):
         limite = (primo - timedelta(days=RITARDO_MAX_GIORNI)).isoformat()
         vecchie = [(g, s) for g, s in ritardo if g < limite]
         ritardo = [(g, s) for g, s in ritardo if g >= limite]
-    return pronte, ritardo, trattenute, vecchie, future
+    return pronte, ritardo, trattenute, vecchie, future, avvisi
+
+
+def _stampa_avvisi(avvisi: list[str]) -> None:
+    print(f"Avvisi: {len(avvisi)}")
+    for a in avvisi[:MAX_AVVISI_STAMPATI]:
+        print(f"  - {a}")
+    if len(avvisi) > MAX_AVVISI_STAMPATI:
+        print(f"  … e altri {len(avvisi) - MAX_AVVISI_STAMPATI} avvisi.")
 
 
 def _note(titolo: str, file_pagina: Path, ricorrenze: list[str]) -> list[str]:
@@ -149,8 +175,11 @@ def prepara(ora: float) -> int:
     _, servizio = _canali(d, cfg)
     st = stato.leggi(d, servizio)
     racc = ingresso.raccogli(d, servizio, st)
-    pronte, ritardo, trattenute, vecchie, future = _dividi(racc.sessioni, st, cfg, ora)
+    pronte, ritardo, trattenute, vecchie, future, avvisi_giorni = _dividi(racc.sessioni, st, cfg, ora)
+    avvisi_lettura = racc.avvisi + avvisi_giorni
     if not pronte:
+        if avvisi_lettura:
+            _stampa_avvisi(avvisi_lettura)
         print(NIENTE)
         return 0
 
@@ -187,10 +216,13 @@ def prepara(ora: float) -> int:
         for c in cand:
             q = c.get("quando")
             if isinstance(q, int) and not isinstance(q, bool):
-                gq = ingresso.giornata(q, fuso, inizio)
+                try:
+                    gq = ingresso.giornata(q, fuso, inizio)
+                except ERRORI_DATI:
+                    continue
                 if gq < g and isinstance(c.get("fatti"), dict):
                     c["fatti"]["in_ritardo"] = gq
-        avv = (racc.avvisi if i == 0 else []) + avvisi_extra[g]
+        avv = (avvisi_lettura if i == 0 else []) + avvisi_extra[g]
         gioc = _giocatori(ss)
         md = momenti.riassunto_md(g, cand, avv, gioc, fuso=fuso)
         if not recupero:
@@ -245,10 +277,7 @@ def prepara(ora: float) -> int:
     tutti = sorted({s["giocatore"] for g in giorni for s in pronte[g]})
     print(f"Giornate pronte: {', '.join(giorni)}")
     print(f"Giocatori: {', '.join(tutti)}")
-    avv_tot = len(racc.avvisi) + sum(len(v) for v in avvisi_extra.values())
-    print(f"Avvisi: {avv_tot}")
-    for a in racc.avvisi + [a for g in giorni for a in avvisi_extra[g]]:
-        print(f"  - {a}")
+    _stampa_avvisi(avvisi_lettura + [a for g in giorni for a in avvisi_extra[g]])
     if trattenute:
         print(f"Sessioni della giornata in corso rimandate a domani: {len(trattenute)}")
     print("Pagine da scrivere (in quest'ordine):")

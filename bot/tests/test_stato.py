@@ -53,6 +53,21 @@ class TestStato(unittest.TestCase):
                                  b'{"numero_giorno": 99}', autore="555")
         self.assertEqual(stato.leggi(self.d, "201").numero_giorno, 1)
 
+    def test_stato_rovinato_errore_chiaro(self):
+        for dati in (b"{rotto", b"[1, 2]", b'{"numero_giorno": "sette"}', b'{"giorni_pubblicati": "x"}',
+                     b'{"ultimo_messaggio": "abc"}', b'{"sessioni_viste": {"a": "x"}}',
+                     b'{"sessioni_viste": []}', b'{"contatori": 3}', b'{"ricorrenze": [1]}', b"\xff"):
+            self.f.aggiungi_allegato("201", "Stato del Cronista — x", "stato.json", dati)
+            with self.assertRaises(DiscordError, msg=dati) as c:
+                stato.leggi(self.d, "201")
+            self.assertIn("stato.json", str(c.exception))
+
+    def test_stato_forma_vecchia_accettata(self):
+        self.f.aggiungi_allegato("201", "Stato del Cronista — x", "stato.json",
+                                 b'{"ultimo_messaggio": 123, "sessioni_viste": {"a": 4}, "numero_giorno": 2}')
+        s = stato.leggi(self.d, "201")
+        self.assertEqual((s.ultimo_messaggio, s.sessioni_viste["a"]["eventi"], s.numero_giorno), ("123", 4, 2))
+
     def test_potatura_60_giorni(self):
         ora = 1_800_000_000.0
         s = Stato(sessioni_viste={

@@ -14,6 +14,8 @@ from .stato import Stato
 MAX_DECOMPRESSO = 32 * 1024 * 1024
 MAX_EPOCH = 4_000_000_000
 DODICI_ORE = 12 * 3600
+EVENTO_PRIMA_S = 86400       # un evento puo' stare al piu' 1 giorno prima dello start
+EVENTO_DOPO_S = 2 * 86400    # e al piu' 2 giorni dopo lo stop (o lo start)
 NOME_LUA = "diariogilda.lua"
 SUFFISSO_PACCHETTO = ".json.gz"
 
@@ -37,7 +39,8 @@ def _intero(v) -> bool:
     return isinstance(v, int) and not isinstance(v, bool)
 
 
-def _controlla_sessione(se) -> dict:
+def _controlla_sessione(se) -> tuple[dict, int]:
+    """(sessione controllata, eventi scartati per orario `t` non valido)."""
     if not isinstance(se, dict):
         raise ValueError("sessione non valida")
     if not isinstance(se.get("id"), str) or not se["id"]:
@@ -49,13 +52,19 @@ def _controlla_sessione(se) -> dict:
         ev = []
     if not isinstance(ev, list) or not all(isinstance(e, dict) for e in ev):
         raise ValueError("eventi non validi")
-    se["events"] = ev
     if "stop" in se and (not _intero(se["stop"]) or not 0 <= se["stop"] <= MAX_EPOCH):
         raise ValueError("stop non valido")
-    return se
+    da, a = se["start"] - EVENTO_PRIMA_S, (se.get("stop") or se["start"]) + EVENTO_DOPO_S
+    buoni = [e for e in ev if _intero(e.get("t")) and da <= e["t"] <= a]
+    se["events"] = buoni
+    return se, len(ev) - len(buoni)
 
 
-def _da_json_gz(dati: bytes) -> list[dict]:
+def _scartati(n: int) -> list[str]:
+    return [f"{n} eventi con orario non valido scartati"] if n else []
+
+
+def _da_json_gz(dati: bytes) -> tuple[list[dict], list[str]]:
     try:
         d = zlib.decompressobj(31)  # 16+15: solo gzip
         grezzo = d.decompress(dati, MAX_DECOMPRESSO + 1)
@@ -73,7 +82,7 @@ def _da_json_gz(dati: bytes) -> list[dict]:
         raise ValueError(f"formato non supportato: {doc.get('formato')!r}")
     if not isinstance(doc.get("giocatore"), str) or not doc["giocatore"]:
         raise ValueError("giocatore mancante")
-    se = _controlla_sessione(doc.get("sessione"))
+    se, n = _controlla_sessione(doc.get("sessione"))
     comb = doc.get("combattimenti", [])
     if not isinstance(comb, list):
         raise ValueError("combattimenti non validi")
@@ -82,7 +91,7 @@ def _da_json_gz(dati: bytes) -> list[dict]:
            "troncata": tr if _intero(tr) else 0, "sessione": se, "combattimenti": comb}
     if isinstance(doc.get("app"), str):
         out["app"] = doc["app"]
-    return [out]
+    return [out], _scartati(n)
 
 
 def _ultimo_t(se: dict) -> int:
@@ -106,13 +115,14 @@ def _da_lua(dati: bytes) -> tuple[list[dict], list[str]]:
     buone, errori = [], []
     for i, se in enumerate(sess, 1):
         try:
-            se = _controlla_sessione(se)
+            se, n = _controlla_sessione(se)
             nome = se.get("char")
             if not isinstance(nome, str) or not nome:
                 raise ValueError("sessione senza char")
         except ValueError as e:
             errori.append(f"sessione {i} scartata: {e}")
             continue
+        errori += [f"sessione {i}: {x}" for x in _scartati(n)]
         buone.append(se)
     # riferimento: l'istante piu' recente del file
     rif = max((max(_ultimo_t(se), se.get("stop", 0)) for se in buone), default=0)
@@ -125,7 +135,7 @@ def _da_lua(dati: bytes) -> tuple[list[dict], list[str]]:
 def _leggi(nome: str, dati: bytes) -> tuple[list[dict], list[str]]:
     n = nome.lower()
     if n.endswith(SUFFISSO_PACCHETTO):
-        return _da_json_gz(dati), []
+        return _da_json_gz(dati)
     if n == NOME_LUA:
         return _da_lua(dati)
     raise ValueError("tipo di file non riconosciuto")

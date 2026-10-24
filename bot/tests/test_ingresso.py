@@ -85,6 +85,21 @@ class TestLeggiPacchetto(unittest.TestCase):
             with self.assertRaises(ValueError, msg=(campo, v)):
                 ingresso.leggi_pacchetto("a.json.gz", gz(doc))
 
+    def test_eventi_con_orario_assurdo_scartati(self):
+        doc = doc_di(GINO)
+        ev = doc["sessione"]["events"]
+        n = len(ev)
+        ev += [{"t": 10**15, "k": "level", "level": 60}, {"t": 0, "k": "zone", "z": "X"},
+               {"t": "x", "k": "zone"}, {"t": True, "k": "zone"}, {"k": "zone"}]
+        (s,) = ingresso.leggi_pacchetto("a.json.gz", gz(doc))
+        self.assertEqual(len(s["sessione"]["events"]), n)
+        # ai margini: un giorno prima dello start e due dopo lo stop restano
+        doc = doc_di(GINO)
+        se = doc["sessione"]
+        se["events"] += [{"t": se["start"] - 86400, "k": "zone"}, {"t": se["stop"] + 2 * 86400, "k": "zone"}]
+        (s,) = ingresso.leggi_pacchetto("a.json.gz", gz(doc))
+        self.assertEqual(len(s["sessione"]["events"]), n + 2)
+
     def test_json_ricorsivo_e_gzip_bomba(self):
         for dati in (gzip.compress(b"[" * 100000), gzip.compress(b"0" * (33 * 1024 * 1024))):
             with self.assertRaises(ValueError):
@@ -305,6 +320,20 @@ class TestRaccogli(unittest.TestCase):
         self.assertEqual([s["giocatore"] for s in r.sessioni], ["Mara"])
         self.assertEqual(len(r.avvisi), 2)
         ingresso.per_giornata(r.sessioni)
+
+    def test_eventi_assurdi_un_avviso_per_sessione(self):
+        doc = doc_di(GINO)
+        doc["sessione"]["events"] += [{"t": 10**15, "k": "level", "level": 60}, {"t": 0, "k": "zone"}]
+        self.invia("a.json.gz", gz(doc))
+        testo = (DATI / LUA).read_text(encoding="utf-8").replace(
+            '["t"] = 1793000000,', '["t"] = 0,', 1)
+        self.invia(LUA, testo.encode(), autore="777")
+        r = ingresso.raccogli(self.d, "201", Stato())
+        self.assertEqual(len(r.sessioni), 2)
+        self.assertEqual(len(r.avvisi), 2, r.avvisi)
+        self.assertIn("2 eventi con orario non valido", r.avvisi[0])
+        self.assertIn("a.json.gz", r.avvisi[0])
+        self.assertIn("1 eventi con orario non valido", r.avvisi[1])
 
     def test_lua_sessione_cattiva_salta_solo_quella(self):
         testo = (DATI / LUA).read_text(encoding="utf-8").replace("[\"start\"] = 1793086400", "[\"start\"] = 10 ^ 40")
