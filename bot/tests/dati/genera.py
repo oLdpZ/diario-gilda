@@ -68,6 +68,20 @@ def mara() -> dict:
             "combattimenti": comb}
 
 
+def gino_deadmines() -> dict:
+    """Seconda sessione di Gino: la stessa serata a Deadmines con Mara (episodio condiviso)."""
+    doc = mara()
+    se = doc["sessione"]
+    ev = [dict(e) for e in se["events"] if e["k"] != "loot"]
+    ev[0]["t"] = 1793009990
+    return {"formato": 1, "giocatore": "Gino", "app": "0.1.0", "interrotta": False,
+            "sessione": {"id": "Realm-Gino-1793009900", "char": "Gino", "realm": "Realm",
+                         "guild": "I Murloc Rampanti", "class": "WARRIOR", "race": "Human", "level": 13,
+                         "build": "1.60.1.70338", "addon": "0.1.0", "start": 1793009900,
+                         "stop": 1793011600, "dropped": 0, "events": ev},
+            "combattimenti": doc["combattimenti"]}
+
+
 def _gz(doc) -> bytes:
     return gzip.compress(json.dumps(doc, ensure_ascii=False).encode("utf-8"), mtime=0)
 
@@ -75,6 +89,7 @@ def _gz(doc) -> bytes:
 def main() -> None:
     (QUI / "sessione_Gino_Realm-Gino-1793000000.json.gz").write_bytes(_gz(gino()))
     (QUI / "sessione_Mara_Realm-Mara-1793010000.json.gz").write_bytes(_gz(mara()))
+    (QUI / "sessione_Gino_Realm-Gino-1793009900.json.gz").write_bytes(_gz(gino_deadmines()))
     (QUI / "sessione_corrotta.json.gz").write_bytes(
         gzip.compress(b'{"formato": 1, "giocatore": "Zed", "sessione": {"id": ', mtime=0)[:-9])
 
