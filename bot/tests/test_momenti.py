@@ -336,7 +336,7 @@ class TestContatori(unittest.TestCase):
         self.assertNotIn("primo", b["perche"])
         self.assertIn("senza wipe oggi, al 5° tentativo", b["perche"])
         (b,) = per_tipo(momenti.candidati([sessione("Gino", ev1)], {}), "boss_ucciso")
-        self.assertIn("primo tentativo", b["perche"])
+        self.assertIn("al primo tentativo registrato", b["perche"])
         # wipe, uccisione, uccisione: la seconda non e' "senza wipe oggi"
         ev2 = [kill(10, ok=False), kill(20), kill(30)]
         kills = per_tipo(momenti.candidati([sessione("Gino", ev2)], {}), "boss_ucciso")
@@ -392,6 +392,15 @@ class TestRiassunto(unittest.TestCase):
         self.assertIn("Pacchetto x saltato: rotto", md)
         self.assertIn("Insieme: nello stesso gruppo", md)
         self.assertIn("Per giocatore:", md)
+        self.assertIn("**Fuga** (sopravvissuto a ≥4 nemici con poca vita)", md)
+
+    def test_giocatori_in_ritardo_a_parte(self):
+        md = momenti.riassunto_md("2026-10-27", [], [], {"Mara": "Mara, livello 18"},
+                                  in_ritardo={"Gino": "Gino, livello 12"})
+        self.assertIn("Giocatori: Mara (Mara, livello 18)\n", md)
+        riga = [r for r in md.splitlines() if r.startswith("Giocatori in ritardo")][0]
+        self.assertIn("Gino (Gino, livello 12)", riga)
+        self.assertNotIn("Giocatori in ritardo", momenti.riassunto_md("2026-10-27", [], [], ["Mara"]))
 
     def test_compatto(self):
         base = {"tipo": "prima_visita", "punti": 5, "dove": "Z", "chi": ["A"], "fatti": {}, "perche": "p"}

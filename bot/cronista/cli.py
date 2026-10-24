@@ -76,19 +76,26 @@ def _scrivi_json(p: Path, dati) -> None:
     p.write_text(json.dumps(dati, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
 
 
+def _livelli(se: dict) -> list[int]:
+    v = [se.get("level")] + [e.get("level") for e in se.get("events", []) if e.get("k") == "level"]
+    return [x for x in v if isinstance(x, int) and not isinstance(x, bool) and 0 < x < 1000]
+
+
 def _giocatori(sessioni: list[dict]) -> dict[str, str]:
-    """giocatore -> "Personaggio, CLASSE Razza, livello N" (dall'ultima sessione)."""
-    out: dict[str, str] = {}
+    """giocatore -> "Personaggio, CLASSE Razza, livello N" (dall'ultima sessione; livello più alto)."""
+    out: dict[str, list[str]] = {}
+    livello: dict[str, int] = {}
     for s in sorted(sessioni, key=lambda s: s["sessione"]["start"]):
         se = s["sessione"]
+        g = pulito(s["giocatore"])
         parti = [pulito(se.get("char") or "")]
         cr = " ".join(pulito(se[k], 40) for k in ("class", "race") if se.get(k))
         if cr:
             parti.append(cr)
-        if se.get("level") is not None:
-            parti.append(f"livello {se['level']}")
-        out[pulito(s["giocatore"])] = ", ".join(p for p in parti if p)
-    return dict(sorted(out.items()))
+        out[g] = parti
+        livello[g] = max(_livelli(se) + ([livello[g]] if g in livello else []), default=0)
+    return {g: ", ".join([p for p in parti if p] + ([f"livello {livello[g]}"] if livello[g] else []))
+            for g, parti in sorted(out.items())}
 
 
 def _pulisci_lavoro(cartella: Path) -> None:
@@ -163,7 +170,8 @@ def _note(titolo: str, file_pagina: Path, ricorrenze: list[str]) -> list[str]:
 
 
 def _visti(sessioni, ora: float) -> dict[str, dict]:
-    return {s["sessione"]["id"]: {"eventi": ingresso.conta_eventi(s), "visto": int(ora)} for s in sessioni}
+    return {s["sessione"]["id"]: {"eventi": ingresso.conta_eventi(s), "visto": int(ora),
+                                  "fino": ingresso.fino(s)} for s in sessioni}
 
 
 def _istantanea(st: Stato, giorni: list[str], numero: int, contatori: dict,
@@ -198,6 +206,7 @@ def prepara(ora: float) -> int:
     giorni = sorted(pronte)
     extra = [s for _, s in vecchie + future]  # viste con la prima pagina, mai raccontate
     avvisi_extra: dict[str, list[str]] = {g: [] for g in giorni}
+    tardi = {id(s) for _, s in ritardo}  # sessioni di giornate passate: giocatori a parte
     for g, s in ritardo:
         pronte[giorni[0]].append(s)
         avvisi_extra[giorni[0]].append(
@@ -234,8 +243,9 @@ def prepara(ora: float) -> int:
                 if gq < g and isinstance(c.get("fatti"), dict):
                     c["fatti"]["in_ritardo"] = gq
         avv = (avvisi_lettura if i == 0 else []) + avvisi_extra[g]
-        gioc = _giocatori(ss)
-        md = momenti.riassunto_md(g, cand, avv, gioc, fuso=fuso)
+        gioc = _giocatori([s for s in ss if id(s) not in tardi])
+        gioc_tardi = _giocatori([s for s in ss if id(s) in tardi])
+        md = momenti.riassunto_md(g, cand, avv, gioc, fuso=fuso, in_ritardo=gioc_tardi)
         if not recupero:
             n += 1
             titolo = TITOLO_GIORNO.format(n=n)
@@ -246,7 +256,8 @@ def prepara(ora: float) -> int:
         riassunti[g] = md
         (cartella / f"giorno-{g}.md").write_text(md, encoding="utf-8")
         _scrivi_json(cartella / f"giorno-{g}.json", {
-            "giorno": g, "giocatori": gioc, "candidati": cand, "avvisi": avv, "sessioni": ss})
+            "giorno": g, "giocatori": gioc, "giocatori_in_ritardo": gioc_tardi, "candidati": cand,
+            "avvisi": avv, "sessioni": ss})
 
     if recupero:
         n += 1
@@ -285,9 +296,12 @@ def prepara(ora: float) -> int:
     _scrivi_json(cartella / "prepara.json", {"versione": 2, "creato": int(ora), "pagine": pagine,
                                              "pubblicate": [], "stato": pagine[-1]["stato"]})
 
-    tutti = sorted({pulito(s["giocatore"]) for g in giorni for s in pronte[g]})
+    tutti = sorted({pulito(s["giocatore"]) for g in giorni for s in pronte[g] if id(s) not in tardi})
+    in_ritardo = sorted({pulito(s["giocatore"]) for _, s in ritardo})
     print(f"Giornate pronte: {', '.join(giorni)}")
-    print(f"Giocatori: {', '.join(tutti)}")
+    print(f"Giocatori: {', '.join(tutti) or 'nessuno'}")
+    if in_ritardo:
+        print(f"Giocatori in ritardo: {', '.join(in_ritardo)}")
     _stampa_avvisi(avvisi_lettura + [a for g in giorni for a in avvisi_extra[g]])
     if trattenute:
         print(f"Sessioni della giornata in corso rimandate a domani: {len(trattenute)}")

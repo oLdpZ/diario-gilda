@@ -31,9 +31,25 @@ class Raccolta:
 
 
 def conta_eventi(s: dict) -> int:
-    """Eventi della sessione arricchita, compresi quelli tolti (`troncata`)."""
-    n = s.get("troncata")
-    return len(s["sessione"]["events"]) + (n if isinstance(n, int) and not isinstance(n, bool) else 0)
+    """Eventi della sessione arricchita, compresi quelli tolti (`troncata`, `gia_visti`)."""
+    extra = sum(n for n in (s.get("troncata"), s.get("gia_visti")) if _intero(n))
+    return len(s["sessione"]["events"]) + extra
+
+
+def fino(s: dict) -> int:
+    """Istante dell'ultimo evento della sessione (anche di quelli già raccontati)."""
+    prima = s.get("gia_fino")
+    return max(_ultimo_t(s["sessione"]), prima if _intero(prima) else 0)
+
+
+def _solo_dopo(s: dict, t: int) -> dict:
+    """Copia della sessione con i soli eventi ed episodi dopo `t` (il resto è già raccontato)."""
+    ev = s["sessione"]["events"]
+    nuovi = [e for e in ev if e["t"] > t]
+    comb = [ep for ep in s["combattimenti"]
+            if not (isinstance(ep, dict) and _intero(ep.get("to")) and ep["to"] <= t)]
+    return dict(s, sessione=dict(s["sessione"], events=nuovi), combattimenti=comb,
+                gia_visti=len(ev) - len(nuovi), gia_fino=t)
 
 
 def _intero(v) -> bool:
@@ -163,6 +179,7 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
     io = d.io()
     migliori: dict[str, dict] = {}
     con_episodi: dict[str, dict] = {}  # miglior copia con combattimenti, per id
+    nome_app: dict[str, str] = {}  # giocatore come lo scrive il programma (non il .lua)
     msg_episodi: dict[str, str] = {}
     blocco: int | None = None  # primo messaggio con errore di rete: si riprova al giro dopo
     for m in d.messaggi_dopo(servizio_id, stato.ultimo_messaggio):
@@ -182,6 +199,8 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
                     r.avvisi.append(f"Pacchetto {mostra} (messaggio {mid}): {pulito(e, 120)}")
                 for s in buoni:
                     id_ = s["sessione"]["id"]
+                    if not s.get("manuale"):
+                        nome_app.setdefault(id_, s["giocatore"])
                     if s["combattimenti"] and (id_ not in con_episodi or _chiave_migliore(s)
                                                > _chiave_migliore(con_episodi[id_])):
                         con_episodi[id_] = s
@@ -196,6 +215,7 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
             except (ValueError, KeyError) as e:
                 r.avvisi.append(f"Pacchetto {mostra} (messaggio {mid}) saltato: {pulito(e, 120)}")
     for id_, s in list(migliori.items()):
+        manuale = bool(s.get("manuale"))
         altra = con_episodi.get(id_)
         if not s["combattimenti"] and altra is not None:
             # copie unite: eventi dalla vincitrice, episodi (e app) dalla copia che li ha
@@ -206,12 +226,15 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
             migliori[id_] = s
             # per rileggere entrambe le copie, il messaggio piu' vecchio delle due
             r.messaggi[id_] = str(min(int(r.messaggi[id_]), int(msg_episodi[id_])))
+        if manuale and id_ in nome_app:
+            s = migliori[id_] = dict(s, giocatore=nome_app[id_])
         visto = stato.sessioni_viste.get(id_)
         if not isinstance(visto, dict):
             visto = None
         gia = visto.get("eventi") if visto else None
         if not _intero(gia) or conta_eventi(s) > gia:
-            r.sessioni.append(s)
+            t = visto.get("fino") if visto else None
+            r.sessioni.append(_solo_dopo(s, t) if _intero(gia) and _intero(t) else s)
         else:
             r.messaggi.pop(id_, None)
     if blocco is not None and r.ultimo_messaggio is not None and int(r.ultimo_messaggio) >= blocco:

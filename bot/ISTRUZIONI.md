@@ -56,7 +56,9 @@ Se stampa `Niente da raccontare oggi.` → regola 3.
 
 Per ogni pagina dell'elenco leggi il riassunto indicato:
 
-- **Giocatori:** i nomi dei giocatori, con personaggio, classe, razza e livello.
+- **Giocatori:** i nomi dei giocatori, con personaggio, classe, razza e il livello più alto raggiunto.
+  **Giocatori in ritardo** (se c'è): chi compare solo con notizie di giornate passate; non dire che ha
+  giocato oggi.
 - **Momenti candidati:** numerati e ordinati per interesse (punti). Ognuno ha l'ora, il luogo, chi c'era,
   il perché e i **Fatti**. Il punteggio è un aiuto: la scelta finale è tua.
 - **Avvisi:** pacchetti saltati, sessioni arrivate in ritardo. **Non** vanno nella pagina: riportali
@@ -128,7 +130,9 @@ Esempio approvato dall'autore (il tono da seguire):
 > superficie quieta dormiva un'intera stirpe di Murloc. […] Ottanta passi di corsa disperata, e la tribù
 > rimase sulla riva a gorgogliare il suo nome.
 
-(Questo esempio è solo per il tono: i fatti della tua pagina vengono dal riassunto di oggi.)
+(Questo esempio è solo per il tono: i fatti della tua pagina vengono dal riassunto di oggi. Anche i
+numeri dell'esempio, come «Ottanta passi», sono solo stile: nella tua pagina non inventare numeri,
+distanze o quantità che non siano nei dati.)
 
 ### 4. Pubblica
 

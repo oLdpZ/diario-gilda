@@ -218,6 +218,37 @@ class TestRaccogli(unittest.TestCase):
         self.assertNotIn("manuale", s)
         self.assertEqual(r.messaggi["Realm-Gino-1793000000"], g["id"])  # si rileggono entrambe
 
+    def test_nome_del_giocatore_dalla_copia_del_programma(self):
+        for comb in (True, False):
+            self.f.messaggi.clear()
+            doc = doc_di(GINO)
+            doc["giocatore"] = "Ginetto"
+            if not comb:
+                doc["combattimenti"] = []
+            self.invia("a.json.gz", gz(doc))
+            self.invia(LUA, (DATI / LUA).read_bytes(), autore="777")  # vince (piu' eventi), nome "Gino"
+            r = ingresso.raccogli(self.d, "201", Stato())
+            s = [x for x in r.sessioni if x["sessione"]["id"] == "Realm-Gino-1793000000"][0]
+            self.assertGreater(len(s["sessione"]["events"]), 4)
+            self.assertEqual(s["giocatore"], "Ginetto", comb)
+
+    def test_sessione_ripresa_solo_eventi_nuovi(self):
+        doc = doc_di(GINO)
+        ev = sorted(doc["sessione"]["events"], key=lambda e: e["t"])
+        fino = ev[1]["t"]
+        self.invia("a.json.gz", gz(doc))
+        st = Stato(sessioni_viste={"Realm-Gino-1793000000": {"eventi": 2, "visto": 1, "fino": fino}})
+        (s,) = ingresso.raccogli(self.d, "201", st).sessioni
+        self.assertTrue(all(e["t"] > fino for e in s["sessione"]["events"]))
+        self.assertEqual(len(s["sessione"]["events"]), len([e for e in ev if e["t"] > fino]))
+        self.assertTrue(all(ep["to"] > fino for ep in s["combattimenti"]))
+        self.assertEqual(ingresso.conta_eventi(s), 4)  # il conto resta quello intero
+        self.assertEqual(ingresso.fino(s), max(e["t"] for e in ev))
+        # senza "fino" (stato vecchio): tutto come prima
+        st = Stato(sessioni_viste={"Realm-Gino-1793000000": {"eventi": 2, "visto": 1}})
+        (s,) = ingresso.raccogli(self.d, "201", st).sessioni
+        self.assertEqual(len(s["sessione"]["events"]), 4)
+
     def test_solo_messaggi_ignorati_avanza_il_cursore(self):
         self.f.aggiungi("201", "chiacchiere", autore="555")
         m = self.f.aggiungi("201", "mio", autore="999")

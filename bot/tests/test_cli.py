@@ -277,6 +277,56 @@ class TestFlusso(BaseCli):
         self.assertIn("stato.json", err)
         self.assertNotIn("Traceback", err)
 
+    def test_giocatori_in_ritardo_a_parte(self):
+        stato.scrivi(Discord(self.f.base, None), SERVIZIO,
+                     stato.Stato(giorni_pubblicati=["2026-10-26"], numero_giorno=1), ora=ORA_28)
+        self.f.aggiungi_allegato(SERVIZIO, "", "g.json.gz", _gz(genera.gino()), autore="555")  # del 26
+        self.f.aggiungi_allegato(SERVIZIO, "", "m.json.gz", _gz(_sposta(genera.mara(), 86400, "M2")),
+                                 autore="555")
+        codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        md = (self.lavoro / "giorno-2026-10-27.md").read_text(encoding="utf-8")
+        self.assertIn("Giocatori: Mara (", md)
+        self.assertNotIn("Gino", md.split("\n")[2])
+        self.assertIn("Giocatori in ritardo", md)
+        self.assertIn("Giocatori: Mara\n", out)
+        self.assertIn("Giocatori in ritardo: Gino", out)
+
+    def test_livello_piu_alto_della_giornata(self):
+        s = {"giocatore": "Gino", "sessione": {"start": 1, "char": "Gino", "class": "WARRIOR", "level": 10,
+                                                 "events": [{"t": 2, "k": "level", "level": 12},
+                                                            {"t": 3, "k": "level", "level": "x"}]}}
+        s2 = {"giocatore": "Gino", "sessione": {"start": 5, "char": "Gino", "class": "WARRIOR", "level": 11,
+                                                  "events": []}}
+        self.assertEqual(cli._giocatori([s, s2]), {"Gino": "Gino, WARRIOR, livello 12"})
+
+    def test_sessione_ripresa_non_si_racconta_due_volte(self):
+        m = genera.mara()
+        self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(m), autore="555")
+        self.carica(PACCHETTI[:1])
+        self.esegui("prepara")
+        p = self.preparato()["pagine"][0]
+        vista = p["stato"]["sessioni_viste"]["Realm-Mara-1793010000"]
+        self.assertEqual(vista["fino"], max(e["t"] for e in m["sessione"]["events"]))
+        self.assertEqual(self.esegui("pubblica", str(self.scrivi_pagina("pagina-2026-10-26.md", p["titolo"])))[0], 0)
+        self.assertEqual(self.esegui("chiudi")[0], 0)
+        # la stessa sessione torna con un evento in piu': solo quello e' nuovo
+        m2 = copy.deepcopy(m)
+        m2["sessione"]["events"].append({"t": vista["fino"] + 60, "k": "level", "level": 20, "z": "Westfall"})
+        m2["sessione"]["stop"] = vista["fino"] + 120
+        self.f.aggiungi_allegato(SERVIZIO, "", "b.json.gz", _gz(m2), autore="555")
+        self.f.aggiungi_allegato(SERVIZIO, "", "c.json.gz", _gz(_sposta(genera.gino(), 86400, "G2")), autore="555")
+        codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        js = json.loads((self.lavoro / "giorno-2026-10-27.json").read_text(encoding="utf-8"))
+        tipi = [c["tipo"] for c in js["candidati"] if "Mara" in c["chi"]]
+        self.assertEqual(tipi, ["livello"])  # niente boss ripetuto
+        st = self.preparato()["stato"]
+        self.assertEqual(st["sessioni_viste"]["Realm-Mara-1793010000"]["eventi"], len(m2["sessione"]["events"]))
+        boss = st["contatori"]["boss"]
+        prima = p["stato"]["contatori"]["boss"]
+        self.assertEqual(boss, prima)  # tentativi non contati due volte
+
     def test_solo_ritardi_niente_pagina(self):
         stato.scrivi(Discord(self.f.base, None), SERVIZIO,
                      stato.Stato(giorni_pubblicati=["2026-10-26"], numero_giorno=1), ora=ORA_28)

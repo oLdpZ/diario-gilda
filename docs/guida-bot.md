@@ -91,8 +91,10 @@ con l'allegato `stato.json` in `#diario-servizio`. Non cancellare quei messaggi:
      pagina al giorno.
    - La giornata in corso (dalle 06:00 di oggi) non viene mai raccontata: arriva domani.
    - Una sessione arrivata in ritardo (di una giornata già pubblicata) finisce nella pagina successiva.
-5. Se qualcosa fallisce, l'esecuzione si ferma senza pubblicare pezzi di pagina e scrive l'errore nella
-   risposta finale. Gli errori più comuni:
+5. Se qualcosa fallisce, l'esecuzione si ferma e scrive l'errore nella risposta finale. Di solito non
+   resta nulla di mezzo, ma in casi rari (una pagina lunga divisa in più messaggi che si interrompe a
+   metà, o una pagina pubblicata ma con lo stato non salvato) in `#diario-di-gilda` può restare una
+   pagina incompleta o, il giorno dopo, una pagina doppia: cancellala a mano. Gli errori più comuni:
    - `Discord HTTP 401`: il Network secret manca o il token è sbagliato (sezione 4);
    - `Discord HTTP 403`: mancano permessi su un canale (sezione 3);
    - `canale non trovato` / `server non trovato`: nomi o id in `bot/config.json`;

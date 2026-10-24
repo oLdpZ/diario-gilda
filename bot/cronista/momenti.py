@@ -22,6 +22,7 @@ NOMI_TIPO = {
     "salvataggio": "Salvataggio", "morte": "Morte", "duello": "Duello", "livello": "Livello",
     "prima_visita": "Prima visita", "spesa": "Spesa", "missione_abbandonata": "Missione abbandonata",
 }
+SPIEGA_TIPO = {"fuga": "sopravvissuto a ≥4 nemici con poca vita"}
 QUALITA = {3: "raro", 4: "epico", 5: "leggendario"}
 INSIEME = {"gruppo": "nello stesso gruppo",
            "stessa_zona": "solo stessa zona e stessa ora (nessun dato di gruppo: forse non erano insieme)"}
@@ -248,7 +249,7 @@ def _da_boss(g: str, p: dict, cont: dict) -> list[dict]:
             if prima > 0:
                 perche += f", {totale}° tentativo in tutto"
         elif totale == 1:
-            perche = f"{inc['nome']} abbattuto al primo tentativo"
+            perche = f"{inc['nome']} abbattuto al primo tentativo registrato"
         elif not wipe_oggi.get(key):
             perche = f"{inc['nome']} abbattuto senza wipe oggi, al {totale}° tentativo in tutto"
         else:
@@ -675,22 +676,31 @@ def _nomi(giocatori) -> str:
     return ", ".join(nomi)
 
 
-def riassunto_md(giorno: str, candidati, avvisi, giocatori, fuso: str = "Europe/Rome") -> str:
-    """Riassunto compatto della giornata per Claude: giocatori, candidati numerati, avvisi."""
+def riassunto_md(giorno: str, candidati, avvisi, giocatori, fuso: str = "Europe/Rome",
+                 in_ritardo=None) -> str:
+    """Riassunto compatto della giornata per Claude: giocatori, candidati numerati, avvisi.
+
+    `in_ritardo`: giocatori delle sessioni arrivate tardi (di giornate passate), elencati a parte.
+    """
     # ogni testo dai pacchetti passa da `pulito`: una riga, corto, mai un'intestazione
     righe = [f"# Giornata di gioco {giorno}", "",
-             f"Giocatori: {_nomi(giocatori) or 'nessuno'}", ""]
+             f"Giocatori: {_nomi(giocatori) or 'nessuno'}"]
+    if in_ritardo:
+        righe.append(f"Giocatori in ritardo (notizie di giornate passate, non di oggi): {_nomi(in_ritardo)}")
+    righe.append("")
     cand = [c for c in _come_lista(candidati) if isinstance(c, dict)]
     righe.append(f"## Momenti candidati ({len(cand)})")
     righe.append("")
     if not cand:
         righe.append("Nessun momento notevole.")
     for i, c in enumerate(cand[:MAX_RIASSUNTO], 1):
-        tipo = NOMI_TIPO.get(c.get("tipo")) or pulito(c.get("tipo"), 40)
+        tipo = f"**{NOMI_TIPO.get(c.get('tipo')) or pulito(c.get('tipo'), 40)}**"
+        if c.get("tipo") in SPIEGA_TIPO:
+            tipo += f" ({SPIEGA_TIPO[c['tipo']]})"
         chi = ", ".join(pulito(x) for x in _lista(c.get("chi")))
         quando = _int(c.get("quando"))
         ora = _ora(quando, fuso) if quando is not None else "?"
-        righe.append(f"{i}. **{tipo}** ({_int(c.get('punti'))} punti) — {ora}, {pulito(c.get('dove'))} — {chi}")
+        righe.append(f"{i}. {tipo} ({_int(c.get('punti'))} punti) — {ora}, {pulito(c.get('dove'))} — {chi}")
         righe.append(f"   {pulito(c.get('perche'), 300)}")
         fatti = _dict(c.get("fatti"))
         rf = _riga_fatti(fatti)
