@@ -16,7 +16,10 @@ La cartella `bot/lavoro/` è temporanea e non finisce nel repository.
 3. Se `prepara` stampa `Niente da raccontare oggi.`, **fermati**: non scrivere e non pubblicare nulla.
    Rispondi solo «Niente da raccontare oggi.».
 4. Se un comando fallisce (codice d'uscita diverso da 0 o una riga `Errore: …`), **fermati**: non
-   pubblicare altre pagine, non ripetere il comando, non lanciare `chiudi`. Nella risposta finale
+   pubblicare altre pagine, non ripetere il comando, non lanciare `chiudi`. **Unica eccezione:** se
+   l'errore di `pubblica` contiene «pagina non inviata», nulla è stato inviato: correggi ciò che dice
+   (il file, il titolo, l'ordine delle pagine) e rilancia lo stesso `pubblica` (al massimo 3 tentativi). Se dice «è già stata pubblicata», non
+   riprovare: passa alla pagina successiva. Nella risposta finale
    riporta il comando e il messaggio d'errore esatto. Ogni pagina pubblicata per intero salva subito lo
    stato: domani il Cronista ripartirà dalle giornate non ancora pubblicate. (Se l'errore dice
    «pagina pubblicata ma stato non salvato», scrivilo chiaramente: quella pagina potrebbe ripetersi.)
@@ -129,9 +132,10 @@ python bot/cronista.py pubblica bot/lavoro/pagina-AAAA-MM-GG.md
 
 (oppure `bot/lavoro/pagina-recupero.md`). Il comando invia la pagina in `#diario-di-gilda` e subito dopo
 salva lo stato su Discord. Accetta solo i file dell'elenco di `prepara`, e la prima riga deve essere
-esattamente `# <titolo dato da prepara>`: se rifiuta la pagina prima di inviarla, correggi il file e
-riprova. Una volta inviata, una pagina non si ripubblica (il comando lo impedisce). Se fallisce durante
-l'invio o il salvataggio → regola 4.
+esattamente `# <titolo dato da prepara>`; le pagine vanno pubblicate nell'ordine dell'elenco. Se il
+comando rifiuta la pagina prima di inviarla, l'errore contiene «pagina non inviata»: correggi e riprova
+(eccezione della regola 4). Una volta inviata, una pagina non si ripubblica (il comando lo impedisce).
+Ogni altro errore → regola 4: fermati.
 
 ### 5. Chiudi
 

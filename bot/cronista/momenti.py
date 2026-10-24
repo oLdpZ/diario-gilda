@@ -647,8 +647,10 @@ def _valore(v) -> str:
 
 def _riga_fatti(fatti: dict) -> str:
     parti = []
+    if "in_ritardo" in fatti:  # sempre per primo: il taglio a 300 caratteri non lo perde
+        parti.append(f"in ritardo: {_valore(fatti['in_ritardo'])}")
     for k, v in fatti.items():
-        if k in ("boss_id", "altri", "insieme", "per_giocatore"):
+        if k in ("boss_id", "altri", "insieme", "per_giocatore", "in_ritardo"):
             continue
         parti.append(f"{k.replace('_', ' ')}: {_valore(v)}")
     s = "; ".join(parti)

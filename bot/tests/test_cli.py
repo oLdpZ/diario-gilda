@@ -277,6 +277,25 @@ class TestStatoPerPagina(BaseCli):
         titoli = [r["payload"]["embeds"][0]["title"] for r in self.post(DIARIO) if r.get("payload")]
         self.assertEqual(titoli.count(p1["titolo"]), 1)  # la pagina 1 mai ripubblicata
 
+    def test_pagine_solo_in_ordine(self):
+        stato.scrivi(Discord(self.f.base, None), SERVIZIO,
+                     stato.Stato(giorni_pubblicati=["2026-10-20"], numero_giorno=5), ora=ORA_28)
+        m = genera.mara()
+        self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(m), autore="555")
+        self.f.aggiungi_allegato(SERVIZIO, "", "b.json.gz", _gz(_sposta(m, 86400, "Realm-Mara-2")), autore="555")
+        self.esegui("prepara")
+        p1, p2 = self.preparato()["pagine"]
+        f1 = self.scrivi_pagina("pagina-2026-10-26.md", p1["titolo"])
+        f2 = self.scrivi_pagina("pagina-2026-10-27.md", p2["titolo"])
+        codice, _, err = self.esegui("pubblica", str(f2))
+        self.assertEqual(codice, 1)
+        self.assertIn("pagina non inviata: pubblica prima", err)
+        self.assertIn("pagina-2026-10-26.md", err)
+        self.assertEqual(self.post(DIARIO), [])
+        self.assertEqual(self.esegui("pubblica", str(f1))[0], 0)
+        self.assertEqual(self.esegui("pubblica", str(f2))[0], 0)
+        self.assertEqual(self.esegui("chiudi")[0], 0)
+
     def test_stato_non_salvato_dopo_la_pagina(self):
         self.carica(PACCHETTI[:2])
         self.esegui("prepara")
@@ -340,10 +359,12 @@ class TestComandi(BaseCli):
         codice, _, err = self.esegui("pubblica", str(altro))
         self.assertNotEqual(codice, 0)
         self.assertIn("non è una delle pagine attese", err)
+        self.assertIn("pagina non inviata", err)
         sbagliata = self.scrivi_pagina("pagina-2026-10-26.md", "Cronache della Gilda — Giorno 9, Era della Rinascita")
         codice, _, err = self.esegui("pubblica", str(sbagliata))
         self.assertNotEqual(codice, 0)
         self.assertIn(titolo, err)
+        self.assertIn("pagina non inviata", err)
         self.assertEqual(self.post(DIARIO) + self.post(SERVIZIO), [])
         self.assertEqual(self.esegui("pubblica", str(altro), "--prova")[0], 0)  # --prova libera
         self.assertEqual(len(self.post(SERVIZIO)), 1)

@@ -292,16 +292,15 @@ def _stato_da(dati: dict) -> Stato:
 
 # --- pubblica ------------------------------------------------------------------
 
-def pubblica(file: str, prova: bool, ora: float) -> int:
-    p = Path(file)
+def _controlla(p: Path, prova: bool, prep_file: Path):
+    """(messaggi, prepara.json, pagina attesa) o Errore: nulla è stato inviato."""
     try:
         testo = p.read_text(encoding="utf-8")
     except OSError as e:
-        raise Errore(f"pagina non leggibile: {file} ({e.strerror or e})") from None
-    testo = testo.lstrip("﻿")
+        raise Errore(f"pagina non leggibile: {p} ({e.strerror or e})") from None
+    testo = testo.lstrip("\ufeff")
     if not testo.lstrip().startswith("# "):
         raise Errore("la pagina deve iniziare con il titolo: una riga «# Titolo»")
-    prep_file = _lavoro() / "prepara.json"
     prep = attesa = None
     if not prova:
         prep = _carica_prep(prep_file)
@@ -315,10 +314,26 @@ def pubblica(file: str, prova: bool, ora: float) -> int:
             raise Errore(f"la prima riga deve essere esattamente «# {attesa['titolo']}»")
         if _chiave(p) in {_chiave(x) for x in prep["pubblicate"]}:
             raise Errore(f"{_mostra(p)} è già stata pubblicata: non la ripubblico")
+        fatte = {_chiave(x) for x in prep["pubblicate"]}
+        for x in prep["pagine"]:
+            if x is attesa:
+                break
+            if _chiave(x["pagina"]) not in fatte:
+                raise Errore(f"pubblica prima {_mostra(Path(x['pagina']))} (le pagine vanno in ordine)")
     try:
         messaggi = pagina.embed(testo)
     except ValueError as e:
         raise Errore(f"pagina non valida: {e}") from None
+    return messaggi, prep, attesa
+
+
+def pubblica(file: str, prova: bool, ora: float) -> int:
+    p = Path(file)
+    prep_file = _lavoro() / "prepara.json"
+    try:
+        messaggi, prep, attesa = _controlla(p, prova, prep_file)
+    except Errore as e:
+        raise Errore(f"pagina non inviata: {e}") from None
     cfg = _config()
     d = Discord()
     diario, servizio = _canali(d, cfg)

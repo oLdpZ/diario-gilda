@@ -355,6 +355,13 @@ class TestContatori(unittest.TestCase):
 
 
 class TestRiassunto(unittest.TestCase):
+    def test_in_ritardo_sempre_per_primo(self):
+        c = {"tipo": "morte", "punti": 10, "quando": 1793000000, "dove": "Westfall", "chi": ["Gino"],
+             "perche": "x", "fatti": {"lungo": "a" * 400, "in_ritardo": "2026-10-26"}}
+        md = momenti.riassunto_md("2026-10-27", [c], [], ["Gino"])
+        riga = [r for r in md.splitlines() if "Fatti:" in r][0]
+        self.assertTrue(riga.strip().startswith("Fatti: in ritardo: 2026-10-26; lungo: "))
+
     def test_contenuto(self):
         cand = momenti.candidati(giornata(), {})
         md = momenti.riassunto_md("2026-10-26", cand, ["Pacchetto x saltato: rotto"], ["Gino", "Mara"])
