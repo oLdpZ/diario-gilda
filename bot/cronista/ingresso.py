@@ -37,9 +37,13 @@ def conta_eventi(s: dict) -> int:
 
 
 def fino(s: dict) -> int:
-    """Istante dell'ultimo evento della sessione (anche di quelli già raccontati)."""
+    """Istante dell'ultimo evento o episodio della sessione (anche di quelli già raccontati)."""
     prima = s.get("gia_fino")
-    return max(_ultimo_t(s["sessione"]), prima if _intero(prima) else 0)
+    se = s["sessione"]
+    da, a = se["start"] - EVENTO_PRIMA_S, (se.get("stop") or se["start"]) + EVENTO_DOPO_S
+    episodi = [ep["to"] for ep in s["combattimenti"]
+               if isinstance(ep, dict) and _intero(ep.get("to")) and da <= ep["to"] <= a]
+    return max(_ultimo_t(s["sessione"]), prima if _intero(prima) else 0, *episodi)
 
 
 def _solo_dopo(s: dict, t: int) -> dict:

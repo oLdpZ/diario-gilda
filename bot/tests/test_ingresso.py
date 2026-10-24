@@ -249,6 +249,17 @@ class TestRaccogli(unittest.TestCase):
         (s,) = ingresso.raccogli(self.d, "201", st).sessioni
         self.assertEqual(len(s["sessione"]["events"]), 4)
 
+    def test_fino_comprende_episodi_finiti_dopo_l_ultimo_evento(self):
+        doc = doc_di(GINO)
+        ultimo = max(e["t"] for e in doc["sessione"]["events"])
+        doc["combattimenti"].append({"from": ultimo - 10, "to": ultimo + 30, "type": "fuga"})
+        self.invia("a.json.gz", gz(doc))
+        (s,) = ingresso.raccogli(self.d, "201", Stato()).sessioni
+        self.assertEqual(ingresso.fino(s), ultimo + 30)
+        # un episodio con orario assurdo non sposta "fino"
+        s["combattimenti"].append({"from": 0, "to": 10**15, "type": "fuga"})
+        self.assertEqual(ingresso.fino(s), ultimo + 30)
+
     def test_solo_messaggi_ignorati_avanza_il_cursore(self):
         self.f.aggiungi("201", "chiacchiere", autore="555")
         m = self.f.aggiungi("201", "mio", autore="999")
