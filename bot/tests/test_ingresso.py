@@ -117,6 +117,35 @@ class TestLeggiPacchetto(unittest.TestCase):
         self.assertFalse(b["interrotta"])   # e' la piu' recente
         self.assertFalse(c["interrotta"])   # ha stop
 
+    def test_lua_solo_personaggio_piu_giocato(self):
+        base = 1793000000
+        def sess(i, char, t0, n, realm="R"):
+            ev = " ".join('{ ["t"] = %d, ["k"] = "zone" },' % (t0 + 10 + j) for j in range(n))
+            return ('{ ["id"] = "%s-%s-%d", ["char"] = "%s", ["realm"] = "%s", ["start"] = %d, ["stop"] = %d, '
+                    '["events"] = { %s }, },' % (realm, char, i, char, realm, t0, t0 + 500, ev))
+        lua = "DiarioGildaDB = { sessions = { %s %s %s %s } }" % (
+            sess(1, "Gino", base, 3), sess(2, "Grizzo", base + 1000, 4),
+            sess(3, "gino", base + 2000, 2), sess(4, "Gino", base + 3000, 1, realm="Altro"))
+        sessioni, avvisi = ingresso._filtra_manuale(ingresso._leggi(LUA, lua.encode())[0], set())
+        # Gino/R ha 5 eventi (maiuscole ignorate), Grizzo 4, Gino/Altro 1
+        self.assertEqual([s["sessione"]["id"] for s in sessioni], ["R-Gino-1", "R-gino-3"])
+        self.assertEqual(len(avvisi), 1)
+        self.assertIn("2 sessioni di altri personaggi ignorate", avvisi[0])
+        self.assertIn("Grizzo", avvisi[0])
+        self.assertIn("Gino", avvisi[0])
+        # a parità di eventi vince il personaggio giocato più di recente
+        lua = "DiarioGildaDB = { sessions = { %s %s } }" % (sess(1, "Gino", base, 2), sess(2, "Grizzo", base + 1000, 2))
+        sessioni, _ = ingresso._filtra_manuale(ingresso._leggi(LUA, lua.encode())[0], set())
+        self.assertEqual([s["giocatore"] for s in sessioni], ["Grizzo"])
+        # personaggio principale già noto: vince lui anche con meno eventi
+        lua = "DiarioGildaDB = { sessions = { %s %s } }" % (sess(1, "Gino", base, 1), sess(2, "Grizzo", base + 1000, 9))
+        sessioni, avvisi = ingresso._filtra_manuale(ingresso._leggi(LUA, lua.encode())[0], {"gino|r"})
+        self.assertEqual([s["giocatore"] for s in sessioni], ["Gino"])
+        self.assertIn("solo i personaggi principali", avvisi[0])
+        # un solo personaggio: nessun avviso
+        sessioni, avvisi = ingresso._filtra_manuale(ingresso._leggi(LUA, (DATI / LUA).read_bytes())[0], set())
+        self.assertEqual((len(sessioni), avvisi), (2, []))
+
     def test_lua_illeggibile_e_tipo_ignoto(self):
         with self.assertRaises(ValueError):
             ingresso.leggi_pacchetto("diariogilda.LUA", b"DiarioGildaDB = { sessions = ")
@@ -259,6 +288,36 @@ class TestRaccogli(unittest.TestCase):
         # un episodio con orario assurdo non sposta "fino"
         s["combattimenti"].append({"from": 0, "to": 10**15, "type": "fuga"})
         self.assertEqual(ingresso.fino(s), ultimo + 30)
+
+    def _lua_gino_grizzo(self):
+        base = 1793000000
+        def sess(i, char, t0, n):
+            ev = " ".join('{ ["t"] = %d, ["k"] = "zone" },' % (t0 + 10 + j) for j in range(n))
+            return ('{ ["id"] = "Realm-%s-%d", ["char"] = "%s", ["realm"] = "Realm", ["start"] = %d, ["stop"] = %d, '
+                    '["events"] = { %s }, },' % (char, t0, char, t0, t0 + 500, ev))
+        return ("DiarioGildaDB = { sessions = { %s %s } }" % (
+            sess(1, "Gino", base + 50000, 1), sess(2, "Grizzo", base + 60000, 9))).encode()
+
+    def test_principali_imparati_dal_programmino(self):
+        doc = doc_di(GINO)  # Gino/Realm dal programmino 0.1.1: è un principale
+        doc["app"] = "0.1.1"
+        self.invia(LUA, self._lua_gino_grizzo(), autore="777")  # il .lua arriva prima del pacchetto
+        self.invia("a.json.gz", gz(doc))
+        r = ingresso.raccogli(self.d, "201", Stato())
+        self.assertEqual(r.principali, {"gino|realm"})
+        chars = sorted({s["sessione"]["char"] for s in r.sessioni})
+        self.assertEqual(chars, ["Gino"])  # Grizzo (più eventi) resta fuori
+        self.assertTrue(any("solo i personaggi principali" in a for a in r.avvisi), r.avvisi)
+
+    def test_principali_dallo_stato_e_non_da_versioni_vecchie(self):
+        doc = doc_di(GINO)
+        doc["app"] = "0.1.0"  # la 0.1.0 inviava anche gli alt: non insegna nulla
+        self.invia("a.json.gz", gz(doc))
+        r = ingresso.raccogli(self.d, "201", Stato())
+        self.assertEqual(r.principali, set())
+        self.invia(LUA, self._lua_gino_grizzo(), autore="777")
+        r = ingresso.raccogli(self.d, "201", Stato(principali=["grizzo|realm"]))
+        self.assertEqual(sorted({s["sessione"]["char"] for s in r.sessioni if s.get("manuale")}), ["Grizzo"])
 
     def test_solo_messaggi_ignorati_avanza_il_cursore(self):
         self.f.aggiungi("201", "chiacchiere", autore="555")

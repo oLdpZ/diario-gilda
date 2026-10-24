@@ -82,20 +82,28 @@ def _livelli(se: dict) -> list[int]:
 
 
 def _giocatori(sessioni: list[dict]) -> dict[str, str]:
-    """giocatore -> "Personaggio, CLASSE Razza, livello N" (dall'ultima sessione; livello più alto)."""
-    out: dict[str, list[str]] = {}
-    livello: dict[str, int] = {}
+    """giocatore -> "Personaggio, CLASSE Razza, livello N" per ogni suo personaggio (separati da "; ").
+
+    Classe e razza dall'ultima sessione del personaggio, livello il più alto della giornata.
+    """
+    out: dict[str, dict[str, list[str]]] = {}
+    livello: dict[tuple[str, str], int] = {}
     for s in sorted(sessioni, key=lambda s: s["sessione"]["start"]):
         se = s["sessione"]
         g = pulito(s["giocatore"])
-        parti = [pulito(se.get("char") or "")]
+        nome = pulito(se.get("char") or "")
+        parti = [nome]
         cr = " ".join(pulito(se[k], 40) for k in ("class", "race") if se.get(k))
         if cr:
             parti.append(cr)
-        out[g] = parti
-        livello[g] = max(_livelli(se) + ([livello[g]] if g in livello else []), default=0)
-    return {g: ", ".join([p for p in parti if p] + ([f"livello {livello[g]}"] if livello[g] else []))
-            for g, parti in sorted(out.items())}
+        out.setdefault(g, {})[nome.casefold()] = parti
+        k = (g, nome.casefold())
+        livello[k] = max(_livelli(se) + ([livello[k]] if k in livello else []), default=0)
+    def descrivi(g: str, pg: str, parti: list[str]) -> str:
+        lv = livello[(g, pg)]
+        return ", ".join([p for p in parti if p] + ([f"livello {lv}"] if lv else []))
+    return {g: "; ".join(descrivi(g, pg, parti) for pg, parti in pgs.items())
+            for g, pgs in sorted(out.items())}
 
 
 def _pulisci_lavoro(cartella: Path) -> None:
@@ -175,7 +183,7 @@ def _visti(sessioni, ora: float) -> dict[str, dict]:
 
 
 def _istantanea(st: Stato, giorni: list[str], numero: int, contatori: dict,
-                viste: dict[str, dict], cursore: str | None) -> dict:
+                viste: dict[str, dict], cursore: str | None, principali: set[str] = frozenset()) -> dict:
     """Stato dopo la pubblicazione di una pagina (lo scrive `pubblica`)."""
     nuovo = Stato(**{k: v for k, v in asdict(st).items() if k != "versione"})
     nuovo.giorni_pubblicati = sorted(set(st.giorni_pubblicati) | set(giorni))
@@ -183,6 +191,7 @@ def _istantanea(st: Stato, giorni: list[str], numero: int, contatori: dict,
     nuovo.contatori = contatori
     nuovo.sessioni_viste = {**st.sessioni_viste, **viste}
     nuovo.ultimo_messaggio = cursore
+    nuovo.principali = sorted(set(st.principali) | set(principali))
     return asdict(nuovo)
 
 
@@ -292,7 +301,7 @@ def prepara(ora: float) -> int:
         fatti += p["giorni"]
         ultima = k == len(pagine) - 1
         p["stato"] = _istantanea(st, fatti, p["numero"], dopo[p["giorni"][-1]], viste,
-                                 cursore if ultima else st.ultimo_messaggio)
+                                 cursore if ultima else st.ultimo_messaggio, racc.principali)
     _scrivi_json(cartella / "prepara.json", {"versione": 2, "creato": int(ora), "pagine": pagine,
                                              "pubblicate": [], "stato": pagine[-1]["stato"]})
 

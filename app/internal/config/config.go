@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/oLdpZ/diario-gilda/app/internal/build"
 )
@@ -15,10 +16,33 @@ import (
 const fileName = "config.json"
 
 type Config struct {
-	Player    string `json:"player"`
-	WowDir    string `json:"wowDir"`
-	ClientDir string `json:"clientDir"`
-	Webhook   string `json:"webhook,omitempty"` // vuoto = quello di build (vedi EffectiveWebhook)
+	Player    string    `json:"player"`
+	WowDir    string    `json:"wowDir"`
+	ClientDir string    `json:"clientDir"`
+	Webhook   string    `json:"webhook,omitempty"` // vuoto = quello di build (vedi EffectiveWebhook)
+	Main      Character `json:"main"`              // personaggio raccontato; vuoto = non ancora scelto
+}
+
+// Character e' un personaggio di WoW, con nome e reame come li scrive l'addon.
+type Character struct {
+	Char  string `json:"char"`
+	Realm string `json:"realm"`
+}
+
+// IsZero dice se il personaggio non e' impostato.
+func (c Character) IsZero() bool { return c.Char == "" }
+
+// Is confronta nome e reame senza badare a maiuscole e minuscole.
+func (c Character) Is(char, realm string) bool {
+	return !c.IsZero() && strings.EqualFold(c.Char, char) && strings.EqualFold(c.Realm, realm)
+}
+
+// Label e' il personaggio come lo legge il giocatore: "Nome (Reame)".
+func (c Character) Label() string {
+	if c.Realm == "" {
+		return c.Char
+	}
+	return c.Char + " (" + c.Realm + ")"
 }
 
 // EffectiveWebhook restituisce il webhook da usare: quello della configurazione

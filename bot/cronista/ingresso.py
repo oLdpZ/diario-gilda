@@ -28,6 +28,8 @@ class Raccolta:
     ultimo_messaggio: str | None = None
     # id sessione -> id del messaggio da cui viene la copia scelta
     messaggi: dict[str, str] = field(default_factory=dict)
+    # personaggi principali ("nome|reame") imparati dai pacchetti di questo giro
+    principali: set[str] = field(default_factory=set)
 
 
 def conta_eventi(s: dict) -> int:
@@ -153,6 +155,52 @@ def _da_lua(dati: bytes) -> tuple[list[dict], list[str]]:
     return out, errori
 
 
+VERSIONE_PRINCIPALE = (0, 1, 1)  # dal programmino 0.1.1 si invia solo il personaggio principale
+
+
+def chiave_personaggio(se: dict) -> str:
+    """Come si riconosce un personaggio: "nome|reame" in minuscolo."""
+    return f"{str(se.get('char') or '').casefold()}|{str(se.get('realm') or '').casefold()}"
+
+
+def _da_principale(s: dict) -> bool:
+    """La sessione viene da un programmino che invia solo il personaggio principale."""
+    try:
+        v = tuple(int(x) for x in str(s.get("app", "")).split("-")[0].split("."))
+    except ValueError:
+        return False  # "dev" o assente
+    return len(v) == 3 and v >= VERSIONE_PRINCIPALE
+
+
+def _filtra_manuale(sessioni: list[dict], principali: set[str]) -> tuple[list[dict], list[str]]:
+    """Le sessioni di un .lua caricato a mano che possono andare nel diario, e l'avviso sulle altre.
+
+    Il .lua contiene tutti i personaggi dell'account, ma nel diario va solo il principale: si
+    tengono i personaggi principali gia' noti; se nel file non ce n'e' nessuno, il personaggio con
+    piu' eventi (a parita', il piu' recente).
+    """
+    chiavi = {chiave_personaggio(s["sessione"]) for s in sessioni}
+    if len(chiavi) <= 1:
+        return sessioni, []
+    noti = chiavi & principali
+    if noti:
+        tenute = [s for s in sessioni if chiave_personaggio(s["sessione"]) in noti]
+        perche = "si raccontano solo i personaggi principali"
+    else:
+        peso: dict[str, tuple[int, int]] = {}
+        for s in sessioni:
+            k, se = chiave_personaggio(s["sessione"]), s["sessione"]
+            n, ultimo = peso.get(k, (0, 0))
+            peso[k] = (n + len(se["events"]), max(ultimo, se["start"]))
+        scelto = max(peso, key=lambda k: peso[k])
+        tenute = [s for s in sessioni if chiave_personaggio(s["sessione"]) == scelto]
+        perche = f"dal file si racconta solo il personaggio più giocato, {tenute[0]['sessione']['char']}"
+    tenuti = {id(s) for s in tenute}
+    altri = sorted({s["sessione"]["char"] for s in sessioni if id(s) not in tenuti})
+    return tenute, [f"{len(sessioni) - len(tenute)} sessioni di altri personaggi ignorate "
+                    f"({', '.join(altri)}): {perche}"]
+
+
 def _leggi(nome: str, dati: bytes) -> tuple[list[dict], list[str]]:
     n = nome.lower()
     if n.endswith(SUFFISSO_PACCHETTO):
@@ -186,6 +234,18 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
     nome_app: dict[str, str] = {}  # giocatore come lo scrive il programma (non il .lua)
     msg_episodi: dict[str, str] = {}
     blocco: int | None = None  # primo messaggio con errore di rete: si riprova al giro dopo
+    manuali: list[tuple[str, str, list[dict]]] = []  # (messaggio, nome mostrato, sessioni) dei .lua
+
+    def aggiungi(s: dict, mid: str) -> None:
+        id_ = s["sessione"]["id"]
+        if s["combattimenti"] and (id_ not in con_episodi or _chiave_migliore(s)
+                                   > _chiave_migliore(con_episodi[id_])):
+            con_episodi[id_] = s
+            msg_episodi[id_] = mid
+        if id_ not in migliori or _chiave_migliore(s) > _chiave_migliore(migliori[id_]):
+            migliori[id_] = s
+            r.messaggi[id_] = mid
+
     for m in d.messaggi_dopo(servizio_id, stato.ultimo_messaggio):
         mid = str(m["id"])
         if r.ultimo_messaggio is None or int(mid) > int(r.ultimo_messaggio):
@@ -201,23 +261,26 @@ def raccogli(d: Discord, servizio_id: str, stato: Stato) -> Raccolta:
                 buoni, scartate = _leggi(nome, d.scarica(a["url"]))
                 for e in scartate:
                     r.avvisi.append(f"Pacchetto {mostra} (messaggio {mid}): {pulito(e, 120)}")
+                if any(s.get("manuale") for s in buoni):
+                    manuali.append((mid, mostra, buoni))  # filtrati a fine giro, coi principali noti
+                    continue
                 for s in buoni:
-                    id_ = s["sessione"]["id"]
-                    if not s.get("manuale"):
-                        nome_app.setdefault(id_, s["giocatore"])
-                    if s["combattimenti"] and (id_ not in con_episodi or _chiave_migliore(s)
-                                               > _chiave_migliore(con_episodi[id_])):
-                        con_episodi[id_] = s
-                        msg_episodi[id_] = mid
-                    if id_ not in migliori or _chiave_migliore(s) > _chiave_migliore(migliori[id_]):
-                        migliori[id_] = s
-                        r.messaggi[id_] = mid
+                    nome_app.setdefault(s["sessione"]["id"], s["giocatore"])
+                    if _da_principale(s):
+                        r.principali.add(chiave_personaggio(s["sessione"]))
+                    aggiungi(s, mid)
             except DiscordError as e:
                 r.avvisi.append(f"Pacchetto {mostra} (messaggio {mid}) saltato: {pulito(e, 120)}")
                 if (e.status == 0 or e.status == 429 or e.status >= 500) and blocco is None:
                     blocco = int(mid)
             except (ValueError, KeyError) as e:
                 r.avvisi.append(f"Pacchetto {mostra} (messaggio {mid}) saltato: {pulito(e, 120)}")
+    principali = set(stato.principali) | r.principali
+    for mid, mostra, buoni in manuali:
+        tenute, ignorate = _filtra_manuale(buoni, principali)
+        r.avvisi += [f"Pacchetto {mostra} (messaggio {mid}): {pulito(e, 200)}" for e in ignorate]
+        for s in tenute:
+            aggiungi(s, mid)
     for id_, s in list(migliori.items()):
         manuale = bool(s.get("manuale"))
         altra = con_episodi.get(id_)

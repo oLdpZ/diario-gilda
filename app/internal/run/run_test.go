@@ -174,7 +174,8 @@ func (r *recorder) logged(sub string) bool {
 
 func (tr tree) env(r *recorder, now int64) Env {
 	return Env{
-		Cfg:     config.Config{Player: "Gigi", ClientDir: tr.client, Webhook: "https://segreto.example/hook"},
+		Cfg: config.Config{Player: "Gigi", ClientDir: tr.client, Webhook: "https://segreto.example/hook",
+			Main: config.Character{Char: "Gino", Realm: "Realm"}},
 		DataDir: tr.data,
 		Now:     func() time.Time { return time.Unix(now, 0) },
 		Loc:     testLoc,
@@ -725,5 +726,116 @@ func TestRejectedFileSetAside(t *testing.T) {
 	cycle(t, env)
 	if got := r.take(); len(got) != 0 {
 		t.Fatalf("lo scartato non va reinviato: %v", ids(got))
+	}
+}
+
+// withAlt fa giocare la prima sessione della fixture a un altro personaggio.
+func withAlt(t *testing.T) string {
+	t.Helper()
+	return strings.Replace(fixture(t), `["char"] = "Gino",`, `["char"] = "Grizzo",`, 1)
+}
+
+func TestAltSessionNotSent(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", withAlt(t))
+	r := &recorder{}
+	cycle(t, tr.env(r, stop1+601))
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("la sessione di un alt non va inviata, ottenuti %v", ids(got))
+	}
+	if readState(t, tr).Has(id1) {
+		t.Fatal("la sessione dell'alt non va segnata: se il giocatore cambia main deve poter partire")
+	}
+	if !r.logged("personaggi secondari") || r.logged("in coda") {
+		t.Errorf("log: %v", r.logs)
+	}
+	if outboxCount(t, tr) != 0 {
+		t.Error("niente in coda per un alt")
+	}
+
+	// cambiato il main: la sessione (recente) parte
+	env := tr.env(r, stop1+700)
+	env.Cfg.Main = config.Character{Char: "Grizzo", Realm: "Realm"}
+	cycle(t, env)
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id1 {
+		t.Fatalf("dopo il cambio di main atteso %s, ottenuti %v", id1, ids(got))
+	}
+}
+
+func TestMainMatchIgnoresCase(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", fixture(t))
+	r := &recorder{}
+	env := tr.env(r, stop1+60)
+	env.Cfg.Main = config.Character{Char: "GINO", Realm: "realm"}
+	cycle(t, env)
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id1 {
+		t.Fatalf("atteso %s, ottenuti %v", id1, ids(got))
+	}
+}
+
+func TestNoMainHoldsAndAsks(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", withAlt(t))
+	r := &recorder{}
+	env := tr.env(r, stop1+601) // altro personaggio dopo: definitiva solo dopo la finestra del /reload
+	env.Cfg.Main = config.Character{}
+	var asked [][]config.Character
+	env.NeedMain = func(chars []config.Character) { asked = append(asked, chars) }
+	cycle(t, env)
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("senza main non si invia nulla, ottenuti %v", ids(got))
+	}
+	if readState(t, tr).Has(id1) {
+		t.Fatal("senza main la sessione resta in attesa (non segnata)")
+	}
+	want := []config.Character{{Char: "Gino", Realm: "Realm"}, {Char: "Grizzo", Realm: "Realm"}}
+	if len(asked) != 1 || fmt.Sprint(asked[0]) != fmt.Sprint(want) {
+		t.Fatalf("NeedMain: %v, atteso una chiamata con %v", asked, want)
+	}
+
+	// scelto l'alt come main: la sessione in attesa parte
+	env.Cfg.Main = config.Character{Char: "Grizzo", Realm: "Realm"}
+	cycle(t, env)
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id1 {
+		t.Fatalf("dopo la scelta atteso %s, ottenuti %v", id1, ids(got))
+	}
+}
+
+func TestNoMainNoPendingDoesNotAsk(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{}
+	env := tr.env(r, stop1+60) // la sessione non e' ancora definitiva (un /reload puo' riaprirla)
+	env.Cfg.Main = config.Character{}
+	env.NeedMain = func([]config.Character) { t.Error("niente da inviare: non si chiede il main") }
+	cycle(t, env)
+}
+
+func TestCharacters(t *testing.T) {
+	tr := newTree(t, false)
+	if got := Characters(tr.client); len(got) != 0 {
+		t.Fatalf("senza SavedVariables: %v", got)
+	}
+	tr.writeSV(t, "ACC", withAlt(t))
+	tr.writeSV(t, "ALTRO", only2(t)) // stessa sessione di Gino in un altro account: un solo Gino
+	got := Characters(tr.client)
+	want := []config.Character{{Char: "Gino", Realm: "Realm"}, {Char: "Grizzo", Realm: "Realm"}}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("Characters: %v, atteso %v (a parita' di sessioni il piu' recente prima)", got, want)
+	}
+	if got := Characters(""); len(got) != 0 {
+		t.Fatalf("senza cartella del client: %v", got)
+	}
+
+	// il personaggio con piu' sessioni viene prima, anche se non e' il piu' recente
+	tr = newTree(t, false)
+	recentAlt := strings.Replace(fixture(t), `["char"] = "Gino",`, `["char"] = "Grizzo",`, 2)
+	recentAlt = strings.Replace(recentAlt, `["char"] = "Grizzo",`, `["char"] = "Gino",`, 1) // s1 Gino, s2 Grizzo
+	tr.writeSV(t, "ACC", recentAlt)
+	tr.writeSV(t, "VECCHIO", strings.ReplaceAll(only1(t), id1, "Realm-Gino-1792000000"))
+	got = Characters(tr.client)
+	if len(got) != 2 || got[0].Char != "Gino" {
+		t.Fatalf("Characters: %v, atteso prima Gino (2 sessioni)", got)
 	}
 }

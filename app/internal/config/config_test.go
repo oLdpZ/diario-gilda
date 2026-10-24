@@ -118,3 +118,45 @@ func TestLoadOldFieldNames(t *testing.T) {
 		t.Fatalf("got %+v want %+v", c, want)
 	}
 }
+
+func TestMainRoundTripAndCompare(t *testing.T) {
+	dir := t.TempDir()
+	want := Config{Player: "Gigi", Main: Character{Char: "Zug'gar", Realm: "Forever"}}
+	if err := Save(dir, want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("got %+v want %+v", got, want)
+	}
+	if !got.Main.Is("ZUG'GAR", "forever") || got.Main.Is("Grizzo", "Forever") || got.Main.Is("Zug'gar", "Altro") {
+		t.Error("Is: confronto sbagliato")
+	}
+	if (Character{}).Is("", "") || !(Character{}).IsZero() {
+		t.Error("un personaggio vuoto non e' nessuno")
+	}
+	if l := got.Main.Label(); l != "Zug'gar (Forever)" {
+		t.Errorf("Label: %q", l)
+	}
+	if l := (Character{Char: "Zug'gar"}).Label(); l != "Zug'gar" {
+		t.Errorf("Label senza reame: %q", l)
+	}
+}
+
+// Un config.json della 0.1.0 (senza "main") si legge con il main non scelto.
+func TestLoadWithoutMain(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(`{"player":"Gigi"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Main.IsZero() {
+		t.Fatalf("main inatteso: %+v", c.Main)
+	}
+}

@@ -160,7 +160,7 @@ func start() error {
 	a := &app{dir: dir, exe: exe, ui: ui, ctx: ctx, stop: cancel, cfg: cfg, lock: lock}
 	a.lastSent = desktop.LoadLastSent(dir)
 	desktop.RunTray(desktop.TitleLabel(build.Version), desktop.LastSentLabel(a.lastSent, time.Now()),
-		desktop.Handlers{SendNow: a.sendNow, Rename: a.rename, ChooseWowDir: a.chooseWowDir, OpenLogs: a.openLogs, Quit: desktop.QuitTray},
+		desktop.Handlers{SendNow: a.sendNow, Rename: a.rename, ChooseMain: a.chooseMainFromMenu, ChooseWowDir: a.chooseWowDir, OpenLogs: a.openLogs, Quit: desktop.QuitTray},
 		a.ready, a.exit)
 	log.Printf("uscita")
 	return nil
@@ -206,6 +206,7 @@ type app struct {
 	clickStop context.CancelFunc // ferma l'"Invia ora" in corso
 
 	sending, renaming, choosing, restarting atomic.Bool
+	choosingMain, mainAsked                 atomic.Bool // mainAsked: chiesto da solo una volta per avvio
 }
 
 func (a *app) config() config.Config {
@@ -217,7 +218,8 @@ func (a *app) config() config.Config {
 // env prepara il ciclo; il webhook resta dentro Send e non va mai nel log.
 // Gli invii usano ctx: cancellarlo interrompe anche un upload in corso.
 func (a *app) env(ctx context.Context, cfg config.Config) run.Env {
-	e := run.Env{Cfg: cfg, DataDir: a.dir, Loc: time.Local, Log: log.Printf, GameRunning: desktop.WoWRunning}
+	e := run.Env{Cfg: cfg, DataDir: a.dir, Loc: time.Local, Log: log.Printf, GameRunning: desktop.WoWRunning,
+		NeedMain: a.needMain}
 	wh := config.EffectiveWebhook(cfg)
 	if wh == "" {
 		log.Printf("nessun webhook in questa build: le sessioni restano in coda")
@@ -340,6 +342,11 @@ func (a *app) sendNow() {
 		desktop.Notify("Questa versione non ha un canale Discord: non posso inviare.")
 		return
 	}
+	if cfg.Main.IsZero() {
+		// senza main non parte nulla: lo si chiede (la scelta fa ripartire Watch, che invia)
+		a.chooseMain(run.Characters(cfg.ClientDir), true)
+		return
+	}
 	err := run.Cycle(ctx, a.env(ctx, cfg))
 	a.mu.Lock()
 	after := a.lastSent
@@ -373,6 +380,52 @@ func (a *app) rename() {
 		return
 	}
 	log.Printf("nome cambiato")
+	a.restartWatch()
+}
+
+// needMain e' chiamata dal ciclo quando ci sono sessioni pronte ma nessun
+// personaggio principale: lo chiede una sola volta per avvio (poi resta il menu),
+// e mai sopra il gioco aperto (lo chiede a un giro successivo, a WoW chiuso).
+// Gira in una goroutine sua: la scelta fa ripartire Watch, che aspetta il ciclo.
+func (a *app) needMain(chars []config.Character) {
+	if desktop.WoWRunning() || a.mainAsked.Swap(true) {
+		return
+	}
+	go a.chooseMain(chars, true)
+}
+
+// chooseMainFromMenu e' la voce "Personaggio principale…".
+func (a *app) chooseMainFromMenu() {
+	a.chooseMain(run.Characters(a.config().ClientDir), false)
+}
+
+// chooseMain chiede il personaggio principale, lo salva e fa ripartire Watch.
+// Se la richiesta e' partita da sola e il giocatore annulla, ricorda il menu.
+func (a *app) chooseMain(chars []config.Character, auto bool) {
+	if a.restarting.Load() || !a.choosingMain.CompareAndSwap(false, true) {
+		return
+	}
+	defer a.choosingMain.Store(false)
+	cfg := a.config()
+	c, err := desktop.AskMain(a.ui, chars, cfg.Main)
+	if err != nil {
+		if auto && errors.Is(err, desktop.ErrCanceled) {
+			desktop.Notify(desktop.MsgMainLater)
+		} else if !errors.Is(err, desktop.ErrCanceled) {
+			log.Printf("scelta del personaggio principale: %v", err)
+		}
+		return
+	}
+	if c == cfg.Main || a.restarting.Load() {
+		return
+	}
+	if _, err := a.updateConfig(func(cf *config.Config) { cf.Main = c }); err != nil {
+		log.Printf("scelta del personaggio principale: %v", err)
+		a.ui.Error("Non riesco a salvare il personaggio principale: " + err.Error())
+		return
+	}
+	log.Printf("personaggio principale: %s", c.Label())
+	desktop.Notify(fmt.Sprintf(desktop.MsgMainSet, c.Label()))
 	a.restartWatch()
 }
 

@@ -28,6 +28,8 @@ type fakeUI struct {
 	dirs, names           []string
 	errors, infos         []string
 	prompts, entryDefault []string
+	picks, listDefault    []string
+	lists                 [][]string
 }
 
 func (f *fakeUI) SelectDir(title string) (string, error) {
@@ -49,6 +51,18 @@ func (f *fakeUI) Entry(prompt, def string) (string, error) {
 	n := f.names[0]
 	f.names = f.names[1:]
 	return n, nil
+}
+
+func (f *fakeUI) List(prompt string, items []string, def string) (string, error) {
+	f.prompts = append(f.prompts, prompt)
+	f.lists = append(f.lists, items)
+	f.listDefault = append(f.listDefault, def)
+	if len(f.picks) == 0 || f.picks[0] == cancel {
+		return "", ErrCanceled
+	}
+	p := f.picks[0]
+	f.picks = f.picks[1:]
+	return p, nil
 }
 
 func (f *fakeUI) Error(msg string) { f.errors = append(f.errors, msg) }
@@ -282,10 +296,11 @@ func TestFirstRunDialogError(t *testing.T) {
 
 type errUI struct{ err error }
 
-func (e errUI) SelectDir(string) (string, error)     { return "", e.err }
-func (e errUI) Entry(string, string) (string, error) { return "", e.err }
-func (errUI) Error(string)                           {}
-func (errUI) Info(string)                            {}
+func (e errUI) SelectDir(string) (string, error)              { return "", e.err }
+func (e errUI) Entry(string, string) (string, error)          { return "", e.err }
+func (e errUI) List(string, []string, string) (string, error) { return "", e.err }
+func (errUI) Error(string)                                    {}
+func (errUI) Info(string)                                     {}
 
 // Ruling F2: senza un client Forever non si sceglie da soli, si chiede.
 func TestFirstRunNoForeverAsks(t *testing.T) {
@@ -360,5 +375,38 @@ func TestChooseClient(t *testing.T) {
 	}
 	if _, _, err := ChooseClient(&fakeUI{}); !errors.Is(err, ErrCanceled) {
 		t.Errorf("annullato: %v", err)
+	}
+}
+
+func TestAskMain(t *testing.T) {
+	gino := config.Character{Char: "Gino", Realm: "Forever"}
+	grizzo := config.Character{Char: "Grizzo", Realm: "Forever"}
+	chars := []config.Character{gino, grizzo}
+
+	ui := &fakeUI{picks: []string{"Grizzo (Forever)"}}
+	got, err := AskMain(ui, chars, config.Character{})
+	if err != nil || got != grizzo {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if len(ui.lists) != 1 || len(ui.lists[0]) != 2 || ui.listDefault[0] != "Gino (Forever)" || ui.prompts[0] != PromptMain {
+		t.Fatalf("finestra: %v default %v prompt %v", ui.lists, ui.listDefault, ui.prompts)
+	}
+
+	// il main attuale e' proposto
+	ui = &fakeUI{picks: []string{"Gino (Forever)"}}
+	if _, err := AskMain(ui, chars, config.Character{Char: "grizzo", Realm: "forever"}); err != nil || ui.listDefault[0] != "Grizzo (Forever)" {
+		t.Fatalf("default: %v, %v", ui.listDefault, err)
+	}
+
+	// annullato
+	ui = &fakeUI{picks: []string{cancel}}
+	if _, err := AskMain(ui, chars, config.Character{}); err != ErrCanceled {
+		t.Fatalf("annullato: %v", err)
+	}
+
+	// nessun personaggio: avviso, niente finestra di scelta
+	ui = &fakeUI{}
+	if _, err := AskMain(ui, nil, config.Character{}); err != ErrCanceled || len(ui.lists) != 0 || len(ui.infos) != 1 || ui.infos[0] != MsgNoChars {
+		t.Fatalf("senza personaggi: %v %v %v", err, ui.lists, ui.infos)
 	}
 }

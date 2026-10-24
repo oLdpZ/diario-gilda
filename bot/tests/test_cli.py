@@ -300,6 +300,21 @@ class TestFlusso(BaseCli):
                                                   "events": []}}
         self.assertEqual(cli._giocatori([s, s2]), {"Gino": "Gino, WARRIOR, livello 12"})
 
+    def test_giocatori_un_livello_per_personaggio(self):
+        main = {"giocatore": "Gino", "sessione": {"start": 1, "char": "Zug'gar", "class": "WARRIOR", "level": 60,
+                                                    "events": []}}
+        alt = {"giocatore": "Gino", "sessione": {"start": 5, "char": "Grizzo", "class": "MAGE", "level": 9,
+                                                   "events": [{"t": 6, "k": "level", "level": 10}]}}
+        self.assertEqual(cli._giocatori([main, alt]),
+                         {"Gino": "Zug'gar, WARRIOR, livello 60; Grizzo, MAGE, livello 10"})
+
+    def test_principali_salvati_nello_stato(self):
+        m = genera.mara()
+        m["app"] = "0.1.1"
+        self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(m), autore="555")
+        self.esegui("prepara")
+        self.assertEqual(self.preparato()["stato"]["principali"], ["mara|realm"])
+
     def test_sessione_ripresa_non_si_racconta_due_volte(self):
         m = genera.mara()
         self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(m), autore="555")

@@ -35,6 +35,12 @@ func (Dialogs) Entry(prompt, def string) (string, error) {
 	return s, canceled(err)
 }
 
+// List chiede di scegliere una voce di items, proponendo def.
+func (Dialogs) List(prompt string, items []string, def string) (string, error) {
+	s, err := zenity.List(prompt, items, zenity.Title(AppName), zenity.DefaultItems(def), zenity.DisallowEmpty())
+	return s, canceled(err)
+}
+
 // Error mostra un errore e aspetta che il giocatore lo chiuda.
 func (Dialogs) Error(msg string) {
 	if err := zenity.Error(msg, zenity.Title(AppName)); err != nil && !errors.Is(err, zenity.ErrCanceled) {

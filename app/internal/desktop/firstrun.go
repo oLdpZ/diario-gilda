@@ -32,11 +32,12 @@ var ErrCanceled = errors.New("annullato")
 // ErrSave avvolge l'errore di Setup.Save.
 var ErrSave = errors.New("salvataggio configurazione")
 
-// UI sono le finestre di dialogo; SelectDir ed Entry restituiscono
+// UI sono le finestre di dialogo; SelectDir, Entry e List restituiscono
 // ErrCanceled se il giocatore annulla.
 type UI interface {
 	SelectDir(title string) (string, error)
 	Entry(prompt, def string) (string, error)
+	List(prompt string, items []string, def string) (string, error)
 	Error(msg string)
 	Info(msg string)
 }

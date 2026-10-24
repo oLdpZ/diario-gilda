@@ -79,3 +79,12 @@ class TestStato(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPrincipali(unittest.TestCase):
+    def test_principali_letti_e_controllati(self):
+        from bot.cronista.stato import _da_dict
+        self.assertEqual(_da_dict({"principali": ["gino|realm"]}, 0).principali, ["gino|realm"])
+        self.assertEqual(_da_dict({}, 0).principali, [])
+        with self.assertRaises(ValueError):
+            _da_dict({"principali": [1]}, 0)

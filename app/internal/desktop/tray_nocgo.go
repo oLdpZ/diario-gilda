@@ -26,7 +26,7 @@ const MsgBadBuild = "Build non valida: icona non disponibile (cgo disattivato)"
 
 // Handlers sono le azioni del menu.
 type Handlers struct {
-	SendNow, Rename, ChooseWowDir, OpenLogs, Quit func()
+	SendNow, Rename, ChooseMain, ChooseWowDir, OpenLogs, Quit func()
 }
 
 // Tray senza icona.
