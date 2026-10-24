@@ -6,7 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from bot.cronista import ingresso, luasv
-from bot.cronista.discord import Discord
+from bot.cronista.discord import Discord, DiscordError
 from bot.cronista.stato import Stato
 from bot.tests.finto_discord import FintoDiscord
 
@@ -75,8 +75,32 @@ class TestLeggiPacchetto(unittest.TestCase):
             self.assertEqual(s["giocatore"], "Gino")
             self.assertEqual(s["combattimenti"], [])
         self.assertFalse(sess[0]["interrotta"])
-        self.assertTrue(sess[1]["interrotta"])  # senza stop
+        self.assertFalse(sess[1]["interrotta"])  # senza stop ma la piu' recente del file
         self.assertEqual(len(sess[0]["sessione"]["events"]), 9)
+
+    def test_start_stop_fuori_intervallo(self):
+        for campo, v in (("start", 10**15), ("start", 10**30), ("start", -10**12), ("stop", 10**15), ("stop", -1)):
+            doc = doc_di(GINO)
+            doc["sessione"][campo] = v
+            with self.assertRaises(ValueError, msg=(campo, v)):
+                ingresso.leggi_pacchetto("a.json.gz", gz(doc))
+
+    def test_json_ricorsivo_e_gzip_bomba(self):
+        for dati in (gzip.compress(b"[" * 100000), gzip.compress(b"0" * (33 * 1024 * 1024))):
+            with self.assertRaises(ValueError):
+                ingresso.leggi_pacchetto("a.json.gz", dati)
+
+    def test_lua_interrotta_relativa_al_file(self):
+        base = 1793000000
+        def sess(i, t0, stop=""):
+            return ('{ ["id"] = "r-c-%d", ["char"] = "C", ["start"] = %d, %s ["events"] = { { ["t"] = %d, ["k"] = "zone" }, }, },'
+                    % (i, t0, stop, t0 + 10))
+        lua = "DiarioGildaDB = { sessions = { %s %s %s } }" % (
+            sess(1, base), sess(2, base + 20 * 3600), sess(3, base + 100, '["stop"] = %d,' % (base + 200)))
+        a, b, c = ingresso.leggi_pacchetto(LUA, lua.encode())
+        self.assertTrue(a["interrotta"])    # senza stop, 20 h prima del piu' recente
+        self.assertFalse(b["interrotta"])   # e' la piu' recente
+        self.assertFalse(c["interrotta"])   # ha stop
 
     def test_lua_illeggibile_e_tipo_ignoto(self):
         with self.assertRaises(ValueError):
@@ -231,12 +255,60 @@ class TestRaccogli(unittest.TestCase):
         self.assertEqual(len(r.avvisi), 1)
         self.assertIn(LUA, r.avvisi[0])
 
-    def test_download_fallito_diventa_avviso(self):
+    def test_download_permanente_avanza(self):
         m = self.invia(GINO, b"x")
-        self.f.allegati.clear()
+        self.f.allegati.clear()  # 404: allegato sparito
         r = ingresso.raccogli(self.d, "201", Stato())
         self.assertEqual(r.sessioni, [])
         self.assertIn(m["id"], r.avvisi[0])
+        self.assertEqual(r.ultimo_messaggio, m["id"])
+
+    def test_download_transitorio_non_avanza_il_cursore(self):
+        m0 = self.invia(MARA, (DATI / MARA).read_bytes())
+        m1 = self.invia(GINO, (DATI / GINO).read_bytes())
+        m2 = self.invia(MARA, (DATI / MARA).read_bytes())
+        vero = self.d.scarica
+
+        def scarica(url):
+            if f"/{m1['id']}-" in url:
+                raise DiscordError(503, "giu")
+            return vero(url)
+        self.d.scarica = scarica
+        r = ingresso.raccogli(self.d, "201", Stato())
+        self.assertIn(m1["id"], r.avvisi[0])
+        self.assertEqual(r.ultimo_messaggio, str(int(m1["id"]) - 1))
+        self.assertGreaterEqual(int(r.ultimo_messaggio), int(m0["id"]))
+        self.assertLess(int(r.ultimo_messaggio), int(m2["id"]))
+        for status in (0, 429, 500):
+            def scarica(url, status=status):
+                raise DiscordError(status, "x")
+            self.d.scarica = scarica
+            r = ingresso.raccogli(self.d, "201", Stato())
+            self.assertEqual(r.ultimo_messaggio, str(int(m0["id"]) - 1))
+
+    def test_pacchetto_ostile_non_blocca(self):
+        self.invia("a.json.gz", gzip.compress(b"[" * 100000))
+        self.invia("b.json.gz", gz({**doc_di(GINO), "sessione": {**doc_di(GINO)["sessione"], "start": 10**30}}))
+        self.invia(MARA, (DATI / MARA).read_bytes())
+        r = ingresso.raccogli(self.d, "201", Stato())
+        self.assertEqual([s["giocatore"] for s in r.sessioni], ["Mara"])
+        self.assertEqual(len(r.avvisi), 2)
+        ingresso.per_giornata(r.sessioni)
+
+    def test_lua_sessione_cattiva_salta_solo_quella(self):
+        testo = (DATI / LUA).read_text(encoding="utf-8").replace("[\"start\"] = 1793086400", "[\"start\"] = 10 ^ 40")
+        self.assertIn("10 ^ 40", testo)
+        testo = testo.replace("10 ^ 40", "1e40")
+        self.invia(LUA, testo.encode(), autore="777")
+        r = ingresso.raccogli(self.d, "201", Stato())
+        self.assertEqual([s["sessione"]["id"] for s in r.sessioni], ["Realm-Gino-1793000000"])
+        self.assertEqual(len(r.avvisi), 1)
+
+    def test_stato_con_voce_malformata(self):
+        self.invia(GINO, (DATI / GINO).read_bytes())
+        for voce in (5, None, "x", {"eventi": "4"}, {}):
+            st = Stato(sessioni_viste={"Realm-Gino-1793000000": voce})
+            self.assertEqual(len(ingresso.raccogli(self.d, "201", st).sessioni), 1)
 
     def test_primo_avvio_piu_giorni(self):
         self.invia(GINO, (DATI / GINO).read_bytes())
