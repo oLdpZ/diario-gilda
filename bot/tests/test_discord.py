@@ -106,6 +106,28 @@ class TestDiscord(unittest.TestCase):
         self.cl("segreto").scarica(url)
         self.assertEqual(self.f.richieste[-1]["header"]["Authorization"], "Bot segreto")
 
+    def test_scarica_dal_cdn_senza_auth(self):
+        # come Discord: API su discord.com, allegati su cdn.discordapp.com (altro host)
+        f = FintoDiscord(cdn=True).avvia()
+        self.addCleanup(f.ferma)
+        m = f.aggiungi_allegato("201", "c", "a.bin", b"dati")
+        url = m["attachments"][0]["url"]
+        self.assertFalse(url.startswith(f.base + "/"))
+        c = Discord(f.base, "segreto")
+        self.assertEqual(c.scarica(url), b"dati")
+        self.assertTrue(f.richieste[-1]["cdn"])
+        self.assertNotIn("Authorization", f.richieste[-1]["header"])
+        c.server(None)
+        self.assertEqual(f.richieste[-1]["header"]["Authorization"], "Bot segreto")
+
+    def test_auth_solo_sotto_la_base(self):
+        c = Discord("http://127.0.0.1:9/api/v10", "segreto")
+        attese = []
+        c._richiesta = lambda *a, **k: attese.append(k.get("auth")) or b""
+        c.scarica("http://127.0.0.1:9/api/v10.altro/x")
+        c.scarica("http://127.0.0.1:9/api/v10/x")
+        self.assertEqual(attese, [False, True])
+
     def test_attesa_429_limitata_a_30s(self):
         self.f.errori_429 = 1
         self.f.retry_after = 999
@@ -116,7 +138,7 @@ class TestDiscord(unittest.TestCase):
         self.assertEqual(attese, [30.0])
 
     def test_retry_after_non_valido_vale_1s(self):
-        for v in ("abc", None, 1e999):
+        for v in ("abc", None, 1e999, 10**400):
             self.f.errori_429 = 1
             self.f.retry_after = v
             c = self.cl()

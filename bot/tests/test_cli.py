@@ -56,8 +56,10 @@ def _sposta(doc: dict, secondi: int, nuovo_id: str) -> dict:
 
 
 class BaseCli(unittest.TestCase):
+    CDN = False
+
     def setUp(self):
-        self.f = FintoDiscord().avvia()
+        self.f = FintoDiscord(cdn=self.CDN).avvia()
         self.addCleanup(self.f.ferma)
         self.f.guilds = [{"id": SERVER, "name": "Orda Florentiae"}]
         self.f.canali = {SERVER: [{"id": DIARIO, "name": "diario-di-gilda", "type": 0},
@@ -428,6 +430,27 @@ class TestComandi(BaseCli):
         self.assertIn("403", err)
         self.assertNotIn("segreto-123", out + err)
         self.assertNotIn("Traceback", err)
+
+
+class TestCdn(BaseCli):
+    CDN = True
+
+    def test_allegati_dal_cdn_senza_token(self):
+        os.environ["DISCORD_BOT_TOKEN"] = "segreto-cdn"
+        self.carica(PACCHETTI[:2])
+        codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        titolo = self.preparato()["pagine"][0]["titolo"]
+        self.assertEqual(self.esegui("pubblica", str(self.scrivi_pagina("pagina-2026-10-26.md", titolo)))[0], 0)
+        self.assertEqual(self.esegui("chiudi")[0], 0)
+        self.assertEqual(self.esegui("prepara")[1].strip(), "Niente da raccontare oggi.")  # stato letto dal CDN
+        cdn = [r for r in self.f.richieste if r["cdn"]]
+        api = [r for r in self.f.richieste if not r["cdn"]]
+        self.assertGreaterEqual(len(cdn), 3)  # 2 pacchetti + stato.json
+        for r in cdn:
+            self.assertNotIn("Authorization", r["header"])
+        for r in api:
+            self.assertEqual(r["header"]["Authorization"], "Bot segreto-cdn")
 
 
 class TestScript(BaseCli):

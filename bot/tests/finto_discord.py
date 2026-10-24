@@ -23,7 +23,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _registra(self, corpo: bytes = b"") -> dict:
         f = self.server.finto
-        r = {"metodo": self.command, "percorso": self.path,
+        r = {"metodo": self.command, "percorso": self.path, "cdn": self.server is f._cdn,
              "header": {k: v for k, v in self.headers.items()}, "corpo": corpo}
         f.richieste.append(r)
         return r
@@ -53,6 +53,8 @@ class _Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         p = u.path
+        if (self.server is f._cdn) != p.startswith("/allegati/") and f._cdn is not None:
+            return self._rispondi(404, {})  # col CDN: allegati solo li', API solo qui
         if p.startswith("/allegati/"):
             nome = p[len("/allegati/"):]
             if nome in f.allegati:
@@ -110,7 +112,7 @@ class _Handler(BaseHTTPRequestHandler):
                 chiave = f"{f._prossimo + 1}-{nomef}"  # un file per messaggio
                 f.allegati[chiave] = dati
                 allegati.append({"filename": nomef, "size": len(dati),
-                                 "url": f"http://{self.headers['Host']}/allegati/{chiave}"})
+                                 "url": f"{f.base_allegati}/allegati/{chiave}"})
         else:
             payload = json.loads(corpo or b"{}")
             r["payload"] = payload
@@ -120,11 +122,15 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 class FintoDiscord:
-    """Uso: f = FintoDiscord().avvia(); ...; f.ferma()."""
+    """Uso: f = FintoDiscord().avvia(); ...; f.ferma().
 
-    def __init__(self):
+    Con `cdn=True` gli allegati stanno su un secondo server (altra porta), come
+    cdn.discordapp.com rispetto a discord.com.
+    """
+
+    def __init__(self, cdn: bool = False):
         self.guilds = [{"id": "100", "name": "Gilda"}]
-        self.canali = {"100": [{"id": "200", "name": "diario-gilda", "type": 0},
+        self.canali = {"100": [{"id": "200", "name": "diario-di-gilda", "type": 0},
                                {"id": "201", "name": "diario-servizio", "type": 0}]}
         self.messaggi: dict[str, list[dict]] = {}
         self.allegati: dict[str, bytes] = {}
@@ -138,10 +144,18 @@ class FintoDiscord:
         self._prossimo = 1000
         self._srv = None
         self._th = None
+        self._vuole_cdn = cdn
+        self._cdn = None
+        self._th_cdn = None
 
     @property
     def base(self) -> str:
         return f"http://127.0.0.1:{self._srv.server_address[1]}"
+
+    @property
+    def base_allegati(self) -> str:
+        srv = self._cdn or self._srv
+        return f"http://127.0.0.1:{srv.server_address[1]}"
 
     def aggiungi(self, canale: str, contenuto: str = "", allegati: list[dict] | None = None,
                  autore: str | None = None) -> dict:
@@ -156,16 +170,24 @@ class FintoDiscord:
         chiave = f"{self._prossimo + 1}-{nome}"
         self.allegati[chiave] = dati
         return self.aggiungi(canale, contenuto, [{
-            "filename": nome, "size": len(dati), "url": f"{self.base}/allegati/{chiave}"}], autore)
+            "filename": nome, "size": len(dati), "url": f"{self.base_allegati}/allegati/{chiave}"}], autore)
 
     def avvia(self) -> "FintoDiscord":
         self._srv = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         self._srv.finto = self
         self._th = threading.Thread(target=self._srv.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         self._th.start()
+        if self._vuole_cdn:
+            self._cdn = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+            self._cdn.finto = self
+            self._th_cdn = threading.Thread(target=self._cdn.serve_forever,
+                                            kwargs={"poll_interval": 0.01}, daemon=True)
+            self._th_cdn.start()
         return self
 
     def ferma(self) -> None:
-        self._srv.shutdown()
-        self._srv.server_close()
-        self._th.join()
+        for srv, th in ((self._srv, self._th), (self._cdn, self._th_cdn)):
+            if srv is not None:
+                srv.shutdown()
+                srv.server_close()
+                th.join()

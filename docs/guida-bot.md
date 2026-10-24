@@ -44,9 +44,12 @@ Il token non va mai nell'ambiente né nei file: lo aggiunge il proxy del cloud a
 
 1. Apri <https://claude.ai/code/routines> → impostazioni degli **ambienti** (Environments) → **Nuovo
    ambiente**, nome per esempio `cronista`.
-2. **Accesso di rete:** *Custom*. Aggiungi il dominio `discord.com` e lascia attivi i gestori di pacchetti
-   predefiniti.
-3. **Network secret:** nuovo segreto per il dominio `discord.com`:
+2. **Accesso di rete:** *Custom*. Aggiungi i domini `discord.com`, `cdn.discordapp.com` e
+   `media.discordapp.net` e lascia attivi i gestori di pacchetti predefiniti. Gli allegati (i pacchetti
+   delle sessioni e `stato.json`) si scaricano da `cdn.discordapp.com` / `media.discordapp.net`: senza
+   questi due domini il Cronista non legge nulla.
+3. **Network secret:** nuovo segreto **solo** per il dominio `discord.com` (non per i due domini degli
+   allegati: lì il token non deve andare):
    - header: `Authorization`
    - prefisso: `Bot` (il proxy manda `Authorization: Bot <token>`)
    - valore: il token del bot (sezione 1).
@@ -93,7 +96,9 @@ con l'allegato `stato.json` in `#diario-servizio`. Non cancellare quei messaggi:
    - `Discord HTTP 401`: il Network secret manca o il token è sbagliato (sezione 4);
    - `Discord HTTP 403`: mancano permessi su un canale (sezione 3);
    - `canale non trovato` / `server non trovato`: nomi o id in `bot/config.json`;
-   - errore di rete verso `discord.com`: l'accesso di rete *Custom* non include `discord.com`.
+   - errore di rete verso `discord.com`: l'accesso di rete *Custom* non include `discord.com`;
+   - pacchetti «saltati» con un errore di rete (`Discord HTTP 0`) e stato mai trovato: mancano
+     `cdn.discordapp.com` / `media.discordapp.net` nell'accesso di rete (sezione 4).
 
 ## 7. Prova in locale (facoltativa)
 

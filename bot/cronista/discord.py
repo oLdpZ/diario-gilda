@@ -80,7 +80,7 @@ class Discord:
                         v = json.loads(testo).get("retry_after", 1)
                         if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v):
                             attesa = float(v)
-                    except (ValueError, AttributeError):
+                    except (ValueError, AttributeError, OverflowError):
                         pass
                     self._attesa(min(max(attesa, 0.0), ATTESA_MAX))
                     continue
@@ -166,8 +166,11 @@ class Discord:
         return sorted(out.values(), key=_snowflake)
 
     def scarica(self, url: str) -> bytes:
-        """Scarica un allegato (max 16 MB); niente Authorization verso host esterni."""
-        return self._richiesta("GET", url, auth=url.startswith(self.base), cap=CAP_ALLEGATO)
+        """Scarica un allegato (max 16 MB); niente Authorization fuori dalla base API.
+
+        Gli allegati veri stanno su cdn.discordapp.com: lì non va mai il token.
+        """
+        return self._richiesta("GET", url, auth=url.startswith(self.base + "/"), cap=CAP_ALLEGATO)
 
     def invia(self, canale_id: str, contenuto: str = "", embed: list[dict] | None = None,
               file: tuple[str, bytes] | None = None) -> dict:
