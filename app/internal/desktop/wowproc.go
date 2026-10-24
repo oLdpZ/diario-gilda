@@ -1,6 +1,10 @@
 package desktop
 
-import "strings"
+import (
+	"log"
+	"strings"
+	"sync"
+)
 
 // IsWoWProcess riconosce il nome dell'eseguibile di un client di WoW:
 // Windows "Wow*.exe" (Wow, WowClassic, WowT, Wow-64...), escluse le utilita'
@@ -21,11 +25,18 @@ func IsWoWProcess(name string) bool {
 	return true
 }
 
-// WoWRunning dice se un client di WoW e' aperto (false se non si sa).
-func WoWRunning() bool {
-	names, err := processNames()
+var procErrOnce sync.Once
+
+// WoWRunning dice se un client di WoW e' aperto. Se l'elenco dei processi non
+// si legge risponde true: meglio aspettare che inviare una sessione a meta'
+// dopo un /reload (la sessione parte comunque appena ne inizia una nuova).
+func WoWRunning() bool { return wowRunning(processNames) }
+
+func wowRunning(list func() ([]string, error)) bool {
+	names, err := list()
 	if err != nil {
-		return false
+		procErrOnce.Do(func() { log.Printf("elenco dei processi non leggibile, considero WoW aperto: %v", err) })
+		return true
 	}
 	for _, n := range names {
 		if IsWoWProcess(n) {

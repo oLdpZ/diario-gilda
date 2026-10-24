@@ -13,10 +13,14 @@ func DefaultRoots(goos string) []string {
 	switch goos {
 	case "windows":
 		var out []string
-		for _, drive := range []string{"C", "D", "E"} {
+		for _, drive := range []string{"C", "D", "E", "F"} {
 			out = append(out,
 				drive+`:\Program Files (x86)\World of Warcraft`,
-				drive+`:\Program Files\World of Warcraft`)
+				drive+`:\Program Files\World of Warcraft`,
+				drive+`:\World of Warcraft`,
+				drive+`:\WoW\World of Warcraft`,
+				drive+`:\Games\World of Warcraft`,
+				drive+`:\Giochi\World of Warcraft`)
 		}
 		return out
 	case "darwin":

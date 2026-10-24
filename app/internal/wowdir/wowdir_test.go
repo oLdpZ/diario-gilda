@@ -19,10 +19,12 @@ func mk(t *testing.T, parts ...string) string {
 
 func TestDefaultRoots(t *testing.T) {
 	win := DefaultRoots("windows")
-	want := []string{
-		`C:\Program Files (x86)\World of Warcraft`, `C:\Program Files\World of Warcraft`,
-		`D:\Program Files (x86)\World of Warcraft`, `D:\Program Files\World of Warcraft`,
-		`E:\Program Files (x86)\World of Warcraft`, `E:\Program Files\World of Warcraft`,
+	var want []string
+	for _, d := range []string{"C", "D", "E", "F"} {
+		want = append(want,
+			d+`:\Program Files (x86)\World of Warcraft`, d+`:\Program Files\World of Warcraft`,
+			d+`:\World of Warcraft`, d+`:\WoW\World of Warcraft`,
+			d+`:\Games\World of Warcraft`, d+`:\Giochi\World of Warcraft`)
 	}
 	if !reflect.DeepEqual(win, want) {
 		t.Fatalf("windows: %v", win)

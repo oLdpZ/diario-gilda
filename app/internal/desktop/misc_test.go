@@ -3,6 +3,7 @@ package desktop
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"image/png"
 	"testing"
 )
@@ -41,5 +42,18 @@ func TestIcon(t *testing.T) {
 	off := binary.LittleEndian.Uint32(ico[18:])
 	if off != 22 || int(size) != len(IconPNG) || !bytes.Equal(ico[off:], IconPNG) {
 		t.Errorf("voce ICO non valida: size %d off %d", size, off)
+	}
+}
+
+func TestWoWRunningUnknownCountsAsRunning(t *testing.T) {
+	fail := func() ([]string, error) { return nil, errors.New("accesso negato") }
+	if !wowRunning(fail) {
+		t.Error("elenco dei processi illeggibile: deve contare come WoW aperto")
+	}
+	if !wowRunning(func() ([]string, error) { return []string{"explorer.exe", "Wow.exe"}, nil }) {
+		t.Error("Wow.exe aperto non riconosciuto")
+	}
+	if wowRunning(func() ([]string, error) { return []string{"explorer.exe"}, nil }) {
+		t.Error("nessun WoW aperto ma risulta aperto")
 	}
 }

@@ -194,6 +194,7 @@ type app struct {
 	stop     context.CancelFunc
 
 	cfgMu     sync.Mutex // serializza leggi-cambia-salva della configurazione
+	watchMu   sync.Mutex // un solo restartWatch alla volta (nome e cartella dal menu)
 	mu        sync.Mutex
 	cfg       config.Config
 	lock      *desktop.Lock
@@ -424,6 +425,8 @@ func (a *app) updateConfig(f func(*config.Config)) (config.Config, error) {
 
 // restartWatch fa ripartire Watch, che ha la configurazione vecchia.
 func (a *app) restartWatch() {
+	a.watchMu.Lock()
+	defer a.watchMu.Unlock()
 	a.stopWatch()
 	if a.ctx.Err() == nil {
 		a.startWatch()
