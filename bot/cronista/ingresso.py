@@ -145,12 +145,38 @@ def _da_lua(dati: bytes) -> tuple[list[dict], list[str]]:
             continue
         errori += [f"sessione {i}: {x}" for x in _scartati(n)]
         buone.append(se)
+    buone, ignorate = _solo_piu_giocato(buone)
+    if ignorate:
+        errori.append(ignorate)
     # riferimento: l'istante piu' recente del file
     rif = max((max(_ultimo_t(se), se.get("stop", 0)) for se in buone), default=0)
     out = [{"giocatore": se["char"],
             "interrotta": "stop" not in se and _ultimo_t(se) < rif - DODICI_ORE,
             "troncata": 0, "sessione": se, "combattimenti": [], "manuale": True} for se in buone]
     return out, errori
+
+
+def _solo_piu_giocato(sessioni: list[dict]) -> tuple[list[dict], str]:
+    """Solo le sessioni del personaggio con più eventi nel file (a parità, il più recente).
+
+    Un .lua contiene tutti i personaggi dell'account, ma nel diario va solo il principale:
+    senza il programmino non si sa qual è, quindi si prende il più giocato. Restituisce anche
+    l'avviso sulle sessioni ignorate ("" se non ce ne sono).
+    """
+    def chiave(se: dict) -> tuple[str, str]:
+        return se["char"].casefold(), str(se.get("realm") or "").casefold()
+    peso: dict[tuple[str, str], tuple[int, int]] = {}
+    for se in sessioni:
+        n, ultimo = peso.get(chiave(se), (0, 0))
+        peso[chiave(se)] = (n + len(se["events"]), max(ultimo, se["start"]))
+    if len(peso) <= 1:
+        return sessioni, ""
+    scelto = max(peso, key=lambda k: peso[k])
+    tenute = [se for se in sessioni if chiave(se) == scelto]
+    altri = sorted({se["char"] for se in sessioni if chiave(se) != scelto})
+    avviso = (f"{len(sessioni) - len(tenute)} sessioni di altri personaggi ignorate ({', '.join(altri)}): "
+              f"dal file si racconta solo il personaggio più giocato, {tenute[0]['char']}")
+    return tenute, avviso
 
 
 def _leggi(nome: str, dati: bytes) -> tuple[list[dict], list[str]]:

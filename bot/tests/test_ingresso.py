@@ -117,6 +117,30 @@ class TestLeggiPacchetto(unittest.TestCase):
         self.assertFalse(b["interrotta"])   # e' la piu' recente
         self.assertFalse(c["interrotta"])   # ha stop
 
+    def test_lua_solo_personaggio_piu_giocato(self):
+        base = 1793000000
+        def sess(i, char, t0, n, realm="R"):
+            ev = " ".join('{ ["t"] = %d, ["k"] = "zone" },' % (t0 + 10 + j) for j in range(n))
+            return ('{ ["id"] = "%s-%s-%d", ["char"] = "%s", ["realm"] = "%s", ["start"] = %d, ["stop"] = %d, '
+                    '["events"] = { %s }, },' % (realm, char, i, char, realm, t0, t0 + 500, ev))
+        lua = "DiarioGildaDB = { sessions = { %s %s %s %s } }" % (
+            sess(1, "Gino", base, 3), sess(2, "Grizzo", base + 1000, 4),
+            sess(3, "gino", base + 2000, 2), sess(4, "Gino", base + 3000, 1, realm="Altro"))
+        sessioni, avvisi = ingresso._leggi(LUA, lua.encode())
+        # Gino/R ha 5 eventi (maiuscole ignorate), Grizzo 4, Gino/Altro 1
+        self.assertEqual([s["sessione"]["id"] for s in sessioni], ["R-Gino-1", "R-gino-3"])
+        self.assertEqual(len(avvisi), 1)
+        self.assertIn("2 sessioni di altri personaggi ignorate", avvisi[0])
+        self.assertIn("Grizzo", avvisi[0])
+        self.assertIn("Gino", avvisi[0])
+        # a parità di eventi vince il personaggio giocato più di recente
+        lua = "DiarioGildaDB = { sessions = { %s %s } }" % (sess(1, "Gino", base, 2), sess(2, "Grizzo", base + 1000, 2))
+        sessioni, _ = ingresso._leggi(LUA, lua.encode())
+        self.assertEqual([s["giocatore"] for s in sessioni], ["Grizzo"])
+        # un solo personaggio: nessun avviso
+        sessioni, avvisi = ingresso._leggi(LUA, (DATI / LUA).read_bytes())
+        self.assertEqual((len(sessioni), avvisi), (2, []))
+
     def test_lua_illeggibile_e_tipo_ignoto(self):
         with self.assertRaises(ValueError):
             ingresso.leggi_pacchetto("diariogilda.LUA", b"DiarioGildaDB = { sessions = ")

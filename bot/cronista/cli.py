@@ -82,20 +82,28 @@ def _livelli(se: dict) -> list[int]:
 
 
 def _giocatori(sessioni: list[dict]) -> dict[str, str]:
-    """giocatore -> "Personaggio, CLASSE Razza, livello N" (dall'ultima sessione; livello più alto)."""
-    out: dict[str, list[str]] = {}
-    livello: dict[str, int] = {}
+    """giocatore -> "Personaggio, CLASSE Razza, livello N" per ogni suo personaggio (separati da "; ").
+
+    Classe e razza dall'ultima sessione del personaggio, livello il più alto della giornata.
+    """
+    out: dict[str, dict[str, list[str]]] = {}
+    livello: dict[tuple[str, str], int] = {}
     for s in sorted(sessioni, key=lambda s: s["sessione"]["start"]):
         se = s["sessione"]
         g = pulito(s["giocatore"])
-        parti = [pulito(se.get("char") or "")]
+        nome = pulito(se.get("char") or "")
+        parti = [nome]
         cr = " ".join(pulito(se[k], 40) for k in ("class", "race") if se.get(k))
         if cr:
             parti.append(cr)
-        out[g] = parti
-        livello[g] = max(_livelli(se) + ([livello[g]] if g in livello else []), default=0)
-    return {g: ", ".join([p for p in parti if p] + ([f"livello {livello[g]}"] if livello[g] else []))
-            for g, parti in sorted(out.items())}
+        out.setdefault(g, {})[nome.casefold()] = parti
+        k = (g, nome.casefold())
+        livello[k] = max(_livelli(se) + ([livello[k]] if k in livello else []), default=0)
+    def descrivi(g: str, pg: str, parti: list[str]) -> str:
+        lv = livello[(g, pg)]
+        return ", ".join([p for p in parti if p] + ([f"livello {lv}"] if lv else []))
+    return {g: "; ".join(descrivi(g, pg, parti) for pg, parti in pgs.items())
+            for g, pgs in sorted(out.items())}
 
 
 def _pulisci_lavoro(cartella: Path) -> None:

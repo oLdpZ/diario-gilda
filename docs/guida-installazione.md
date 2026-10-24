@@ -56,11 +56,14 @@ I file `.sig` accanto agli zip servono al programma per controllare gli aggiorna
   di WoW Forever"**: indica la cartella di World of Warcraft che lo contiene, oppure direttamente la cartella del
   client di Forever (quella con dentro `Interface` e `WTF`).
 - Ti chiede con che nome vuoi comparire nel diario: scrivi il nome con cui ti conosce la gilda.
+- Dopo la prima partita ti chiede **qual è il tuo personaggio principale**, scegliendolo dall'elenco dei personaggi
+  con cui hai giocato. Nel diario viene raccontato **solo lui**: le sessioni degli altri personaggi (gli alt) non
+  vengono inviate e restano sul tuo computer. Finché non lo scegli il programma non invia nulla.
 - Fatto: installa l'addon **DiarioGilda** in WoW e da quel momento lavora da solo. Lo trovi come icona vicino
   all'orologio (Windows: in basso a destra, a volte dentro la freccetta `^`; Mac: in alto a destra nella barra
   dei menu). Parte da solo ogni volta che accedi al computer.
 
-Dal menu dell'icona puoi: **Invia ora**, **Cambia nome…**, **Scegli cartella di WoW…** (se il programma guarda il
+Dal menu dell'icona puoi: **Invia ora**, **Cambia nome…**, **Personaggio principale…** (per cambiarlo), **Scegli cartella di WoW…** (se il programma guarda il
 client sbagliato o hai spostato WoW), **Apri cartella dei registri** (se qualcosa non va, manda all'autore il file
 `diario.log` che trovi lì), **Esci**.
 
@@ -76,7 +79,7 @@ Consiglio: lascia acceso il registro combattimenti (`/combatlog`) per avere anch
 
 ## Cosa viene raccolto
 
-- **Eventi di gioco del tuo personaggio**, ciascuno con orario e posizione (zona, sottozona, coordinate):
+- **Eventi di gioco del tuo personaggio principale** (gli alt non vengono mai inviati), ciascuno con orario e posizione (zona, sottozona, coordinate):
   cambi di zona, livelli, morti, missioni consegnate, bottino e oggetti creati di qualità rara o migliore,
   pesca, incontri con i boss, duelli, spese grosse, composizione del gruppo (nomi dei compagni).
 - **Dati del personaggio**: nome, reame, gilda, classe, razza, livello.
@@ -102,4 +105,5 @@ L'addon salva comunque tutto in WoW. Dopo essere uscito dal gioco:
 
 1. Apri la cartella di WoW, poi `WTF/Account/<ACCOUNT>/SavedVariables/` (`<ACCOUNT>` è il nome della cartella del
    tuo account).
-2. Trascina il file `DiarioGilda.lua` nel canale Discord **#diario-servizio** della gilda.
+2. Trascina il file `DiarioGilda.lua` nel canale Discord **#diario-servizio** della gilda. Il file contiene tutti i
+   personaggi del tuo account: il Cronista racconta solo quello con più eventi nel file e ignora gli altri.
