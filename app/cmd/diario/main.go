@@ -342,6 +342,11 @@ func (a *app) sendNow() {
 		desktop.Notify("Questa versione non ha un canale Discord: non posso inviare.")
 		return
 	}
+	if cfg.Main.IsZero() {
+		// senza main non parte nulla: lo si chiede (la scelta fa ripartire Watch, che invia)
+		a.chooseMain(run.Characters(cfg.ClientDir), true)
+		return
+	}
 	err := run.Cycle(ctx, a.env(ctx, cfg))
 	a.mu.Lock()
 	after := a.lastSent
@@ -379,10 +384,11 @@ func (a *app) rename() {
 }
 
 // needMain e' chiamata dal ciclo quando ci sono sessioni pronte ma nessun
-// personaggio principale: lo chiede una sola volta per avvio (poi resta il menu).
+// personaggio principale: lo chiede una sola volta per avvio (poi resta il menu),
+// e mai sopra il gioco aperto (lo chiede a un giro successivo, a WoW chiuso).
 // Gira in una goroutine sua: la scelta fa ripartire Watch, che aspetta il ciclo.
 func (a *app) needMain(chars []config.Character) {
-	if a.mainAsked.Swap(true) {
+	if desktop.WoWRunning() || a.mainAsked.Swap(true) {
 		return
 	}
 	go a.chooseMain(chars, true)

@@ -56,9 +56,12 @@ I file `.sig` accanto agli zip servono al programma per controllare gli aggiorna
   di WoW Forever"**: indica la cartella di World of Warcraft che lo contiene, oppure direttamente la cartella del
   client di Forever (quella con dentro `Interface` e `WTF`).
 - Ti chiede con che nome vuoi comparire nel diario: scrivi il nome con cui ti conosce la gilda.
-- Dopo la prima partita ti chiede **qual è il tuo personaggio principale**, scegliendolo dall'elenco dei personaggi
-  con cui hai giocato. Nel diario viene raccontato **solo lui**: le sessioni degli altri personaggi (gli alt) non
-  vengono inviate e restano sul tuo computer. Finché non lo scegli il programma non invia nulla.
+- Dopo la prima partita, a gioco chiuso, ti chiede **qual è il tuo personaggio principale**, scegliendolo
+  dall'elenco dei personaggi con cui hai giocato (propone quello con più sessioni). Nel diario viene raccontato
+  **solo lui**: le sessioni degli altri personaggi (gli alt) non vengono mai inviate; l'addon le cancella da solo
+  dopo due settimane. Finché non lo scegli il programma non invia nessuna sessione nuova.
+- Puoi cambiarlo quando vuoi dal menu (**Personaggio principale…**): partono anche le sessioni del nuovo
+  principale delle ultime due settimane che non erano ancora state inviate.
 - Fatto: installa l'addon **DiarioGilda** in WoW e da quel momento lavora da solo. Lo trovi come icona vicino
   all'orologio (Windows: in basso a destra, a volte dentro la freccetta `^`; Mac: in alto a destra nella barra
   dei menu). Parte da solo ogni volta che accedi al computer.
@@ -106,4 +109,5 @@ L'addon salva comunque tutto in WoW. Dopo essere uscito dal gioco:
 1. Apri la cartella di WoW, poi `WTF/Account/<ACCOUNT>/SavedVariables/` (`<ACCOUNT>` è il nome della cartella del
    tuo account).
 2. Trascina il file `DiarioGilda.lua` nel canale Discord **#diario-servizio** della gilda. Il file contiene tutti i
-   personaggi del tuo account: il Cronista racconta solo quello con più eventi nel file e ignora gli altri.
+   personaggi del tuo account: il Cronista racconta solo il tuo personaggio principale, se lo conosce già dai
+   pacchetti del programma, altrimenti quello con più eventi nel file, e ignora gli altri.

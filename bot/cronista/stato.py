@@ -24,6 +24,8 @@ class Stato:
     sessioni_viste: dict[str, dict] = field(default_factory=dict)
     contatori: dict = field(default_factory=dict)
     ricorrenze: list[str] = field(default_factory=list)
+    # personaggi principali ("nome|reame" in minuscolo) imparati dai pacchetti del programmino
+    principali: list[str] = field(default_factory=list)
 
     def pota(self, ora: float | None = None) -> None:
         """Toglie le sessioni viste da più di 60 giorni."""
@@ -53,7 +55,7 @@ def _da_dict(d, ora: float) -> Stato:
     if um is not None and not (isinstance(um, str) and um.isdigit()):
         raise ValueError("ultimo_messaggio non valido")
     s.ultimo_messaggio = um
-    for k, ok in (("giorni_pubblicati", _lista_str), ("ricorrenze", _lista_str),
+    for k, ok in (("giorni_pubblicati", _lista_str), ("ricorrenze", _lista_str), ("principali", _lista_str),
                   ("numero_giorno", lambda v: _intero(v) and v >= 0),
                   ("contatori", lambda v: isinstance(v, dict))):
         if k in d:

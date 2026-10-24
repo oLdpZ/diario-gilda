@@ -52,7 +52,7 @@ type Env struct {
 	GameRunning func() bool
 	// NeedMain viene chiamata quando ci sono sessioni pronte ma Cfg.Main non e'
 	// scelto: quelle sessioni restano in attesa. chars sono i personaggi delle
-	// SavedVariables, il piu' recente prima.
+	// SavedVariables nell'ordine di Characters.
 	NeedMain func(chars []config.Character)
 
 	saveState func(dir string, st *state.State) error // solo per i test; nil = state.Save
@@ -145,15 +145,20 @@ func loadState(env Env, now int64) (*state.State, error) {
 	return &state.State{Sent: map[string]int64{}}, nil
 }
 
+// lastAlts e' quante sessioni di personaggi secondari c'erano all'ultimo giro
+// (protetta da cycleMu): il log le riporta solo quando cambiano.
+var lastAlts int
+
 // enqueue legge tutte le SavedVariables del client e accoda le sessioni
-// definitive del personaggio principale; quelle degli altri personaggi si
-// segnano senza inviarle. Senza personaggio principale non accoda nulla e lo
-// chiede (NeedMain). Restituisce quante sessioni ha segnato nello stato.
+// definitive del personaggio principale. Quelle degli altri personaggi non si
+// inviano e non si segnano: se il giocatore cambia main, le sue sessioni recenti
+// partono. Senza personaggio principale non accoda nulla e lo chiede (NeedMain).
+// Restituisce quante sessioni ha segnato nello stato.
 func enqueue(env Env, st *state.State, now int64) int {
 	all := readAll(env)
 	running := env.gameRunning()
 	main := env.Cfg.Main
-	marked, waiting := 0, false
+	marked, alts, waiting := 0, 0, false
 	seen := map[string]bool{}
 	for _, s := range all {
 		if seen[s.ID] || st.Has(s.ID) {
@@ -169,9 +174,7 @@ func enqueue(env Env, st *state.State, now int64) int {
 			continue
 		}
 		if !main.Is(s.Char, s.Realm) {
-			env.logf("sessione %s di %s: personaggio secondario, non inviata", s.ID, s.Char)
-			st.MarkQueued(s.ID, now)
-			marked++
+			alts++
 			continue
 		}
 		if now-s.Start > maxAge {
@@ -197,6 +200,10 @@ func enqueue(env Env, st *state.State, now int64) int {
 		marked++
 		env.logf("sessione %s in coda (%s)", s.ID, name)
 	}
+	if alts != lastAlts {
+		env.logf("%d sessioni di personaggi secondari: non inviate", alts)
+		lastAlts = alts
+	}
 	if waiting {
 		env.logf("personaggio principale non scelto: sessioni in attesa")
 		if env.NeedMain != nil {
@@ -221,32 +228,45 @@ func readAll(env Env) []addondata.Session {
 	return all
 }
 
-// Characters restituisce i personaggi delle SavedVariables di clientDir, il
-// piu' recente (ultima sessione iniziata) prima.
+// Characters restituisce i personaggi delle SavedVariables di clientDir: prima
+// quello con piu' sessioni (probabilmente il principale), a parita' il piu'
+// recente. Senza cartella del client non ce ne sono.
 func Characters(clientDir string) []config.Character {
+	if clientDir == "" {
+		return nil
+	}
 	return characters(readAll(Env{Cfg: config.Config{ClientDir: clientDir}}))
 }
 
 func characters(all []addondata.Session) []config.Character {
 	type seen struct {
-		c    config.Character
-		last int64
+		c        config.Character
+		sessions int
+		last     int64
 	}
 	var out []seen
+	ids := map[string]bool{}
 outer:
 	for _, s := range all {
-		if s.Char == "" {
+		if s.Char == "" || ids[s.ID] {
 			continue
 		}
+		ids[s.ID] = true
 		for i := range out {
 			if out[i].c.Is(s.Char, s.Realm) {
+				out[i].sessions++
 				out[i].last = max(out[i].last, s.Start)
 				continue outer
 			}
 		}
-		out = append(out, seen{config.Character{Char: s.Char, Realm: s.Realm}, s.Start})
+		out = append(out, seen{config.Character{Char: s.Char, Realm: s.Realm}, 1, s.Start})
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].last > out[j].last })
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].sessions != out[j].sessions {
+			return out[i].sessions > out[j].sessions
+		}
+		return out[i].last > out[j].last
+	})
 	chars := make([]config.Character, len(out))
 	for i, x := range out {
 		chars[i] = x.c

@@ -183,7 +183,7 @@ def _visti(sessioni, ora: float) -> dict[str, dict]:
 
 
 def _istantanea(st: Stato, giorni: list[str], numero: int, contatori: dict,
-                viste: dict[str, dict], cursore: str | None) -> dict:
+                viste: dict[str, dict], cursore: str | None, principali: set[str] = frozenset()) -> dict:
     """Stato dopo la pubblicazione di una pagina (lo scrive `pubblica`)."""
     nuovo = Stato(**{k: v for k, v in asdict(st).items() if k != "versione"})
     nuovo.giorni_pubblicati = sorted(set(st.giorni_pubblicati) | set(giorni))
@@ -191,6 +191,7 @@ def _istantanea(st: Stato, giorni: list[str], numero: int, contatori: dict,
     nuovo.contatori = contatori
     nuovo.sessioni_viste = {**st.sessioni_viste, **viste}
     nuovo.ultimo_messaggio = cursore
+    nuovo.principali = sorted(set(st.principali) | set(principali))
     return asdict(nuovo)
 
 
@@ -300,7 +301,7 @@ def prepara(ora: float) -> int:
         fatti += p["giorni"]
         ultima = k == len(pagine) - 1
         p["stato"] = _istantanea(st, fatti, p["numero"], dopo[p["giorni"][-1]], viste,
-                                 cursore if ultima else st.ultimo_messaggio)
+                                 cursore if ultima else st.ultimo_messaggio, racc.principali)
     _scrivi_json(cartella / "prepara.json", {"versione": 2, "creato": int(ora), "pagine": pagine,
                                              "pubblicate": [], "stato": pagine[-1]["stato"]})
 

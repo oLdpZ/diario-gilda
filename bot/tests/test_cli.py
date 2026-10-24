@@ -308,6 +308,13 @@ class TestFlusso(BaseCli):
         self.assertEqual(cli._giocatori([main, alt]),
                          {"Gino": "Zug'gar, WARRIOR, livello 60; Grizzo, MAGE, livello 10"})
 
+    def test_principali_salvati_nello_stato(self):
+        m = genera.mara()
+        m["app"] = "0.1.1"
+        self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(m), autore="555")
+        self.esegui("prepara")
+        self.assertEqual(self.preparato()["stato"]["principali"], ["mara|realm"])
+
     def test_sessione_ripresa_non_si_racconta_due_volte(self):
         m = genera.mara()
         self.f.aggiungi_allegato(SERVIZIO, "", "a.json.gz", _gz(m), autore="555")

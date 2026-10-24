@@ -743,14 +743,22 @@ func TestAltSessionNotSent(t *testing.T) {
 	if got := r.take(); len(got) != 0 {
 		t.Fatalf("la sessione di un alt non va inviata, ottenuti %v", ids(got))
 	}
-	if !readState(t, tr).Has(id1) {
-		t.Fatal("la sessione dell'alt va segnata, per non riconsiderarla a ogni giro")
+	if readState(t, tr).Has(id1) {
+		t.Fatal("la sessione dell'alt non va segnata: se il giocatore cambia main deve poter partire")
 	}
-	if !r.logged("personaggio secondario") || r.logged("in coda") {
+	if !r.logged("personaggi secondari") || r.logged("in coda") {
 		t.Errorf("log: %v", r.logs)
 	}
 	if outboxCount(t, tr) != 0 {
 		t.Error("niente in coda per un alt")
+	}
+
+	// cambiato il main: la sessione (recente) parte
+	env := tr.env(r, stop1+700)
+	env.Cfg.Main = config.Character{Char: "Grizzo", Realm: "Realm"}
+	cycle(t, env)
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id1 {
+		t.Fatalf("dopo il cambio di main atteso %s, ottenuti %v", id1, ids(got))
 	}
 }
 
@@ -814,6 +822,20 @@ func TestCharacters(t *testing.T) {
 	got := Characters(tr.client)
 	want := []config.Character{{Char: "Gino", Realm: "Realm"}, {Char: "Grizzo", Realm: "Realm"}}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
-		t.Fatalf("Characters: %v, atteso %v (il piu' recente prima)", got, want)
+		t.Fatalf("Characters: %v, atteso %v (a parita' di sessioni il piu' recente prima)", got, want)
+	}
+	if got := Characters(""); len(got) != 0 {
+		t.Fatalf("senza cartella del client: %v", got)
+	}
+
+	// il personaggio con piu' sessioni viene prima, anche se non e' il piu' recente
+	tr = newTree(t, false)
+	recentAlt := strings.Replace(fixture(t), `["char"] = "Gino",`, `["char"] = "Grizzo",`, 2)
+	recentAlt = strings.Replace(recentAlt, `["char"] = "Grizzo",`, `["char"] = "Gino",`, 1) // s1 Gino, s2 Grizzo
+	tr.writeSV(t, "ACC", recentAlt)
+	tr.writeSV(t, "VECCHIO", strings.ReplaceAll(only1(t), id1, "Realm-Gino-1792000000"))
+	got = Characters(tr.client)
+	if len(got) != 2 || got[0].Char != "Gino" {
+		t.Fatalf("Characters: %v, atteso prima Gino (2 sessioni)", got)
 	}
 }
