@@ -6,11 +6,12 @@ import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
-from .discord import Discord
+from .discord import Discord, DiscordError
 
 PREFISSO = "Stato del Cronista"
 NOME_FILE = "stato.json"
 GIORNI_CONSERVAZIONE = 60
+MAX_PAGINE = 50
 
 
 @dataclass
@@ -43,14 +44,27 @@ def _da_dict(d: dict, ora: float) -> Stato:
 
 
 def leggi(d: Discord, canale_id: str) -> Stato:
-    """Legge l'ultimo messaggio `Stato del Cronista…` con stato.json; nessuno -> vuoto."""
-    for m in reversed(d.ultimi(canale_id, 100)):
-        if not m.get("content", "").startswith(PREFISSO):
-            continue
-        for a in m.get("attachments", []):
-            if a.get("filename") == NOME_FILE:
-                return _da_dict(json.loads(d.scarica(a["url"]).decode("utf-8")), time.time())
-    return Stato()
+    """Cerca a ritroso l'ultimo `Stato del Cronista…` del bot con stato.json.
+
+    Nessuno trovato a canale esaurito -> Stato() vuoto; dopo MAX_PAGINE pagine
+    senza esito -> DiscordError (mai uno stato vuoto per errore).
+    """
+    io = d.io()
+    prima = None
+    for _ in range(MAX_PAGINE):
+        pag = d.pagina_prima(canale_id, prima)
+        for m in sorted(pag, key=lambda m: -int(m["id"])):
+            if str(m.get("author", {}).get("id")) != io:
+                continue
+            if not m.get("content", "").startswith(PREFISSO):
+                continue
+            for a in m.get("attachments", []):
+                if a.get("filename") == NOME_FILE:
+                    return _da_dict(json.loads(d.scarica(a["url"]).decode("utf-8")), time.time())
+        if len(pag) < 100:
+            return Stato()
+        prima = str(min(int(m["id"]) for m in pag))
+    raise DiscordError(0, f"stato non trovato in {MAX_PAGINE} pagine di messaggi")
 
 
 def scrivi(d: Discord, canale_id: str, s: Stato, ora: float | None = None) -> None:

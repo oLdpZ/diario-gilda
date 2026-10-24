@@ -67,6 +67,7 @@ class TestDiscord(unittest.TestCase):
         with self.assertRaises(DiscordError) as c:
             self.cl("segreto").server(None)
         self.assertEqual(c.exception.status, 403)
+        self.assertIn("***", c.exception.testo)  # il fake rimanda l'header: va oscurato
         self.assertNotIn("segreto", str(c.exception))
         self.assertNotIn("segreto", repr(c.exception))
 
@@ -91,11 +92,50 @@ class TestDiscord(unittest.TestCase):
         self.assertEqual(rich["multipart"]["files[0]"], "application/octet-stream")
         self.assertEqual(rich["multipart"]["payload_json"], "application/json")
         self.assertEqual(rich["payload"]["allowed_mentions"], {"parse": []})
-        self.assertEqual(self.f.allegati["stato.json"], b'{"a": 1}')
+        self.assertEqual(list(self.f.allegati.values())[-1], b'{"a": 1}')
 
     def test_scarica(self):
         m = self.f.aggiungi_allegato("201", "c", "a.bin", b"\x00\x01dati")
         self.assertEqual(self.cl("tok").scarica(m["attachments"][0]["url"]), b"\x00\x01dati")
+
+    def test_scarica_senza_auth_verso_host_esterno(self):
+        m = self.f.aggiungi_allegato("201", "c", "a.bin", b"x")
+        url = m["attachments"][0]["url"]
+        Discord("http://esempio.invalid", "segreto").scarica(url)  # base diversa dall'URL
+        self.assertNotIn("Authorization", self.f.richieste[-1]["header"])
+        self.cl("segreto").scarica(url)
+        self.assertEqual(self.f.richieste[-1]["header"]["Authorization"], "Bot segreto")
+
+    def test_attesa_429_limitata_a_30s(self):
+        self.f.errori_429 = 1
+        self.f.retry_after = 999
+        c = self.cl()
+        attese = []
+        c._attesa = attese.append
+        c.server(None)
+        self.assertEqual(attese, [30.0])
+
+    def test_retry_after_non_valido_vale_1s(self):
+        for v in ("abc", None, 1e999):
+            self.f.errori_429 = 1
+            self.f.retry_after = v
+            c = self.cl()
+            attese = []
+            c._attesa = attese.append
+            c.server(None)
+            self.assertEqual(attese, [1.0])
+
+    def test_errore_di_rete_incapsulato(self):
+        with self.assertRaises(DiscordError) as e:
+            Discord("http://127.0.0.1:1", None).server(None)  # porta chiusa
+        self.assertEqual(e.exception.status, 0)
+
+    def test_nessun_redirect(self):
+        self.f.redirect = "http://127.0.0.1:1/altrove"
+        with self.assertRaises(DiscordError) as e:
+            self.cl("segreto").server(None)
+        self.assertEqual(e.exception.status, 302)
+        self.assertEqual(len(self.f.richieste), 1)
 
     def test_scarica_troppo_grande(self):
         vecchio = mod.CAP_ALLEGATO

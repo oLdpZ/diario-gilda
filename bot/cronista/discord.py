@@ -1,7 +1,9 @@
 """Client REST minimale per Discord v10 (solo libreria standard)."""
 from __future__ import annotations
 
+import http.client
 import json
+import math
 import os
 import time
 import urllib.error
@@ -13,6 +15,16 @@ USER_AGENT = "DiarioGilda-Cronista (https://github.com/oLdpZ/diario-gilda, 0.1)"
 MAX_TENTATIVI = 3
 ATTESA_MAX = 30.0
 CAP_ALLEGATO = 16 * 1024 * 1024
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Niente redirect: l'Authorization non deve mai essere inoltrata altrove."""
+
+    def redirect_request(self, *a, **k):
+        return None
+
+
+_APRI = urllib.request.build_opener(_NoRedirect).open
 
 
 class DiscordError(Exception):
@@ -34,6 +46,7 @@ class Discord:
         # Nel cloud il token manca: l'header lo aggiunge il proxy.
         self._token = token if token is not None else os.environ.get("DISCORD_BOT_TOKEN")
         self._attesa = time.sleep  # sostituibile nei test
+        self._me: str | None = None
 
     # --- basso livello -------------------------------------------------
     def _pulisci(self, testo: str) -> str:
@@ -51,7 +64,7 @@ class Discord:
             if auth and self._token:
                 req.add_header("Authorization", f"Bot {self._token}")
             try:
-                with urllib.request.urlopen(req, timeout=30) as r:
+                with _APRI(req, timeout=30) as r:
                     if cap is None:
                         return r.read()
                     dati = r.read(cap + 1)
@@ -62,15 +75,20 @@ class Discord:
                 testo = e.read().decode("utf-8", "replace")
                 e.close()
                 if e.code == 429 and tentativo < MAX_TENTATIVI:
+                    attesa = 1.0
                     try:
-                        attesa = float(json.loads(testo).get("retry_after", 1))
+                        v = json.loads(testo).get("retry_after", 1)
+                        if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v):
+                            attesa = float(v)
                     except (ValueError, AttributeError):
-                        attesa = 1.0
+                        pass
                     self._attesa(min(max(attesa, 0.0), ATTESA_MAX))
                     continue
                 raise DiscordError(e.code, self._pulisci(testo)) from None
-            except urllib.error.URLError as e:
-                raise DiscordError(0, self._pulisci(str(e.reason))) from None
+            except (OSError, http.client.HTTPException) as e:
+                # URLError, timeout, connessione interrotta, risposta malformata
+                motivo = getattr(e, "reason", None) or e
+                raise DiscordError(0, self._pulisci(str(motivo))) from None
         raise DiscordError(429, "troppi tentativi")  # irraggiungibile
 
     def _json(self, percorso: str):
@@ -93,6 +111,17 @@ class Discord:
             if c.get("name") == nome and c.get("type", 0) == 0:
                 return c["id"]
         raise DiscordError(404, f"canale non trovato: {nome}")
+
+    def io(self) -> str:
+        """Id dell'utente bot (GET /users/@me), in cache."""
+        if self._me is None:
+            self._me = str(self._json("/users/@me")["id"])
+        return self._me
+
+    def pagina_prima(self, canale_id: str, prima: str | None = None) -> list[dict]:
+        """Fino a 100 messaggi prima di `prima`, dal più recente (come Discord)."""
+        q = "limit=100" + (f"&before={prima}" if prima else "")
+        return self._json(f"/channels/{canale_id}/messages?{q}")
 
     def messaggi_dopo(self, canale_id: str, dopo: str | None) -> list[dict]:
         """Tutti i messaggi più recenti di `dopo` (o tutti se None), dal più vecchio."""

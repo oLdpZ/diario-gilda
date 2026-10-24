@@ -32,10 +32,16 @@ class _Handler(BaseHTTPRequestHandler):
         f = self.server.finto
         if f.errori_429 > 0:
             f.errori_429 -= 1
-            self._rispondi(429, {"retry_after": 0.01, "message": "rate limited"})
+            self._rispondi(429, {"retry_after": f.retry_after, "message": "rate limited"})
+            return True
+        if f.redirect:
+            self.send_response(302)
+            self.send_header("Location", f.redirect)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
             return True
         if f.forza_status:
-            self._rispondi(f.forza_status, {"message": "vietato"})
+            self._rispondi(f.forza_status, {"message": "vietato", "eco": self.headers.get("Authorization", "")})
             return True
         return False
 
@@ -52,6 +58,8 @@ class _Handler(BaseHTTPRequestHandler):
             if nome in f.allegati:
                 return self._rispondi(200, f.allegati[nome], "application/octet-stream")
             return self._rispondi(404, {})
+        if p == "/users/@me":
+            return self._rispondi(200, {"id": f.bot_id, "username": "cronista"})
         if p == "/users/@me/guilds":
             return self._rispondi(200, f.guilds)
         parti = p.strip("/").split("/")
@@ -97,9 +105,10 @@ class _Handler(BaseHTTPRequestHandler):
             if fp is not None:
                 nomef = fp.get_filename()
                 dati = fp.get_payload(decode=True)
-                f.allegati[nomef] = dati
+                chiave = f"{f._prossimo + 1}-{nomef}"  # un file per messaggio
+                f.allegati[chiave] = dati
                 allegati.append({"filename": nomef, "size": len(dati),
-                                 "url": f"http://{self.headers['Host']}/allegati/{nomef}"})
+                                 "url": f"http://{self.headers['Host']}/allegati/{chiave}"})
         else:
             payload = json.loads(corpo or b"{}")
             r["payload"] = payload
@@ -119,6 +128,9 @@ class FintoDiscord:
         self.allegati: dict[str, bytes] = {}
         self.richieste: list[dict] = []
         self.errori_429 = 0
+        self.bot_id = "999"
+        self.retry_after = 0.01
+        self.redirect = ""
         self.forza_status = 0
         self._prossimo = 1000
         self._srv = None
@@ -128,16 +140,20 @@ class FintoDiscord:
     def base(self) -> str:
         return f"http://127.0.0.1:{self._srv.server_address[1]}"
 
-    def aggiungi(self, canale: str, contenuto: str = "", allegati: list[dict] | None = None) -> dict:
+    def aggiungi(self, canale: str, contenuto: str = "", allegati: list[dict] | None = None,
+                 autore: str | None = None) -> dict:
         self._prossimo += 1
-        m = {"id": str(self._prossimo), "content": contenuto, "attachments": allegati or []}
+        m = {"id": str(self._prossimo), "content": contenuto, "attachments": allegati or [],
+             "author": {"id": autore or self.bot_id}}
         self.messaggi.setdefault(canale, []).append(m)
         return m
 
-    def aggiungi_allegato(self, canale: str, contenuto: str, nome: str, dati: bytes) -> dict:
-        self.allegati[nome] = dati
+    def aggiungi_allegato(self, canale: str, contenuto: str, nome: str, dati: bytes,
+                          autore: str | None = None) -> dict:
+        chiave = f"{self._prossimo + 1}-{nome}"
+        self.allegati[chiave] = dati
         return self.aggiungi(canale, contenuto, [{
-            "filename": nome, "size": len(dati), "url": f"{self.base}/allegati/{nome}"}])
+            "filename": nome, "size": len(dati), "url": f"{self.base}/allegati/{chiave}"}], autore)
 
     def avvia(self) -> "FintoDiscord":
         self._srv = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
