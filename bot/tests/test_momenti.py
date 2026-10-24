@@ -60,6 +60,8 @@ class TestCandidatiPacchetti(unittest.TestCase):
         self.assertEqual(b["fatti"]["boss"], "Edwin VanCleef")
         self.assertEqual(b["punti"], 50 + 30 + 10)
         self.assertEqual(b["dove"], "Deadmines")
+        self.assertEqual(b["fatti"]["insieme"], "gruppo")
+        self.assertEqual(b["fatti"]["per_giocatore"]["Gino"]["tentativi"], 4)
         self.assertEqual(per_tipo(self.cand, "wipe_ripetuti"), [])
 
     def test_drop_epico(self):
@@ -73,7 +75,10 @@ class TestCandidatiPacchetti(unittest.TestCase):
         morti = per_tipo(self.cand, "morte")
         self.assertEqual(len(morti), 1)
         self.assertEqual(morti[0]["chi"], ["Gino", "Mara"])
-        self.assertEqual(morti[0]["fatti"]["morti"], 3)
+        self.assertEqual(morti[0]["fatti"]["morti"], 6)
+        self.assertEqual(morti[0]["fatti"]["per_giocatore"], {"Gino": {"morti": 3}, "Mara": {"morti": 3}})
+        self.assertEqual(morti[0]["fatti"]["insieme"], "gruppo")
+        self.assertIn("Gino 3", morti[0]["perche"])
         self.assertEqual(morti[0]["punti"], 35 + 10)
 
     def test_ordinamento(self):
@@ -147,6 +152,21 @@ class TestRegole(unittest.TestCase):
         self.assertEqual((s["punti"], s["fatti"]["guaritori"]), (45, ["Lia"]))
         self.assertEqual(per_tipo(cand, "fuga"), [])  # morto 20 s dopo
 
+    def test_fuga_non_anche_salvataggio(self):
+        ev = [{"t": 60, "k": "combat", "z": "Elwynn", "from": 50, "to": 60, "minHp": 5}]
+        ep = [{"kind": "combat", "from": 50, "to": 60, "minHp": 5, "enemyCount": 5,
+               "healers": [{"name": "Lia", "amount": 400}]}]
+        cand = momenti.candidati([sessione("Ugo", ev, ep)], {})
+        self.assertEqual(per_tipo(cand, "salvataggio"), [])
+        (f,) = per_tipo(cand, "fuga")
+        self.assertEqual(f["fatti"]["guaritori"], ["Lia"])
+
+    def test_bottino_presunto(self):
+        ev = [kill(100), {"t": 150, "k": "loot", "inst": "DM", "z": "DM", "item": "Lama", "q": 4}]
+        (d,) = per_tipo(momenti.candidati([sessione("Ugo", ev)], {}), "drop")
+        self.assertTrue(d["fatti"]["fonte_presunta"])
+        self.assertIn("probabilmente", d["perche"])
+
     def test_salvataggio_solo_autocure_no(self):
         ev = [{"t": 60, "k": "combat", "z": "Elwynn", "from": 50, "to": 60, "minHp": 5}]
         ep = [{"kind": "combat", "from": 50, "to": 60, "minHp": 5, "healers": [{"name": "Ugo", "amount": 30}]}]
@@ -176,6 +196,8 @@ class TestRegole(unittest.TestCase):
         cand = momenti.candidati([mk("A", 1000), mk("B", 1200), mk("C", 1600)], {})
         lv = sorted((c["chi"], c["punti"]) for c in per_tipo(cand, "livello"))
         self.assertEqual(lv, [(["A", "B"], 30), (["C"], 20)])
+        (ab,) = [c for c in per_tipo(cand, "livello") if len(c["chi"]) == 2]
+        self.assertEqual(ab["fatti"]["insieme"], "stessa_zona")
 
     def test_dati_strani_non_rompono(self):
         strani = [
@@ -198,6 +220,52 @@ class TestRegole(unittest.TestCase):
         json.dumps(cand)
         momenti.riassunto_md("2026-10-26", cand, [], ["Y"])
         momenti.aggiorna_contatori({"boss": [], "altro": 1}, strani)
+
+
+def gruppo(t, *membri):
+    return {"t": t, "k": "group", "inst": "DM", "members": list(membri)}
+
+
+def kill(t, ok=True):
+    return {"t": t, "k": "encounter", "inst": "DM", "z": "DM", "id": 593, "name": "VanCleef", "ok": ok,
+            "from": t - 100, "to": t}
+
+
+class TestInsieme(unittest.TestCase):
+    def boss(self, a, b):
+        cand = momenti.candidati([sessione("A", a, start=1), sessione("B", b, start=2)], {})
+        return sorted(c["chi"] for c in per_tipo(cand, "boss_ucciso"))
+
+    def test_stesso_gruppo_si_unisce(self):
+        self.assertEqual(self.boss([gruppo(10, "A", "B-Altro"), kill(500)], [gruppo(20, "b", "a"), kill(501)]),
+                         [["A", "B"]])
+
+    def test_ore_di_distanza_mai(self):
+        self.assertEqual(self.boss([gruppo(10, "A", "B"), kill(500)], [gruppo(20, "B", "A"), kill(500 + 3 * 3600)]),
+                         [["A"], ["B"]])
+
+    def test_gruppi_diversi_no(self):
+        self.assertEqual(self.boss([gruppo(10, "A", "C"), kill(500)], [gruppo(20, "B", "D"), kill(500)]),
+                         [["A"], ["B"]])
+
+    def test_gruppo_lasciato_prima(self):
+        self.assertEqual(self.boss([gruppo(10, "A", "B"), gruppo(400, "A"), kill(500)],
+                                   [gruppo(20, "B", "A"), kill(500)]), [["A"], ["B"]])
+
+    def test_un_lato_senza_dati(self):
+        self.assertEqual(self.boss([gruppo(10, "A", "B"), kill(500)], [kill(500)]), [["A", "B"]])
+
+    def test_boss_senza_dati_di_gruppo_no(self):
+        self.assertEqual(self.boss([kill(500)], [kill(500)]), [["A"], ["B"]])
+
+    def test_altri_tipi(self):
+        mk = lambda g, ev: sessione(g, ev + [{"t": 1000, "k": "level", "z": "DM", "level": 30}], start=len(g))
+        # gruppi diversi nella stessa zona: niente unione
+        cand = momenti.candidati([mk("A", [gruppo(10, "A")]), mk("B", [gruppo(10, "B")])], {})
+        self.assertEqual(len(per_tipo(cand, "livello")), 2)
+        cand = momenti.candidati([mk("A", [gruppo(10, "A", "B")]), mk("B", [gruppo(10, "B", "A")])], {})
+        (lv,) = per_tipo(cand, "livello")
+        self.assertEqual((lv["chi"], lv["fatti"]["insieme"]), (["A", "B"], "gruppo"))
 
 
 class TestContatori(unittest.TestCase):
@@ -227,6 +295,12 @@ class TestContatori(unittest.TestCase):
         self.assertEqual(b["fatti"]["tentativi"], 4)
         self.assertEqual(b["fatti"]["tentativi_totali"], 8)
         self.assertIn("8", b["perche"])
+        ev1 = [kill(10)]
+        (b,) = per_tipo(momenti.candidati([sessione("Gino", ev1)], c1), "boss_ucciso")
+        self.assertNotIn("primo", b["perche"])
+        self.assertIn("senza wipe oggi, al 5° tentativo", b["perche"])
+        (b,) = per_tipo(momenti.candidati([sessione("Gino", ev1)], {}), "boss_ucciso")
+        self.assertIn("primo tentativo", b["perche"])
         # drop epico che arriva dopo varie uccisioni
         ev = [{"t": 10, "k": "encounter", "inst": "DM", "id": 593, "name": "Edwin VanCleef", "ok": True},
               {"t": 20, "k": "loot", "inst": "DM", "item": "Lama", "q": 4, "src": "Edwin VanCleef"}]
@@ -252,6 +326,8 @@ class TestRiassunto(unittest.TestCase):
         self.assertIn("Murloc Costiero", md)
         self.assertIn("Avvisi", md)
         self.assertIn("Pacchetto x saltato: rotto", md)
+        self.assertIn("Insieme: nello stesso gruppo", md)
+        self.assertIn("Per giocatore:", md)
 
     def test_compatto(self):
         base = {"tipo": "prima_visita", "punti": 5, "dove": "Z", "chi": ["A"], "fatti": {}, "perche": "p"}
@@ -261,6 +337,9 @@ class TestRiassunto(unittest.TestCase):
         self.assertNotIn("41. ", md)
         self.assertIn("60", md)  # quanti omessi
         self.assertIn("Nessun avviso", momenti.riassunto_md("2026-10-26", [], [], []))
+        md = momenti.riassunto_md("2026-10-26", [], "un solo avviso", "Gino")
+        self.assertIn("- un solo avviso", md)
+        self.assertIn("Giocatori: Gino\n", md)
 
 
 if __name__ == "__main__":

@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import copy
+import json
 import math
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-UNIONE_S = 300          # episodi condivisi: stessa zona entro 5 minuti
+UNIONE_S = 300          # episodi condivisi: entro 5 minuti
 DOPO_MORTE_S = 30       # nessuna morte entro 30 s dalla fine del combattimento
 PESCA_S = 120           # pesca finita entro 120 s prima della fuga
 DROP_BOSS_S = 120       # bottino senza fonte entro 120 s da un boss ucciso
@@ -20,6 +21,8 @@ NOMI_TIPO = {
     "prima_visita": "Prima visita", "spesa": "Spesa", "missione_abbandonata": "Missione abbandonata",
 }
 QUALITA = {3: "raro", 4: "epico", 5: "leggendario"}
+INSIEME = {"gruppo": "nello stesso gruppo",
+           "stessa_zona": "solo stessa zona e stessa ora (nessun dato di gruppo: forse non erano insieme)"}
 
 
 # --- letture difensive -------------------------------------------------------
@@ -61,6 +64,12 @@ def _dove(e: dict) -> str:
     return z or s or "luogo sconosciuto"
 
 
+def _nome_base(v) -> str | None:
+    """Nome del personaggio senza reame, minuscolo (per confronti)."""
+    n = _str(v)
+    return n.split("-", 1)[0].lower() if n else None
+
+
 def _nomi_conta(v, limite: int = 4) -> list[str]:
     """[{name, n}] -> ["Nome x3", ...]"""
     out = []
@@ -79,10 +88,16 @@ def _boss_key(e: dict) -> str | None:
     return str(i) if i is not None else _str(e.get("name"))
 
 
+def _finestra(e: dict) -> tuple[int, int]:
+    t = _int(e.get("t"))
+    da, a = _int(e.get("from")), _int(e.get("to"))
+    return (da if da is not None else t, a if a is not None else t)
+
+
 # --- cronologia per giocatore -------------------------------------------------
 
 def _cronologia(sessioni) -> dict[str, dict]:
-    """giocatore -> {"eventi": [...] ordinati, "episodi": [(ep, char)], "char": set}."""
+    """giocatore -> {eventi, episodi [(ep, char)], char, char_l, gruppi [(t, nomi)]}."""
     out: dict[str, dict] = {}
     for s in _lista(sessioni):
         try:
@@ -92,13 +107,17 @@ def _cronologia(sessioni) -> dict[str, dict]:
             se = _dict(s.get("sessione"))
             if not g:
                 continue
-            p = out.setdefault(g, {"eventi": [], "episodi": [], "char": set()})
+            p = out.setdefault(g, {"eventi": [], "episodi": [], "char": set(), "char_l": set(), "gruppi": []})
             char = _str(se.get("char"))
             if char:
                 p["char"].add(char)
+                p["char_l"].add(_nome_base(char))
             for e in _lista(se.get("events")):
                 if isinstance(e, dict) and _int(e.get("t")) is not None and _str(e.get("k")):
                     p["eventi"].append(e)
+                    if e.get("k") == "group" and isinstance(e.get("members"), (list, dict)):
+                        m = e["members"] if isinstance(e["members"], list) else []
+                        p["gruppi"].append((_int(e["t"]), {n for n in map(_nome_base, m) if n}))
             for ep in _lista(s.get("combattimenti")):
                 if isinstance(ep, dict) and _int(ep.get("to")) is not None:
                     p["episodi"].append((ep, char))
@@ -107,7 +126,29 @@ def _cronologia(sessioni) -> dict[str, dict]:
     for p in out.values():
         p["eventi"].sort(key=lambda e: _int(e["t"]))
         p["episodi"].sort(key=lambda x: _int(x[0]["to"]))
+        p["gruppi"].sort(key=lambda x: x[0])
     return dict(sorted(out.items()))
+
+
+def _membri(p: dict, t: int) -> set:
+    """Membri dell'ultimo gruppo del giocatore a t (vuoto se nessun evento di gruppo prima)."""
+    m: set = set()
+    for tg, nomi in p["gruppi"]:
+        if tg > t:
+            break
+        m = nomi
+    return m
+
+
+def _insieme(pa: dict, ta: int, pb: dict, tb: int) -> str | None:
+    """"gruppo" se erano nello stesso gruppo, "nodati" se nessuno dei due ha dati di gruppo."""
+    ha, hb = bool(pa["gruppi"]), bool(pb["gruppi"])
+    if not ha and not hb:
+        return "nodati"
+    a_b = ha and bool(_membri(pa, ta) & pb["char_l"])
+    b_a = hb and bool(_membri(pb, tb) & pa["char_l"])
+    ok = (a_b and b_a) if (ha and hb) else (a_b or b_a)
+    return "gruppo" if ok else None
 
 
 def _di_tipo(p: dict, k: str) -> list[dict]:
@@ -140,22 +181,22 @@ def _incontri(p: dict) -> list[dict]:
     return out
 
 
-def _boss_del_bottino(e: dict, uccisi: list[dict]) -> dict | None:
-    """Uccisione (da `_incontri`) da cui viene il bottino, se c'e'."""
+def _boss_del_bottino(e: dict, uccisi: list[dict]) -> tuple[dict | None, bool]:
+    """(uccisione da cui viene il bottino o None, presunta: solo per vicinanza nel tempo)."""
     t = _int(e.get("t"))
     src = _str(e.get("src"))
     if src:
         stessi = [u for u in uccisi if u["nome"] == src]
         prima = [u for u in stessi if _int(u["e"]["t"]) <= t]
         scelti = prima or stessi
-        return scelti[-1] if scelti else None
+        return (scelti[-1] if scelti else None), False
     if "src" in e:
-        return None
+        return None, False
     for u in reversed(uccisi):
         dt = t - _int(u["e"]["t"])
         if 0 <= dt <= DROP_BOSS_S and _zona(u["e"]) == _zona(e):
-            return u
-    return None
+            return u, True
+    return None, False
 
 
 def _morto_dopo(p: dict, t: int) -> bool:
@@ -168,9 +209,9 @@ def _morto_dopo(p: dict, t: int) -> bool:
     return False
 
 
-def _cand(tipo, punti, e_or_t, dove, g, fatti, perche, zona=None) -> dict:
-    return {"tipo": tipo, "punti": punti, "quando": e_or_t, "dove": dove, "chi": [g],
-            "fatti": fatti, "perche": perche, "_zona": zona}
+def _cand(tipo, punti, t, dove, g, fatti, perche, zona=None, fin=None) -> dict:
+    return {"tipo": tipo, "punti": punti, "quando": t, "dove": dove, "chi": [g],
+            "fatti": fatti, "perche": perche, "_g": g, "_zona": zona, "_fin": fin or (t, t)}
 
 
 # --- generatori di candidati --------------------------------------------------
@@ -195,15 +236,22 @@ def _da_boss(g: str, p: dict, cont: dict) -> list[dict]:
         uccisi.append(inc)
         fatti = {"boss": inc["nome"], "boss_id": key, "tentativi": n_wipe + 1}
         prima = _int(_dict(prec.get(f"{g}|{key}")).get("tentativi")) or 0
-        perche = (f"{inc['nome']} abbattuto al primo colpo" if n_wipe == 0
-                  else f"{inc['nome']} abbattuto dopo {n_wipe} wipe ({n_wipe + 1} tentativi)")
+        totale = prima + oggi[key]
+        if n_wipe:
+            perche = f"{inc['nome']} abbattuto dopo {n_wipe} wipe ({n_wipe + 1} tentativi oggi)"
+            if prima > 0:
+                perche += f", {totale}° tentativo in tutto"
+        elif totale == 1:
+            perche = f"{inc['nome']} abbattuto al primo tentativo"
+        else:
+            perche = f"{inc['nome']} abbattuto senza wipe oggi, al {totale}° tentativo in tutto"
         if prima > 0:
-            fatti["tentativi_totali"] = prima + oggi[key]
-            perche += f", {prima + oggi[key]}° tentativo in tutto"
+            fatti["tentativi_totali"] = totale
         size = _int(e.get("size"))
         if size:
             fatti["gruppo"] = size
-        out.append(_cand("boss_ucciso", 50 + 10 * n_wipe, _int(e["t"]), _dove(e), g, fatti, perche, _zona(e)))
+        out.append(_cand("boss_ucciso", 50 + 10 * n_wipe, _int(e["t"]), _dove(e), g, fatti, perche,
+                         _zona(e), _finestra(e)))
     for key, ws in wipe.items():
         if len(ws) >= 3:
             e = ws[-1]
@@ -214,22 +262,27 @@ def _da_boss(g: str, p: dict, cont: dict) -> list[dict]:
             if prima > 0:
                 fatti["tentativi_totali"] = prima + oggi[key]
                 perche += f" ({prima + oggi[key]} tentativi in tutto)"
-            out.append(_cand("wipe_ripetuti", 40, _int(e["t"]), _dove(e), g, fatti, perche, _zona(e)))
+            fin = (_finestra(ws[0])[0], _finestra(ws[-1])[1])
+            out.append(_cand("wipe_ripetuti", 40, _int(e["t"]), _dove(e), g, fatti, perche, _zona(e), fin))
     # bottino
     for e in _di_tipo(p, "loot"):
         q = _int(e.get("q"))
         if q is None or q < 3:
             continue
-        boss = _boss_del_bottino(e, uccisi)
+        boss, presunta = _boss_del_bottino(e, uccisi)
         punti = 90 if q >= 5 else 60 if q == 4 else 30 if boss else 0
         if not punti:
             continue
         item = _str(e.get("item")) or "oggetto senza nome"
         fatti = {"oggetto": item, "qualita": QUALITA.get(q, str(q))}
         src = _str(e.get("src"))
+        fin = None
         if boss:
             fatti["boss"] = boss["nome"]
             fatti["boss_id"] = boss["key"]
+            if presunta:
+                fatti["fonte_presunta"] = True
+            fin = _finestra(boss["e"])
             if q >= 4:
                 prima = _int(_dict(insegui.get(f"{g}|{boss['key']}")).get("uccisioni")) or 0
                 n = prima + boss["n_uccisione"]
@@ -241,14 +294,14 @@ def _da_boss(g: str, p: dict, cont: dict) -> list[dict]:
             fatti["fonte"] = src
         perche = f"{item} ({fatti['qualita']})"
         if boss:
-            perche += f" da {boss['nome']}"
+            perche += f", probabilmente da {boss['nome']}" if presunta else f" da {boss['nome']}"
             if fatti.get("uccisione_n"):
                 perche += f", arrivato alla {fatti['uccisione_n']}ª uccisione"
         elif src == "fishing":
             perche += " pescato dall'acqua"
         elif src:
             perche += f" da {src}"
-        out.append(_cand("drop", punti, _int(e["t"]), _dove(e), g, fatti, perche, _zona(e)))
+        out.append(_cand("drop", punti, _int(e["t"]), _dove(e), g, fatti, perche, _zona(e), fin))
     return out
 
 
@@ -279,11 +332,12 @@ def _da_combattimenti(g: str, p: dict) -> list[dict]:
         nemici = _int(ep.get("enemyCount")) or 0
         nomi = _nomi_conta(ep.get("enemies"))
         cure = _guaritori(ep, char)
+        fin = (da if da is not None else a, a)
         if nemici >= 4 and minhp <= 20:
             fatti = {"nemici": nemici, "vita_minima": minhp, "pesca": False}
             if nomi:
                 fatti["nemici_nomi"] = nomi
-            inizio = da if da is not None else a
+            inizio = fin[0]
             for f in pesche:
                 fine = _int(f.get("to"))
                 fine = fine if fine is not None else _int(f["t"])
@@ -301,15 +355,15 @@ def _da_combattimenti(g: str, p: dict) -> list[dict]:
             if fatti["pesca"]:
                 perche += ", subito dopo aver pescato"
             out.append(_cand("fuga", 55 + (15 if fatti["pesca"] else 0), a, _dove(luogo), g, fatti,
-                             perche, _zona(luogo)))
-        if minhp <= 10 and cure:
+                             perche, _zona(luogo), fin))
+        elif minhp <= 10 and cure:  # una fuga tiene gia' i guaritori
             fatti = {"vita_minima": minhp, "guaritori": cure}
             if nemici:
                 fatti["nemici"] = nemici
             if nomi:
                 fatti["nemici_nomi"] = nomi
             perche = f"Salvato con la vita al {minhp}% dalle cure di {', '.join(cure[:3])}"
-            out.append(_cand("salvataggio", 45, a, _dove(luogo), g, fatti, perche, _zona(luogo)))
+            out.append(_cand("salvataggio", 45, a, _dove(luogo), g, fatti, perche, _zona(luogo), fin))
     return out
 
 
@@ -352,7 +406,8 @@ def _da_morti(g: str, p: dict) -> list[dict]:
             perche = f"{len(morti)} morti a {_dove(e)} nella stessa giornata"
             if uccisori:
                 perche += f" (per mano di {', '.join(uccisori[:2])})"
-            out.append(_cand("morte", 35, _int(e["t"]), _dove(e), g, fatti, perche, zona or None))
+            fin = (_int(e["t"]), _int(morti[-1][0]["t"]))
+            out.append(_cand("morte", 35, _int(e["t"]), _dove(e), g, fatti, perche, zona or None, fin))
         else:
             for e, f in morti:
                 perche = f"Caduto per mano di {f['uccisore']}" if f.get("uccisore") else "Una morte in battaglia"
@@ -391,21 +446,16 @@ def _da_eventi_semplici(g: str, p: dict) -> list[dict]:
     return out
 
 
-def _senza_reame(nome) -> str | None:
-    n = _str(nome)
-    return n.split("-", 1)[0] if n else None
-
-
 def _duelli(cron: dict[str, dict]) -> list[dict]:
     per_char = {}
     for g, p in cron.items():
         for c in sorted(p["char"]):
-            per_char.setdefault(c, g)
+            per_char.setdefault(_nome_base(c), g)
     out = []
     for g, p in cron.items():
         for e in _di_tipo(p, "duel"):
             try:
-                v, s = per_char.get(_senza_reame(e.get("winner"))), per_char.get(_senza_reame(e.get("loser")))
+                v, s = per_char.get(_nome_base(e.get("winner"))), per_char.get(_nome_base(e.get("loser")))
                 if not v or not s or v == s:
                     continue
                 t = _int(e["t"])
@@ -426,47 +476,83 @@ def _duelli(cron: dict[str, dict]) -> list[dict]:
 
 # --- unione degli episodi condivisi -----------------------------------------
 
-def _unibili(gruppo: list[dict], c: dict) -> bool:
-    if gruppo[0]["tipo"] != c["tipo"]:
-        return False
+def _legame(gruppo: list[dict], c: dict, cron: dict) -> str | None:
+    """Come `c` si unisce al gruppo: "gruppo", "stessa_zona" o None (non si unisce)."""
+    if gruppo[0]["tipo"] != c["tipo"] or c["tipo"] == "duello":
+        return None
     if set(c["chi"]) & {n for x in gruppo for n in x["chi"]}:
-        return False
+        return None
     for x in gruppo:
-        bid = x["fatti"].get("boss_id")
-        if bid is not None and bid == c["fatti"].get("boss_id"):
-            return True
-        if x["_zona"] and x["_zona"] == c["_zona"] and abs(x["quando"] - c["quando"]) <= UNIONE_S:
-            return True
-    return False
+        rel = _insieme(cron[x["_g"]], x["quando"], cron[c["_g"]], c["quando"])
+        vicini = abs(x["quando"] - c["quando"]) <= UNIONE_S
+        bx, bc = x["fatti"].get("boss_id"), c["fatti"].get("boss_id")
+        if bx is not None and bx == bc:
+            sovrapposti = x["_fin"][0] <= c["_fin"][1] and c["_fin"][0] <= x["_fin"][1]
+            if rel == "gruppo" and (sovrapposti or vicini):
+                return "gruppo"
+            continue
+        if not vicini:
+            continue
+        if rel == "gruppo":
+            return "gruppo"
+        if rel == "nodati" and x["_zona"] and x["_zona"] == c["_zona"]:
+            return "stessa_zona"
+    return None
 
 
-def _unisci(cand: list[dict]) -> list[dict]:
-    gruppi: list[list[dict]] = []
-    for c in sorted(cand, key=lambda c: (c["quando"], c["tipo"], c["chi"], -c["punti"])):
-        for gr in gruppi:
-            if _unibili(gr, c):
+def _per_giocatore(gr: list[dict]) -> dict:
+    """Fatti per giocatore: i numeri e cio' che cambia tra uno e l'altro."""
+    chiavi = sorted({k for x in gr for k in x["fatti"] if k != "boss_id"})
+    diverse = {k for k in chiavi
+               if len({json.dumps(x["fatti"].get(k), sort_keys=True, default=str) for x in gr}) > 1}
+    out = {}
+    for x in gr:
+        f = {k: v for k, v in x["fatti"].items() if k in chiavi
+             and (k in diverse or (isinstance(v, int) and not isinstance(v, bool)))}
+        if f:
+            out[", ".join(x["chi"])] = f
+    return dict(sorted(out.items()))
+
+
+def _unisci(cand: list[dict], cron: dict) -> list[dict]:
+    gruppi: list[tuple[list[dict], list[str]]] = []
+    ordine = lambda c: (c["quando"], c["tipo"], c["chi"], -c["punti"], c["perche"],
+                        json.dumps(c["fatti"], sort_keys=True, default=str))
+    for c in sorted(cand, key=ordine):
+        for gr, legami in gruppi:
+            rel = _legame(gr, c, cron)
+            if rel:
                 gr.append(c)
+                legami.append(rel)
                 break
         else:
-            gruppi.append([c])
+            gruppi.append(([c], []))
     out = []
-    for gr in gruppi:
-        base = min(gr, key=lambda x: (-x["punti"], x["quando"], x["chi"]))
+    for gr, legami in gruppi:
+        base = min(gr, key=lambda x: (-x["punti"],) + ordine(x))
         chi = sorted({n for x in gr for n in x["chi"]})
         fatti = dict(base["fatti"])
-        altri = [dict(x["fatti"], chi=x["chi"]) for x in gr if x is not base and x["fatti"] != base["fatti"]]
-        if altri:
-            fatti["altri"] = altri
+        perche = base["perche"]
+        if len(gr) > 1:
+            fatti["insieme"] = "gruppo" if all(r == "gruppo" for r in legami) else "stessa_zona"
+            pg = _per_giocatore(gr)
+            if pg:
+                fatti["per_giocatore"] = pg
+            if base["tipo"] == "morte" and all(_int(x["fatti"].get("morti")) for x in gr):
+                fatti["morti"] = sum(x["fatti"]["morti"] for x in gr)
+                conti = ", ".join(str(x["chi"][0]) + " " + str(x["fatti"]["morti"])
+                                  for x in sorted(gr, key=lambda y: y["chi"]))
+                perche = f"{fatti['morti']} morti a {base['dove']} tra {', '.join(chi)} ({conti})"
         out.append({"tipo": base["tipo"], "punti": max(x["punti"] for x in gr) + 10 * (len(chi) - len(base["chi"])),
                     "quando": min(x["quando"] for x in gr), "dove": base["dove"], "chi": chi,
-                    "fatti": fatti, "perche": base["perche"]})
+                    "fatti": fatti, "perche": perche})
     return out
 
 
 # --- interfaccia ---------------------------------------------------------------
 
 def candidati(sessioni: list[dict], contatori: dict) -> list[dict]:
-    """Momenti candidati della giornata, ordinati per punti (poi quando, poi tipo)."""
+    """Momenti candidati della giornata, ordinati per punti (poi quando, tipo, ...)."""
     cont = _dict(contatori)
     cron = _cronologia(sessioni)
     grezzi: list[dict] = []
@@ -481,8 +567,9 @@ def candidati(sessioni: list[dict], contatori: dict) -> list[dict]:
         grezzi.extend(_duelli(cron))
     except SALTA:
         pass
-    out = _unisci(grezzi)
-    out.sort(key=lambda c: (-c["punti"], c["quando"], c["tipo"], c["chi"], c["dove"]))
+    out = _unisci(grezzi, cron)
+    out.sort(key=lambda c: (-c["punti"], c["quando"], c["tipo"], c["chi"], c["dove"], c["perche"],
+                            json.dumps(c["fatti"], sort_keys=True, default=str)))
     return out
 
 
@@ -512,7 +599,7 @@ def aggiorna_contatori(contatori: dict, sessioni) -> dict:
             for e in _di_tipo(p, "loot"):
                 q = _int(e.get("q"))
                 if q is not None and q >= 4:
-                    u = _boss_del_bottino(e, uccisi)
+                    u, _ = _boss_del_bottino(e, uccisi)
                     if u is not None:
                         epici.setdefault(id(u), _str(e.get("item")) or "oggetto senza nome")
             for u in uccisi:
@@ -549,11 +636,19 @@ def _valore(v) -> str:
 def _riga_fatti(fatti: dict) -> str:
     parti = []
     for k, v in fatti.items():
-        if k in ("boss_id", "altri"):
+        if k in ("boss_id", "altri", "insieme", "per_giocatore"):
             continue
         parti.append(f"{k.replace('_', ' ')}: {_valore(v)}")
     s = "; ".join(parti)
     return s if len(s) <= 300 else s[:297] + "..."
+
+
+def _come_lista(v) -> list:
+    if v is None:
+        return []
+    if isinstance(v, str):
+        return [v]
+    return list(v)
 
 
 def riassunto_md(giorno: str, candidati, avvisi, giocatori, fuso: str = "Europe/Rome") -> str:
@@ -561,10 +656,10 @@ def riassunto_md(giorno: str, candidati, avvisi, giocatori, fuso: str = "Europe/
     if isinstance(giocatori, dict):
         nomi = [f"{k} ({v})" if v else str(k) for k, v in giocatori.items()]
     else:
-        nomi = [str(x) for x in (giocatori or [])]
+        nomi = [str(x) for x in _come_lista(giocatori)]
     righe = [f"# Giornata di gioco {giorno}", "",
              f"Giocatori: {', '.join(nomi) if nomi else 'nessuno'}", ""]
-    cand = [c for c in (candidati or []) if isinstance(c, dict)]
+    cand = [c for c in _come_lista(candidati) if isinstance(c, dict)]
     righe.append(f"## Momenti candidati ({len(cand)})")
     righe.append("")
     if not cand:
@@ -580,17 +675,16 @@ def riassunto_md(giorno: str, candidati, avvisi, giocatori, fuso: str = "Europe/
         rf = _riga_fatti(fatti)
         if rf:
             righe.append(f"   Fatti: {rf}")
-        altri = [a for a in _lista(fatti.get("altri")) if isinstance(a, dict)]
-        if altri:
-            parti = []
-            for a in altri[:4]:
-                a = dict(a)
-                n = ", ".join(str(x) for x in _lista(a.pop("chi", [])))
-                parti.append(f"{n} ({_riga_fatti(a)})")
-            righe.append(f"   Anche: {'; '.join(parti)}"[:400])
+        ins = fatti.get("insieme")
+        if ins in INSIEME:
+            righe.append(f"   Insieme: {INSIEME[ins]}")
+        pg = _dict(fatti.get("per_giocatore"))
+        if pg:
+            parti = [f"{n} ({_riga_fatti(_dict(f))})" for n, f in list(pg.items())[:5]]
+            righe.append(f"   Per giocatore: {'; '.join(parti)}"[:400])
     if len(cand) > MAX_RIASSUNTO:
         righe.append(f"… e altri {len(cand) - MAX_RIASSUNTO} candidati minori omessi.")
     righe += ["", "## Avvisi", ""]
-    avv = [str(a) for a in (avvisi or [])]
+    avv = [str(a) for a in _come_lista(avvisi)]
     righe += [f"- {a}" for a in avv] if avv else ["Nessun avviso."]
     return "\n".join(righe) + "\n"

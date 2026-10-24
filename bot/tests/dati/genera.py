@@ -46,7 +46,7 @@ def mara() -> dict:
     t0 = 1793010000
     base = {"z": "Deadmines", "inst": "Deadmines", "m": 291}
     ev = [{"t": t0, "k": "zone", **base, "first": True}]
-    ev.append({"t": t0 + 30, "k": "group", **base, "members": ["Mara", "Gino"], "guild": ["Mara", "Gino"]})
+    ev.append({"t": t0, "k": "group", **base, "members": ["Mara", "Gino"], "guild": ["Mara", "Gino"]})
     comb = []
     for i in range(3):
         t = t0 + 300 + i * 200
@@ -74,6 +74,8 @@ def gino_deadmines() -> dict:
     se = doc["sessione"]
     ev = [dict(e) for e in se["events"] if e["k"] != "loot"]
     ev[0]["t"] = 1793009990
+    ev[1]["t"] = 1793009980  # il gruppo con Mara c'era gia' prima di entrare
+    ev[0], ev[1] = ev[1], ev[0]
     return {"formato": 1, "giocatore": "Gino", "app": "0.1.0", "interrotta": False,
             "sessione": {"id": "Realm-Gino-1793009900", "char": "Gino", "realm": "Realm",
                          "guild": "I Murloc Rampanti", "class": "WARRIOR", "race": "Human", "level": 13,
