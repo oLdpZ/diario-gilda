@@ -18,7 +18,7 @@ const (
 	PromptWowDir = "Scegli la cartella di WoW Forever"
 	PromptName   = "Con che nome vuoi comparire nel diario?"
 	MsgDone      = "Fatto! Il Diario di Gilda ora lavora da solo. Lo trovi vicino all'orologio."
-	MsgNoClient  = "In questa cartella non trovo WoW Forever. Scegli la cartella di World of Warcraft che lo contiene, oppure direttamente la cartella del client di Forever (quella con Interface e WTF)."
+	MsgNoClient  = "In questa cartella non trovo WoW Forever. Scegli la cartella di World of Warcraft che lo contiene, oppure direttamente la cartella del client di Forever (quella con dentro il gioco, Wow….exe)."
 	MsgNameEmpty = "Scrivi un nome, per favore."
 	MsgNameLong  = "Il nome è troppo lungo: al massimo %d caratteri."
 )
@@ -63,13 +63,13 @@ func isDir(p string) bool {
 }
 
 // ClientIn cerca un client dentro la cartella scelta dal giocatore: dir stessa
-// se ha Interface e WTF (scelta esplicita, anche se non e' Forever), altrimenti
+// se e' un client (wowdir.IsClient: scelta esplicita, anche se non e' Forever), altrimenti
 // il primo client Forever di wowdir.Clients(dir). Un'installazione con soli
 // client non Forever non basta: si fa scegliere il client a mano. Restituisce
 // anche la cartella di installazione (quella che contiene il client).
 func ClientIn(dir string) (wowDir, clientDir string, ok bool) {
 	dir = filepath.Clean(dir)
-	if isDir(filepath.Join(dir, "Interface")) && isDir(filepath.Join(dir, "WTF")) {
+	if wowdir.IsClient(dir) {
 		return filepath.Dir(dir), dir, true
 	}
 	if cl := foreverIn(dir); cl != "" {

@@ -51,10 +51,11 @@ I file `.sig` accanto agli zip servono al programma per controllare gli aggiorna
 
 ## 3. Primo avvio
 
-- Il programma cerca il client di **WoW Forever** nelle cartelle abituali di World of Warcraft. Se non lo trova (per
-  esempio WoW è su un altro disco, o ci sono solo altri client come retail o classic), ti chiede **"Scegli la cartella
+- Il programma cerca il client di **WoW Forever** dove l'ha installato Battle.net e nelle cartelle abituali di World of
+  Warcraft; lo trova anche se non hai ancora mai aperto il gioco. Se non lo trova (per esempio ci sono solo altri
+  client come retail o classic), ti chiede **"Scegli la cartella
   di WoW Forever"**: indica la cartella di World of Warcraft che lo contiene, oppure direttamente la cartella del
-  client di Forever (quella con dentro `Interface` e `WTF`).
+  client di Forever (quella con dentro il gioco, `Wow….exe`).
 - Ti chiede con che nome vuoi comparire nel diario: scrivi il nome con cui ti conosce la gilda.
 - Dopo la prima partita, a gioco chiuso, ti chiede **qual è il tuo personaggio principale**, scegliendolo
   dall'elenco dei personaggi con cui hai giocato (propone quello con più sessioni). Nel diario viene raccontato

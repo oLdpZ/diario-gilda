@@ -410,3 +410,24 @@ func TestAskMain(t *testing.T) {
 		t.Fatalf("senza personaggi: %v %v %v", err, ui.lists, ui.infos)
 	}
 }
+
+// Un client scaricato ma mai aperto non ha ancora Interface e WTF.
+func TestClientNeverOpened(t *testing.T) {
+	root := t.TempDir()
+	fv := filepath.Join(root, "_classic_beta_")
+	if err := os.MkdirAll(fv, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(fv, "WowClassicB.exe"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if w, c, ok := FindClient([]string{root}); !ok || c != fv || w != root {
+		t.Errorf("FindClient = %q %q %v", w, c, ok)
+	}
+	if w, c, ok := ClientIn(root); !ok || c != fv || w != root {
+		t.Errorf("ClientIn(installazione) = %q %q %v", w, c, ok)
+	}
+	if w, c, ok := ClientIn(fv); !ok || c != fv || w != root {
+		t.Errorf("ClientIn(client) = %q %q %v", w, c, ok)
+	}
+}

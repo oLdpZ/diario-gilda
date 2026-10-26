@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -156,5 +157,69 @@ func TestIsForever(t *testing.T) {
 		if got := IsForever(tc.dir); got != tc.want {
 			t.Errorf("IsForever(%q) = %v", tc.dir, got)
 		}
+	}
+}
+
+func TestIsClient(t *testing.T) {
+	root := t.TempDir()
+	full := filepath.Join(root, "full")
+	mk(t, full, "Interface")
+	mk(t, full, "WTF")
+	exe := mk(t, root, "exe") // client scaricato ma mai aperto: c'e' solo il gioco
+	wf(t, filepath.Join(exe, "WowClassic.exe"))
+	app := filepath.Join(root, "app")
+	mk(t, app, "World of Warcraft Classic.app") // macOS
+	onlyIface := mk(t, root, "iface", "Interface")
+	helper := mk(t, root, "helper")
+	wf(t, filepath.Join(helper, "WowError.exe"))
+	launcher := mk(t, root, "launcher") // la cartella di installazione, non un client
+	wf(t, filepath.Join(launcher, "World of Warcraft Launcher.exe"))
+	mk(t, launcher, "World of Warcraft Launcher.app")
+	dirExe := mk(t, root, "direxe", "Wow.exe") // cartella, non file
+	for _, tc := range []struct {
+		dir  string
+		want bool
+	}{
+		{full, true}, {exe, true}, {app, true},
+		{filepath.Dir(onlyIface), false}, {helper, false}, {launcher, false},
+		{filepath.Dir(dirExe), false}, {filepath.Join(root, "manca"), false},
+	} {
+		if got := IsClient(tc.dir); got != tc.want {
+			t.Errorf("IsClient(%s) = %v", filepath.Base(tc.dir), got)
+		}
+	}
+}
+
+func TestClientsNeverOpened(t *testing.T) {
+	root := t.TempDir()
+	client(t, root, "_retail_")
+	wf(t, filepath.Join(mk(t, root, "_classic_beta_"), "WowClassicB.exe"))
+	got := Clients(root)
+	want := []string{filepath.Join(root, "_classic_beta_"), filepath.Join(root, "_retail_")}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}
+
+func TestInstallRoots(t *testing.T) {
+	wow := filepath.Join(t.TempDir(), "Giochi", "World of Warcraft")
+	got := InstallRoots([]string{
+		filepath.Join(wow, "_retail_") + string(filepath.Separator), // InstallPath di Blizzard
+		wow,                  // InstallLocation dell'elenco programmi
+		strings.ToUpper(wow), // stessa cartella, altre maiuscole
+		"",
+		filepath.Join(t.TempDir(), "Altro WoW"),
+	})
+	if len(got) != 2 || got[0] != wow || filepath.Base(got[1]) != "Altro WoW" {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestRootsRegistryFirst(t *testing.T) {
+	reg := filepath.Join(t.TempDir(), "World of Warcraft")
+	got := Roots("windows", []string{reg, `C:\Program Files (x86)\World of Warcraft`})
+	def := DefaultRoots("windows")
+	if len(got) != len(def)+1 || got[0] != reg || !reflect.DeepEqual(got[1:], def) {
+		t.Fatalf("got %v", got[:3])
 	}
 }
