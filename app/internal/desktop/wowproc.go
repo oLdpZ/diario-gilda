@@ -4,25 +4,18 @@ import (
 	"log"
 	"strings"
 	"sync"
+
+	"github.com/oLdpZ/diario-gilda/app/internal/wowdir"
 )
 
 // IsWoWProcess riconosce il nome dell'eseguibile di un client di WoW:
 // Windows "Wow*.exe" (Wow, WowClassic, WowT, Wow-64...), escluse le utilita'
 // di contorno; macOS "World of Warcraft*".
 func IsWoWProcess(name string) bool {
-	l := strings.ToLower(name)
-	if strings.HasPrefix(l, "world of warcraft") {
+	if strings.HasPrefix(strings.ToLower(name), "world of warcraft") {
 		return true
 	}
-	if !strings.HasPrefix(l, "wow") || !strings.HasSuffix(l, ".exe") {
-		return false
-	}
-	for _, helper := range []string{"wowvoiceproxy", "wowerror"} {
-		if strings.HasPrefix(l, helper) {
-			return false
-		}
-	}
-	return true
+	return wowdir.IsGameExe(name)
 }
 
 var procErrOnce sync.Once

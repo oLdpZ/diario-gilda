@@ -114,7 +114,7 @@ func start() error {
 	}
 	firstRun := desktop.NeedsSetup(cfg)
 	cfg, err = desktop.FirstRun(cfg, desktop.Setup{
-		Roots: wowdir.DefaultRoots(runtime.GOOS),
+		Roots: wowdir.Roots(runtime.GOOS, wowdir.RegistryRoots()),
 		UI:    ui,
 		Save:  func(c config.Config) error { return config.Save(dir, c) },
 		Enable: func() error {
