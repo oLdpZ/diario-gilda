@@ -117,7 +117,12 @@ func PlayerMatcher(s addondata.Session) func(name string) bool {
 		if !ok {
 			return false
 		}
-		return realm == "" || normRealm(rest) == realm
+		if realm == "" || normRealm(rest) == realm {
+			return true
+		}
+		// WoW Forever: "Nome-Server-Normal-EU", dove Server non coincide con
+		// GetRealmName(); il reame non si puo' confrontare, basta il nome.
+		return strings.Count(rest, "-") >= 2
 	}
 }
 

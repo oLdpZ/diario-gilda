@@ -157,6 +157,26 @@ func TestPlayerMatcher(t *testing.T) {
 	}
 }
 
+// WoW Forever scrive nel registro "Nome-Server-Normal-EU", dove Server non
+// c'entra con GetRealmName() ("CAMWOW EU5 Realm 5 PvE"): campione reale del
+// 5 novembre 2026.
+func TestPlayerMatcherForever(t *testing.T) {
+	m := PlayerMatcher(addondata.Session{Char: "Sciatalgia", Realm: "CAMWOW EU5 Realm 5 PvE"})
+	for _, tc := range []struct {
+		name string
+		want bool
+	}{
+		{"Sciatalgia-Fulminante-Normal-EU", true},
+		{"Sciatalgia", true},
+		{"Sciatalgiax-Fulminante-Normal-EU", false},
+		{"Golarz-Filip-Normal-EU", false},
+	} {
+		if got := m(tc.name); got != tc.want {
+			t.Errorf("%q: %v, atteso %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 // Il registro scrive il reame senza spazi: "Gino-TarrenMill" e' il giocatore.
 func TestRealmWithoutSpacesInLog(t *testing.T) {
 	evs := load(t, filepath.Join("..", "combatlog", "testdata", "murloc.txt"))
