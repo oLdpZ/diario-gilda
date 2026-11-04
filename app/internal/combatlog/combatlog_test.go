@@ -442,3 +442,26 @@ func TestReadFiltered(t *testing.T) {
 		t.Errorf("filtro chiamato %d volte, attese %d (solo righe valide nella finestra)", calls, len(all))
 	}
 }
+
+// Righe reali di WoW Forever (5 novembre 2026, build 1.60.1): blocco avanzato
+// da 19 campi, nome "Nome-Server-Normal-EU", "ST" in fondo ai danni da magia.
+func TestParseLineForever(t *testing.T) {
+	cases := []struct {
+		line, sub, src, spell string
+		amount                int64
+	}{
+		{`11/5/2026 00:35:07.5841  SPELL_DAMAGE,Player-6947-006B13A6,"Sciatalgia-Fulminante-Normal-EU",0x511,0x80000000,Creature-0-7096-0-55-1502-00006BC119,"Wretched Zombie",0x10a28,0x80000000,2098,"Eviscerate",0x1,Creature-0-7096-0-55-1502-00006BC119,0000000000000000,0,55,4,0,21,0,0,0,1,0,0,0,1951.49,1557.14,1420,2.8330,2,17,18,15,1,0,0,0,nil,nil,nil,ST`,
+			"SPELL_DAMAGE", "Sciatalgia-Fulminante-Normal-EU", "Eviscerate", 17},
+		{`11/5/2026 00:33:34.6861  SWING_DAMAGE,Creature-0-7096-0-55-1501-00006BC0CC,"Mindless Zombie",0x10a28,0x80000000,Player-6947-006B13A6,"Sciatalgia-Fulminante-Normal-EU",0x511,0x80000000,Creature-0-7096-0-55-1501-00006BC0CC,0000000000000000,42,42,3,0,20,0,0,0,1,0,0,0,1918.64,1573.05,1420,3.1062,1,2,1,-1,1,0,0,0,nil,nil,nil`,
+			"SWING_DAMAGE", "Mindless Zombie", "", 2},
+	}
+	for _, c := range cases {
+		ev, ok := ParseLine(c.line, rome, 0)
+		if !ok {
+			t.Fatalf("%s: riga non letta", c.sub)
+		}
+		if ev.Sub != c.sub || ev.SrcName != c.src || ev.SpellName != c.spell || ev.Amount != c.amount || ev.Crit {
+			t.Errorf("%s: %+v", c.sub, ev)
+		}
+	}
+}
