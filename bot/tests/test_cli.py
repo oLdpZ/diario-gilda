@@ -4,6 +4,7 @@ import gzip
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -478,6 +479,39 @@ class TestBilancio(BaseCli):
         pag = self.scrivi_pagina("pagina-2026-10-26.md", self.preparato()["pagine"][0]["titolo"])
         self.assertNotEqual(self.esegui("pubblica", str(pag))[0], 0)
         self.assertEqual(self.post(DIARIO), [])
+
+
+class TestDeathknell(BaseCli):
+    """Prova completa sui dati veri: Sciatalgia a Deathknell (fixture del 2026-11-04)."""
+
+    def test_prepara_deathknell(self):
+        sessioni = json.loads((DATI / "deathknell-2026-11-04.json").read_text(encoding="utf-8"))
+        eventi = [e for s in sessioni for e in s["sessione"]["events"]]
+        missioni = sum(1 for e in eventi if e["k"] == "quest" and e.get("action") == "done")
+        morti = sum(1 for e in eventi if e["k"] == "death")
+        livelli = [s["sessione"]["level"] for s in sessioni] + [e["level"] for e in eventi if e["k"] == "level"]
+        da, a = min(livelli), max(livelli)
+        self.assertGreater(missioni, 0)
+        self.assertGreater(morti, 0)
+        self.assertGreater(a, da)
+        for s in sessioni:
+            doc = {"formato": 1, "app": s["sessione"]["addon"], **s}
+            nome = f"sessione_Sciatalgia_{s['sessione']['id'].replace(' ', '_')}.json.gz"
+            self.f.aggiungi_allegato(SERVIZIO, "", nome, _gz(doc), autore="555")
+        ora = _ora("2026-11-05 07:15")
+        codice, _, err = self.esegui("prepara", ora=ora)
+        self.assertEqual(codice, 0, err)
+        riass = (self.lavoro / "giorno-2026-11-04.md").read_text(encoding="utf-8")
+        self.assertIn("Missione", riass)
+        self.assertIn("Livelli", riass)
+        self.assertIn(f"da: {da}; a: {a}", riass)
+        bil = (self.lavoro / "bilancio-2026-11-04.md").read_text(encoding="utf-8")
+        riga = next(r for r in bil.splitlines() if r.startswith("**Sciatalgia"))
+        self.assertIn(f"livello {da} → {a}", riga)
+        self.assertIn(f"{missioni} missioni", riga)
+        self.assertIn(f"{morti} morti", riga)
+        nemici = re.search(r"(\d+) nemici", riga)
+        self.assertTrue(nemici and int(nemici.group(1)) > 0, riga)
 
 
 class TestComandi(BaseCli):
