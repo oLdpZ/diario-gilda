@@ -85,17 +85,52 @@ class TestTesto(unittest.TestCase):
             self.assertLessEqual(len(p), T.MAX_SOTTOTITOLO)
         self.assertEqual(" ".join(T.pezzi(t)), t.strip())
 
-    def test_srt_e_segmenti(self):
+    def test_srt(self):
         tempi = [{"testo": "Prima frase.", "da": 0.0, "a": 2.0}, {"testo": "Seconda.", "da": 2.5, "a": 4.0}]
         s = T.srt(tempi, 3.5)
         self.assertIn("00:00:03,500 -->", s)
         self.assertIn("Seconda.", s)
-        seg = T.segmenti(tempi, 3.5, 10.0)
-        self.assertEqual([x[0] for x in seg], ["silenzio", "parla", "silenzio", "parla", "silenzio"])
-        self.assertEqual(seg[0][1], 0.0)
-        self.assertEqual(seg[-1][2], 10.0)
-        for a, b in zip(seg, seg[1:]):
-            self.assertAlmostEqual(a[2], b[1])
+
+
+class TestBocca(unittest.TestCase):
+    RATE = 1000
+
+    def suono(self, *pezzi):
+        """pezzi: (secondi, forte?) -> campioni (onda quadra o silenzio)."""
+        out = []
+        for sec, forte in pezzi:
+            out += [(3000 if i % 2 else -3000) if forte else 0 for i in range(int(sec * self.RATE))]
+        return out
+
+    def test_virgola_chiude_la_bocca_respiro_corto_no(self):
+        c = self.suono((0.2, False), (0.5, True), (0.5, False), (0.4, True), (0.25, False), (0.4, True), (0.2, False))
+        iv = T.parlato(c, self.RATE)
+        self.assertEqual(len(iv), 2)                       # la pausa di 0,5 s separa, il respiro di 0,25 no
+        self.assertAlmostEqual(iv[0][0], 0.2, delta=0.03)
+        self.assertAlmostEqual(iv[0][1], 0.7, delta=0.03)
+        self.assertAlmostEqual(iv[1][0], 1.2, delta=0.03)
+        self.assertAlmostEqual(iv[1][1], 2.25, delta=0.03)
+
+    def test_silenzio_e_schiocchi(self):
+        self.assertEqual(T.parlato([0] * 500, self.RATE), [])
+        c = self.suono((0.5, True), (0.5, False), (0.03, True), (0.5, False))
+        self.assertEqual(len(T.parlato(c, self.RATE)), 1)  # lo schiocco di 30 ms non apre la bocca
+
+    def test_maschera_segue_la_voce(self):
+        tempi = [{"testo": "x", "da": 0.0, "a": 2.0, "voce": [(0.0, 0.8), (1.2, 2.0)]}]
+        m = T.maschera(tempi, 1.0, 4.0, fps=10, rampa=2)
+        self.assertEqual(len(m), 40)
+        self.assertEqual(m[0], 0)                  # sigla: bocca chiusa
+        self.assertEqual(m[14], 255)               # 1,45 s: parla
+        self.assertEqual(m[20], 0)                 # 2,05 s: la virgola, bocca chiusa
+        self.assertEqual(m[27], 255)               # 2,75 s: parla di nuovo
+        self.assertEqual(m[-1], 0)                 # coda
+        self.assertTrue(all(abs(a - b) <= 128 for a, b in zip(m, m[1:])))  # niente scatti
+
+    def test_maschera_senza_intervalli_usa_il_blocco(self):
+        m = T.maschera([{"testo": "x", "da": 0.0, "a": 1.0}], 0.0, 2.0, fps=10, rampa=1)
+        self.assertEqual(m[5], 255)
+        self.assertEqual(m[15], 0)
 
 
 if __name__ == "__main__":

@@ -4,11 +4,15 @@ from __future__ import annotations
 import base64
 import json
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
 import wave
+from array import array
 from pathlib import Path
+
+from . import testo as T
 
 API = "https://generativelanguage.googleapis.com/v1beta/interactions"
 MODELLO = "gemini-3.8-flash-tts"
@@ -81,9 +85,15 @@ def leggi(blocchi: list[list[str]], cartella: Path, chiave: str, parla=tts) -> t
                     if param is None:
                         param = r.getparams()
                         w.setparams(param)
-                    w.writeframes(r.readframes(r.getnframes()))
+                    dati = r.readframes(r.getnframes())
+                    w.writeframes(dati)
                     dur = r.getnframes() / r.getframerate()
-                tempi.append({"testo": testo, "da": round(t, 3), "a": round(t + dur, 3)})
+                    rate = r.getframerate()
+                campioni = array("h", dati)
+                if sys.byteorder == "big":
+                    campioni.byteswap()
+                voce = [(round(t + da, 3), round(t + a, 3)) for da, a in T.parlato(campioni, rate)]
+                tempi.append({"testo": testo, "da": round(t, 3), "a": round(t + dur, 3), "voce": voce})
                 t += dur
                 pausa = PAUSA_PARAGRAFO if bi == len(par) - 1 else PAUSA_FRASE
                 w.writeframes(b"\x00" * int(pausa * param.framerate) * param.sampwidth * param.nchannels)

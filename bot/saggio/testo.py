@@ -1,4 +1,4 @@
-"""Parti pure della Voce del Saggio: trovare le pagine, pulire il testo, frasi, sottotitoli, segmenti."""
+"""Parti pure della Voce del Saggio: trovare le pagine, pulire il testo, frasi, sottotitoli, bocca."""
 from __future__ import annotations
 
 import re
@@ -142,17 +142,53 @@ def srt(tempi: list[dict], spost: float = 0.0) -> str:
     return "\n".join(righe)
 
 
-def segmenti(tempi: list[dict], spost: float, totale: float) -> list[tuple[str, float, float]]:
-    """("parla"|"silenzio", da, a) che coprono [0, totale]: parla durante le frasi, silenzio nelle pause."""
-    out, t = [], 0.0
-    for x in tempi:
-        da, a = spost + x["da"], spost + x["a"]
-        if da > t + 1e-6:
-            out.append(("silenzio", t, da))
-        out.append(("parla", max(da, t), a))
-        t = a
-    if totale > t + 1e-6:
-        out.append(("silenzio", t, totale))
+def parlato(campioni, rate: int, finestra: float = 0.02, soglia_db: float = -32.0,
+            pausa_min: float = 0.35, voce_min: float = 0.08) -> list[tuple[float, float]]:
+    """Intervalli (da, a) in secondi in cui la voce si sente davvero (virgole e respiri esclusi).
+
+    Volume a finestre di 20 ms; «voce» = sopra `soglia_db` rispetto alla finestra più forte.
+    Pause più corte di `pausa_min` non chiudono la bocca; suoni più corti di `voce_min` non la aprono."""
+    n = max(1, int(rate * finestra))
+    rms = []
+    for i in range(0, len(campioni), n):
+        pezzo = campioni[i:i + n]
+        rms.append((sum(c * c for c in pezzo) / len(pezzo)) ** 0.5 if len(pezzo) else 0.0)
+    if not rms or max(rms) <= 0:
+        return []
+    soglia = max(rms) * 10 ** (soglia_db / 20)
+    grezzi, inizio = [], None
+    for k, v in enumerate(rms + [0.0]):
+        if v >= soglia and inizio is None:
+            inizio = k
+        elif v < soglia and inizio is not None:
+            grezzi.append([inizio * finestra, min(k * finestra, len(campioni) / rate)])
+            inizio = None
+    uniti = []
+    for da, a in grezzi:
+        if uniti and da - uniti[-1][1] < pausa_min:
+            uniti[-1][1] = a
+        else:
+            uniti.append([da, a])
+    return [(round(da, 3), round(a, 3)) for da, a in uniti if a - da >= voce_min]
+
+
+def maschera(tempi: list[dict], spost: float, totale: float, fps: int = 24, rampa: int = 5) -> list[int]:
+    """Peso della clip «parla» fotogramma per fotogramma (0 = bocca chiusa, 255 = parla).
+
+    Segue gli intervalli di voce vera di ogni blocco (chiave "voce", altrimenti tutto il blocco);
+    passa da una clip all'altra in `rampa` fotogrammi, morbido all'inizio e alla fine;
+    apre un attimo prima della voce."""
+    intervalli = sorted((spost + da - 0.06, spost + a)
+                        for x in tempi for da, a in (x.get("voce") or [(x["da"], x["a"])]))
+    out, w, j = [], 0.0, 0
+    passo = 1 / max(1, rampa)
+    for k in range(int(round(totale * fps))):
+        t = (k + 0.5) / fps
+        while j < len(intervalli) and intervalli[j][1] <= t:
+            j += 1
+        dentro = j < len(intervalli) and intervalli[j][0] <= t
+        w = min(1.0, w + passo) if dentro else max(0.0, w - passo)
+        out.append(int(round(255 * w * w * (3 - 2 * w))))
     return out
 
 
