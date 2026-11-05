@@ -1,7 +1,9 @@
 -- Core/Recorder.lua: trasforma gli eventi del gioco in eventi del diario (stato per istanza).
 --   DG.Recorder.new(journal, deps) -> rec   journal = DG.Journal
---                                           deps = { now(), itemInfo(link) -> id, name, q, after(sec, fn) }
---   rec:onLootMsg(msg)                      messaggio CHAT_MSG_LOOT -> loot / craft
+--                                           deps = { now(), itemInfo(link) -> id, name, q, after(sec, fn),
+--                                                    level() -> livello del giocatore }
+--   rec:onLootMsg(msg)                      messaggio CHAT_MSG_LOOT -> loot / craft (blu o meglio; verdi sotto
+--                                           GREEN_MAX_LEVEL)
 --   rec:onLootReady(isFishing, src, names)  LOOT_READY: sorgente del bottino; se pesca, nomi alle catture
 --   rec:onLootClosed()                      LOOT_CLOSED: la sorgente vale ancora 2 s
 --   rec:onFishCatch(name)                   aggiunge una cattura alla pesca in corso (la apre se serve)
@@ -14,6 +16,7 @@
 -- I valori passano da DG.Safe prima di essere letti. La parte 2 (Task 6) aggiunge metodi a DG.Recorder.
 --   rec:onEncounterStart(id,name,diff,size) rec:onEncounterEnd(id,name,diff,size,success)  -> encounter
 --   rec:onRoster(members) (debounce GROUP_SETTLE) -> group; rec:onQuestDone/onQuestAbandon -> quest
+--   rec:onQuestDone(id, title, xp, money, testi)  testi = { desc, obj, fine } o nil (troncati a MAX_DESC/OBJ/FINE)
 --   rec:onSystemMsg(msg) -> duel; rec:onZone(zone) -> zone
 local _, DG = ...
 
@@ -164,6 +167,19 @@ def("onLootClosed", function(self)
   end
 end)
 
+-- Blu o meglio sempre; verdi solo sotto GREEN_MAX_LEVEL (livello illeggibile: niente verdi).
+local function wanted(self, q)
+  if q >= DG.Const.MIN_QUALITY then
+    return true
+  end
+  if q ~= 2 or type(self.deps.level) ~= "function" then
+    return false
+  end
+  local ok, level = pcall(self.deps.level)
+  level = ok and DG.Safe.num(level) or nil
+  return level ~= nil and level < DG.Const.GREEN_MAX_LEVEL
+end
+
 def("onLootMsg", function(self, msg)
   msg = DG.Safe.str(msg)
   if not msg then
@@ -180,7 +196,7 @@ def("onLootMsg", function(self, msg)
     local lid, lname, lq = parseLink(p.link)
     id, name, q = id or lid, name or lname, q or lq
   end
-  if not name or not q or q < DG.Const.MIN_QUALITY then
+  if not name or not q or not wanted(self, q) then
     return
   end
   local fields = { item = name, id = id, q = q, n = p.n }
@@ -328,11 +344,18 @@ end)
 
 -- Missioni, duelli, zone ----------------------------------------------
 
-def("onQuestDone", function(self, id, title, xp, money)
-  self.journal.add("quest", {
+def("onQuestDone", function(self, id, title, xp, money, testi)
+  local fields = {
     id = DG.Safe.num(id), title = DG.Safe.str(title), action = "done",
     xp = DG.Safe.num(xp), money = DG.Safe.num(money),
-  })
+  }
+  if type(testi) == "table" then
+    local C, S = DG.Const, DG.Safe
+    fields.desc = S.cut(S.str(testi.desc), C.MAX_DESC)
+    fields.obj = S.cut(S.str(testi.obj), C.MAX_OBJ)
+    fields.fine = S.cut(S.str(testi.fine), C.MAX_FINE)
+  end
+  self.journal.add("quest", fields)
 end)
 
 def("onQuestAbandon", function(self, id, title)

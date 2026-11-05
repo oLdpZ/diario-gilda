@@ -6,6 +6,8 @@
 --   ADDON_LOADED (il proprio) -> Safe.init, Parse.init, DiarioGildaDB = Journal.load, Recorder.new
 --   PLAYER_ENTERING_WORLD solo con isLogin/isReload -> Journal.begin, zona, registro combattimenti
 --   PLAYER_LOGOUT -> rec:flush(), Journal.finish(); gli altri eventi -> metodi di DG.Recorder
+--   QUEST_COMPLETE (finestra di consegna) ricorda id, testo di chiusura e testi del registro; QUEST_TURNED_IN dello
+--   stesso id li passa a rec:onQuestDone (mai a un'altra missione)
 --   /diario: stato dell'addon; /diario debug: stampa ogni lancio del giocatore (spellId e nome)
 -- Ogni handler e' avvolto in pcall: l'errore va in Journal.logError e non arriva mai al client.
 local ADDON, DG = ...
@@ -17,6 +19,7 @@ local ready = false   -- vero dopo il nostro ADDON_LOADED
 local rec = nil
 local debugCasts = false
 local shop = { merchant = false, auction = false, trainer = false }
+local pendingQuest = nil   -- { id, desc, obj, fine } letti a QUEST_COMPLETE, usati dal QUEST_TURNED_IN dello stesso id
 local lootOpen = nil       -- ora (time) del LOOT_READY gia' gestito per la finestra corrente; nil = nessuna aperta
 local regFailed = {}       -- eventi che il client ha rifiutato di registrare (scritti in errors dopo ADDON_LOADED)
 
@@ -102,6 +105,25 @@ local function questTitle(id)
   return Safe.call(api(C_QuestLog, "GetTitleForQuestID"), id)
 end
 
+-- Descrizione e obiettivi dal registro delle missioni (nil, nil se la missione non c'e' o mancano le API).
+-- La selezione del registro viene rimessa com'era.
+local function questLogText(id)
+  local index = Safe.num((Safe.call(api(C_QuestLog, "GetLogIndexForQuestID"), id)))
+  if not index and type(api(C_QuestLog, "GetLogIndexForQuestID")) ~= "function" then
+    index = Safe.num((Safe.call(GetQuestLogIndexByID, id)))
+  end
+  if not index or index <= 0 or type(SelectQuestLogEntry) ~= "function" then
+    return nil, nil
+  end
+  local prev = Safe.num((Safe.call(GetQuestLogSelection)))
+  Safe.call(SelectQuestLogEntry, index)
+  local desc, obj = Safe.call(GetQuestLogQuestText)
+  if prev and prev ~= index then
+    Safe.call(SelectQuestLogEntry, prev)
+  end
+  return Safe.str(desc), Safe.str(obj)
+end
+
 local function spendWhere()
   if shop.merchant then
     return "merchant"
@@ -160,7 +182,10 @@ handlers.ADDON_LOADED = function(name)
   Safe.init(issecretvalue)
   DG.Parse.init(_G)
   DiarioGildaDB = Journal.load(DiarioGildaDB, { now = time, where = where })
-  rec = DG.Recorder.new(Journal, { now = time, itemInfo = itemInfo, after = after })
+  rec = DG.Recorder.new(Journal, {
+    now = time, itemInfo = itemInfo, after = after,
+    level = function() return Safe.num((Safe.call(UnitLevel, "player"))) end,
+  })
   ready = true
   for _, msg in ipairs(regFailed) do
     Journal.logError(msg)
@@ -317,8 +342,25 @@ handlers.GROUP_ROSTER_UPDATE = function()
   end
 end
 
+-- Finestra di consegna aperta: testo di chiusura (GetRewardText) e testi dal registro, finche' la missione c'e' ancora.
+handlers.QUEST_COMPLETE = function()
+  pendingQuest = nil
+  local id = Safe.num((Safe.call(GetQuestID)))
+  if not id or id <= 0 then
+    return
+  end
+  local desc, obj = questLogText(id)
+  pendingQuest = { id = id, desc = desc, obj = obj, fine = Safe.str((Safe.call(GetRewardText))) }
+end
+
 handlers.QUEST_TURNED_IN = function(id, xp, money)
-  rec:onQuestDone(id, questTitle(id), xp, money)
+  local p = pendingQuest
+  pendingQuest = nil
+  local testi = nil
+  if p and p.id == Safe.num(id) then
+    testi = { desc = p.desc, obj = p.obj, fine = p.fine }
+  end
+  rec:onQuestDone(id, questTitle(id), xp, money, testi)
 end
 
 handlers.CHAT_MSG_SYSTEM = function(msg)
