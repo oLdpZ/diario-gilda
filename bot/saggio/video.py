@@ -35,13 +35,14 @@ def comando(totale: float, uscita: str, crf: int = 27, bitrate: int | None = Non
     f.append(f"[mix]{scala}fade=t=in:st=0:d=0.8,fade=t=out:st={totale - 1.0:.3f}:d=1.0,"
              f"subtitles=cronaca.srt:fontsdir=font:force_style='{STILE_SUB}'[v]")
     na = 3
-    f.append(f"[{na}:a]aresample=48000,pan=stereo|c0=c0|c1=c0,adelay={int(INTRO * 1000)}:all=1,apad,"
+    f.append(f"[{na}:a]aresample=48000,acompressor=threshold=0.1:ratio=3:attack=5:release=150:makeup=2.5,"
+             f"pan=stereo|c0=c0|c1=c0,adelay={int(INTRO * 1000)}:all=1,apad,"
              f"atrim=0:{totale:.3f},asplit=3[voce][k1][k2]")
     f.append(f"[{na + 1}:a]atrim=0:{totale:.3f},aresample=48000,aformat=channel_layouts=stereo,volume=13dB[amb]")
     f.append("[amb][k1]sidechaincompress=threshold=0.03:ratio=2.5:attack=60:release=700[ambd]")
-    f.append(f"[{na + 2}:a]atrim=0:{totale:.3f},aresample=48000,aformat=channel_layouts=stereo,volume=-9dB[mus]")
+    f.append(f"[{na + 2}:a]atrim=0:{totale:.3f},aresample=48000,aformat=channel_layouts=stereo,volume=-13dB[mus]")
     f.append("[mus][k2]sidechaincompress=threshold=0.02:ratio=6:attack=150:release=1500[musd]")
-    f.append(f"[voce][ambd][musd]amix=inputs=3:normalize=0,afade=t=in:st=0:d=1.5,"
+    f.append(f"[voce][ambd][musd]amix=inputs=3:normalize=0,alimiter=limit=0.95:level=0,afade=t=in:st=0:d=1.5,"
              f"afade=t=out:st={totale - 2.5:.3f}:d=2.5[a]")
     video = ["-c:v", "libx264", "-preset", "medium", "-tune", "animation", "-pix_fmt", "yuv420p"]
     video += ["-crf", str(crf)] if bitrate is None else \
