@@ -24,6 +24,7 @@ describe("Recorder (boss, gruppo, missioni, duelli, zone)", function()
     rec = DG.Recorder.new(J, {
       now = function() return clock end,
       itemInfo = function() end,
+      level = function() return 60 end,
       after = function(sec, fn) timers[#timers + 1] = { sec = sec, fn = fn } end,
     })
   end)
@@ -99,6 +100,40 @@ describe("Recorder (boss, gruppo, missioni, duelli, zone)", function()
     assert.equals(120, a.money)
     assert.equals("abandon", b.action)
     assert.equals(78, b.id)
+  end)
+
+  it("missione con testi: desc, obj, fine troncati; testi secret o vuoti scartati", function()
+    rec:onQuestDone(77, "Il Raccolto", 250, 120, {
+      desc = string.rep("d", 601), obj = "Kill 8 rats", fine = "Well done.",
+    })
+    local a = events()[1]
+    assert.equals(string.rep("d", 600), a.desc)
+    assert.equals("Kill 8 rats", a.obj)
+    assert.equals("Well done.", a.fine)
+    secret["S"] = true
+    rec:onQuestDone(78, "Altra", 1, 0, { desc = "S", obj = "", fine = 5 })
+    local b = events()[2]
+    assert.is_nil(b.desc)
+    assert.is_nil(b.obj)
+    assert.is_nil(b.fine)
+    rec:onQuestDone(79, "Terza", 1, 0, "non una tabella")
+    assert.is_nil(events()[3].desc)
+    assert.equals(0, #db.errors)
+  end)
+
+  it("missione con testi su più righe: spazi e a capo ridotti a uno spazio, prima del taglio", function()
+    rec:onQuestDone(80, "Righe", 1, 0, {
+      desc = "a\r\n\r\nb\tc", obj = "  Kill\n\n8 rats  ", fine = " \n\t ",
+    })
+    local a = events()[1]
+    assert.equals("a b c", a.desc)
+    assert.equals("Kill 8 rats", a.obj)
+    assert.is_nil(a.fine)
+    rec:onQuestDone(81, "Lunga", 1, 0, { desc = string.rep("d\n\n", 400) })
+    local b = events()[2]
+    assert.equals(600, #b.desc)
+    assert.is_nil(b.desc:find("[\r\n]"))
+    assert.equals(0, #db.errors)
   end)
 
   it("duello", function()

@@ -4,6 +4,7 @@
 --   DG.Safe.str(v)          stringa non vuota e non secret, altrimenti nil
 --   DG.Safe.num(v)          numero non secret, altrimenti nil
 --   DG.Safe.call(fn, ...)   pcall: i valori di ritorno, o nil se fn va in errore
+--   DG.Safe.cut(s, n)       stringa non vuota troncata a n caratteri (string.sub), nil per non stringhe o vuote
 local _, DG = ...
 
 local Safe = {}
@@ -48,4 +49,11 @@ end
 
 function Safe.call(fn, ...)
   return ret(pcall(fn, ...))
+end
+
+function Safe.cut(s, n)
+  if type(s) ~= "string" or s == "" then
+    return nil
+  end
+  return string.sub(s, 1, n)
 end

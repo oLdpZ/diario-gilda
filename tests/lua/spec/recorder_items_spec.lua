@@ -8,7 +8,7 @@ local RARE = "|cff0070dd|Hitem:2042::::::::|h[Staff of Westfall]|h|r"
 local GREEN = "|cff1eff00|Hitem:2043::::::::|h[Green Thing]|h|r"
 
 describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", function()
-  local DG, J, db, rec, clock, timers, items, secret
+  local DG, J, db, rec, clock, timers, items, secret, level
 
   local function events() return J.current().events end
   local function kinds()
@@ -19,6 +19,7 @@ describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", func
 
   before_each(function()
     clock = 1000
+    level = 60
     timers = {}
     secret = {}
     items = {
@@ -37,6 +38,10 @@ describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", func
         local i = items[link]
         if i == "boom" then error("boom") end
         if i then return i[1], i[2], i[3] end
+      end,
+      level = function()
+        if level == "boom" then error("boom") end
+        return level
       end,
       after = function(sec, fn) timers[#timers + 1] = { sec = sec, fn = fn } end,
     })
@@ -65,6 +70,41 @@ describe("Recorder (bottino, pesca, livelli, morti, soldi, combattimento)", func
   it("loot verde: nessun evento", function()
     rec:onLootMsg("You receive loot: " .. GREEN .. ".")
     assert.equals(0, #events())
+  end)
+
+  it("loot verde sotto il livello 20: registrato; dal 20 in su no; il blu sempre", function()
+    level = 12
+    rec:onLootMsg("You receive loot: " .. GREEN .. ".")
+    assert.equals(1, #events())
+    assert.equals(2, events()[1].q)
+    level = 19
+    rec:onLootMsg("You receive loot: " .. GREEN .. ".")
+    assert.equals(2, #events())
+    level = 20
+    rec:onLootMsg("You receive loot: " .. GREEN .. ".")
+    level = 25
+    rec:onLootMsg("You receive loot: " .. GREEN .. ".")
+    assert.equals(2, #events())
+    rec:onLootMsg("You receive loot: " .. RARE .. ".")
+    assert.equals(3, #events())
+    level = 12
+    rec:onLootMsg("You receive loot: " .. RARE .. ".")
+    assert.equals(4, #events())
+  end)
+
+  it("livello illeggibile (nil, secret, errore): verde scartato, blu registrato", function()
+    level = nil
+    rec:onLootMsg("You receive loot: " .. GREEN .. ".")
+    level = 12
+    secret[12] = true
+    rec:onLootMsg("You receive loot: " .. GREEN .. ".")
+    secret[12] = nil
+    assert.equals(0, #events())
+    level = "boom"
+    rec:onLootMsg("You receive loot: " .. GREEN .. ".")
+    rec:onLootMsg("You receive loot: " .. RARE .. ".")
+    assert.equals(1, #events())
+    assert.equals(3, events()[1].q)
   end)
 
   it("messaggio secret: nessun evento e nessun errore", function()

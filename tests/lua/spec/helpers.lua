@@ -30,6 +30,7 @@ end
 --   G.timers   callback di C_Timer.After ({ sec, fn })
 --   G.frames   frame creati con CreateFrame (eventi registrati, unit di RegisterUnitEvent in f.units, script)
 --   G.badEvents  set di nomi per cui RegisterEvent/RegisterUnitEvent lancia errore (evento sconosciuto al client)
+--   v.questLog / v.questSel / v.questId / v.rewardText  registro missioni e finestra di consegna (QUEST_COMPLETE)
 --   G.hooks    nomi agganciati con hooksecurefunc ("AbandonQuest", "C_QuestLog.SetAbandonQuest", ...)
 -- H.ungame() rimuove tutto (chiamato anche all'inizio di ogni gameStub).
 local gameNames = {}
@@ -62,6 +63,7 @@ function H.gameStub()
     inInstance = false, instanceName = nil,
     combatLog = false, combatLogCanEnable = true,
     items = {}, spells = {}, quests = {}, abandonId = nil,
+    questLog = {}, questSel = 0, questId = nil, rewardText = nil,
     fishing = false, loot = {}, money = 0,
   }
   G.v = v
@@ -152,7 +154,18 @@ function H.gameStub()
     GetAbandonQuest = function() return v.abandonId or 0 end,
     SetAbandonQuest = function() end,
     AbandonQuest = function() v.abandonId = nil end,
+    GetLogIndexForQuestID = function(id) local q = v.questLog[id] return q and q.index end,
   })
+  -- Registro delle missioni: v.questLog[id] = { index, desc, obj }; v.questSel = voce selezionata (0 = nessuna).
+  set("GetQuestID", function() return v.questId or 0 end)
+  set("GetRewardText", function() return v.rewardText end)
+  set("GetQuestLogSelection", function() return v.questSel end)
+  set("SelectQuestLogEntry", function(i) v.questSel = i end)
+  set("GetQuestLogQuestText", function()
+    for _, q in pairs(v.questLog) do
+      if q.index == v.questSel then return q.desc, q.obj end
+    end
+  end)
   set("IsFishingLoot", function() return v.fishing end)
   set("GetNumLootItems", function() return #v.loot end)
   set("GetLootSlotInfo", function(i) return 134400, v.loot[i], 1, nil, 3 end)

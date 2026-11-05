@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -15,15 +16,22 @@ PESCA_S = 120           # pesca finita entro 120 s prima della fuga
 DROP_BOSS_S = 120       # bottino senza fonte entro 120 s da un boss ucciso
 ORO_FOLLE = 100 * 10000  # 100 oro in rame
 MAX_RIASSUNTO = 40
+MISSIONE_S = 3600        # uccisioni di una missione: entro un'ora prima della consegna
+MISSIONE_RIPIEGO_S = 1800  # senza obiettivi: solo gli ultimi 30 minuti
+LIVELLO_BASSO = 10        # sotto: i livelli diventano un solo momento
+VERDE_MAX_LIVELLO = 15   # bottino verde: solo sotto questo livello
+MAX_MISSIONI = 2         # missioni per giocatore nella giornata
+TESTI_MISSIONE = (("trama", "Trama", 600), ("obiettivi", "Obiettivi", 300), ("consegna", "Consegna", 400))
 SALTA = (TypeError, ValueError, KeyError, AttributeError, IndexError, OverflowError)
 
 NOMI_TIPO = {
     "drop": "Bottino", "boss_ucciso": "Boss ucciso", "wipe_ripetuti": "Wipe ripetuti", "fuga": "Fuga",
     "salvataggio": "Salvataggio", "morte": "Morte", "duello": "Duello", "livello": "Livello",
     "prima_visita": "Prima visita", "spesa": "Spesa", "missione_abbandonata": "Missione abbandonata",
+    "missione": "Missione", "livelli": "Livelli",
 }
 SPIEGA_TIPO = {"fuga": "sopravvissuto a ≥4 nemici con poca vita"}
-QUALITA = {3: "raro", 4: "epico", 5: "leggendario"}
+QUALITA = {2: "non comune", 3: "raro", 4: "epico", 5: "leggendario"}
 INSIEME = {"gruppo": "nello stesso gruppo",
            "stessa_zona": "solo stessa zona e stessa ora (nessun dato di gruppo: forse non erano insieme)"}
 
@@ -110,7 +118,11 @@ def _cronologia(sessioni) -> dict[str, dict]:
             se = _dict(s.get("sessione"))
             if not g:
                 continue
-            p = out.setdefault(g, {"eventi": [], "episodi": [], "char": set(), "char_l": set(), "gruppi": []})
+            p = out.setdefault(g, {"eventi": [], "episodi": [], "char": set(), "char_l": set(), "gruppi": [],
+                                   "livello_iniziale": None})
+            if p["livello_iniziale"] is None:
+                liv = _int(se.get("level"))
+                p["livello_iniziale"] = liv if liv is not None and liv > 0 else None
             char = _str(se.get("char"))
             if char:
                 p["char"].add(char)
@@ -173,6 +185,19 @@ def _evento_a(p: dict, t: int, k: str | None = None) -> dict | None:
         if _zona(e):
             prima = e
     return prima
+
+
+def _livello_a(p: dict, t: int) -> int | None:
+    """Livello del giocatore a t: ultimo evento level fino a t, altrimenti quello della prima sessione."""
+    liv = p.get("livello_iniziale")
+    for e in p["eventi"]:
+        if _int(e["t"]) > t:
+            break
+        if e.get("k") == "level":
+            v = _int(e.get("level"))
+            if v is not None and v > 0:
+                liv = v
+    return liv
 
 
 def _incontri(p: dict) -> list[dict]:
@@ -274,8 +299,19 @@ def _da_boss(g: str, p: dict, cont: dict) -> list[dict]:
             fin = (_finestra(ws[0])[0], _finestra(ws[-1])[1])
             out.append(_cand("wipe_ripetuti", 40, _int(e["t"]), _dove(e), g, fatti, perche, _zona(e), fin))
     # bottino
+    verde_dato = False
     for e in _di_tipo(p, "loot"):
         q = _int(e.get("q"))
+        if q == 2:  # verde: piccolo momento a parte, solo ai livelli bassi e uno al giorno
+            if not verde_dato:  # consumato anche se questo verde viene scartato (livello alto o ignoto)
+                verde_dato = True
+                liv = _livello_a(p, _int(e["t"]))
+                if liv is not None and liv < VERDE_MAX_LIVELLO:
+                    item = _str(e.get("item")) or "oggetto senza nome"
+                    out.append(_cand("drop", 8, _int(e["t"]), _dove(e), g,
+                                     {"oggetto": item, "qualita": QUALITA[2]},
+                                     f"{item} ({QUALITA[2]}) a livello {liv}", _zona(e)))
+            continue
         if q is None or q < 3:
             continue
         boss, presunta = _boss_del_bottino(e, uccisi)
@@ -426,10 +462,13 @@ def _da_morti(g: str, p: dict) -> list[dict]:
 
 def _da_eventi_semplici(g: str, p: dict) -> list[dict]:
     out = []
+    bassi = []
     for e in p["eventi"]:
         k, t = e.get("k"), _int(e["t"])
         if k == "level":
             lv = _int(e.get("level"))
+            if lv is not None and 0 < lv < LIVELLO_BASSO:
+                bassi.append((e, lv))
             if lv is not None and lv > 0 and (lv == 60 or lv % 10 == 0):
                 perche = "Raggiunto il livello 60, il massimo!" if lv == 60 else f"Raggiunto il livello {lv}"
                 out.append(_cand("livello", 70 if lv == 60 else 20, t, _dove(e), g, {"livello": lv},
@@ -452,7 +491,104 @@ def _da_eventi_semplici(g: str, p: dict) -> list[dict]:
             fatti = {"missione": titolo} if titolo else {}
             perche = f"Missione «{titolo}» abbandonata" if titolo else "Una missione abbandonata"
             out.append(_cand("missione_abbandonata", 10, t, _dove(e), g, fatti, perche, _zona(e)))
+    if bassi:
+        ultimo, a = bassi[-1]
+        da = bassi[0][1] - 1
+        out.append(_cand("livelli", 15, _int(ultimo["t"]), _dove(ultimo), g, {"da": da, "a": a},
+                         f"Saliti dal livello {da} al {a}", _zona(ultimo)))
     return out
+
+
+def _conta_uccisioni(episodi: list[dict], tieni) -> list[dict]:
+    """Uccisioni sommate per nome (solo i nomi per cui `tieni(nome)`), le 3 piu' numerose."""
+    conta: dict[str, int] = {}
+    for ep in episodi:
+        for k in _lista(ep.get("kills")):
+            k = _dict(k)
+            nome, n = _str(k.get("name")), _int(k.get("n"))
+            if nome and n and n > 0 and tieni(nome):
+                conta[nome] = conta.get(nome, 0) + n
+    return [{"nome": nome, "n": n} for nome, n in sorted(conta.items(), key=lambda x: (-x[1], x[0]))][:3]
+
+
+def _uccisioni_obiettivi(episodi: list[dict], testo: str, usate: dict) -> list[dict]:
+    """Uccisioni citate negli obiettivi, senza quelle gia' date a una missione precedente.
+
+    `usate` conta per (episodio, nome) le uccisioni gia' assegnate e viene aggiornato."""
+    conta: dict[str, int] = {}
+    for ep in episodi:
+        for k in _lista(ep.get("kills")):
+            k = _dict(k)
+            nome, n = _str(k.get("name")), _int(k.get("n"))
+            if not nome or not n or n <= 0:
+                continue
+            if re.search(rf"\b{re.escape(nome.lower())}s?\b", testo) is None:
+                continue
+            chiave = (id(ep), nome)
+            libere = n - usate.get(chiave, 0)
+            if libere > 0:
+                usate[chiave] = n
+                conta[nome] = conta.get(nome, 0) + libere
+    return [{"nome": nome, "n": n} for nome, n in sorted(conta.items(), key=lambda x: (-x[1], x[0]))][:3]
+
+
+def _da_missioni(g: str, p: dict) -> list[dict]:
+    out = []
+    prec = None  # consegna precedente: limita solo i nemici presunti
+    usate: dict = {}  # uccisioni gia' date a una missione con obiettivi: contano per una sola
+    combattimenti = [ep for ep, _ in p["episodi"] if ep.get("kind") == "combat"]
+    for e in _di_tipo(p, "quest"):
+        if e.get("action") != "done":
+            continue
+        t = _int(e["t"])
+        finestra = [ep for ep in combattimenti if t - MISSIONE_S < _int(ep["to"]) <= t]
+        da_ripiego = t - MISSIONE_S if prec is None else max(t - MISSIONE_S, prec)
+        prec = t
+        titolo = _str(e.get("title"))
+        dove = _dove(e)
+        noto = dove != "luogo sconosciuto"
+        fatti: dict = {"missione": titolo} if titolo else {}
+        xp = _int(e.get("xp"))
+        if xp is not None:
+            fatti["xp"] = xp
+        obj = _str(e.get("obj"))
+        nemici = []
+        if obj:
+            nemici = _uccisioni_obiettivi(finestra, obj.lower(), usate)
+        if nemici:
+            fatti["nemici"] = nemici
+        elif noto:  # senza luogo non si indovinano i nemici
+            vicini = [ep for ep in finestra if _int(ep["to"]) > max(t - MISSIONE_RIPIEGO_S, da_ripiego)
+                      and _dove(_evento_a(p, _int(ep["to"]), "combat") or {}) == dove]
+            nemici = _conta_uccisioni(vicini, lambda n: True)
+            if nemici:
+                fatti["nemici"] = nemici
+                fatti["nemici_presunti"] = True
+        for chiave, campo in (("trama", "desc"), ("obiettivi", "obj"), ("consegna", "fine")):
+            v = _str(e.get(campo))
+            if v:
+                fatti[chiave] = v
+        perche = f"Missione «{titolo}» completata" if titolo else "Una missione completata"
+        if noto:
+            perche += f" a {dove}"
+        out.append(_cand("missione", 20 if _str(e.get("desc")) else 12, t, dove, g, fatti, perche, _zona(e)))
+    return out
+
+
+def _limita_missioni(cand: list[dict]) -> list[dict]:
+    """Al massimo MAX_MISSIONI missioni per giocatore, dopo l'unione: una di gruppo conta per ognuno.
+
+    In ordine (punti, xp, quando) una missione resta solo se nessuno dei suoi giocatori e' gia' al limite."""
+    mis = [c for c in cand if c["tipo"] == "missione"]
+    ordine = lambda c: (-c["punti"], -(_int(c["fatti"].get("xp")) or 0), c["quando"])
+    tenute: set[int] = set()
+    per_g: dict[str, int] = {}
+    for c in sorted(mis, key=ordine):
+        if all(per_g.get(n, 0) < MAX_MISSIONI for n in c["chi"]):
+            tenute.add(id(c))
+            for n in c["chi"]:
+                per_g[n] = per_g.get(n, 0) + 1
+    return [c for c in cand if c["tipo"] != "missione" or id(c) in tenute]
 
 
 def _duelli(cron: dict[str, dict]) -> list[dict]:
@@ -494,6 +630,8 @@ def _legame(gruppo: list[dict], c: dict, cron: dict) -> str | None:
     for x in gruppo:
         rel = _insieme(cron[x["_g"]], x["quando"], cron[c["_g"]], c["quando"])
         vicini = abs(x["quando"] - c["quando"]) <= UNIONE_S
+        if c["tipo"] == "missione" and x["fatti"].get("missione") != c["fatti"].get("missione"):
+            continue  # missioni diverse: mai unite
         bx, bc = x["fatti"].get("boss_id"), c["fatti"].get("boss_id")
         if bx is not None or bc is not None:
             if bx != bc:
@@ -573,7 +711,8 @@ def candidati(sessioni: list[dict], contatori: dict) -> list[dict]:
     grezzi: list[dict] = []
     for g, p in cron.items():
         for fonte in (lambda: _da_boss(g, p, cont), lambda: _da_combattimenti(g, p),
-                      lambda: _da_morti(g, p), lambda: _da_eventi_semplici(g, p)):
+                      lambda: _da_morti(g, p), lambda: _da_eventi_semplici(g, p),
+                      lambda: _da_missioni(g, p)):
             try:
                 grezzi.extend(fonte())
             except SALTA:
@@ -582,7 +721,7 @@ def candidati(sessioni: list[dict], contatori: dict) -> list[dict]:
         grezzi.extend(_duelli(cron))
     except SALTA:
         pass
-    out = _unisci(grezzi, cron)
+    out = _limita_missioni(_unisci(grezzi, cron))
     out.sort(key=lambda c: (-c["punti"], c["quando"], c["tipo"], c["chi"], c["dove"], c["perche"],
                             json.dumps(c["fatti"], sort_keys=True, default=str)))
     return out
@@ -648,12 +787,29 @@ def _valore(v) -> str:
     return pulito(v)
 
 
+def _nemici_testo(nemici: list) -> str:
+    """[{nome, n}] -> "Nome x3, Altro x1"."""
+    out = []
+    for x in nemici:
+        x = _dict(x)
+        nome, n = _str(x.get("nome")), _int(x.get("n"))
+        if nome:
+            out.append(f"{pulito(nome)} x{n}" if n is not None else pulito(nome))
+    return ", ".join(out)
+
+
 def _riga_fatti(fatti: dict) -> str:
     parti = []
     if "in_ritardo" in fatti:  # sempre per primo: il taglio a 300 caratteri non lo perde
         parti.append(f"in ritardo: {_valore(fatti['in_ritardo'])}")
     for k, v in fatti.items():
-        if k in ("boss_id", "altri", "insieme", "per_giocatore", "in_ritardo"):
+        if k in ("boss_id", "altri", "insieme", "per_giocatore", "in_ritardo", "trama", "obiettivi", "consegna",
+                 "nemici_presunti"):
+            continue
+        if k == "nemici" and isinstance(v, list):
+            presunti = fatti.get("nemici_presunti") is True
+            parti.append(f"{'nemici (presunti, dai combattimenti vicini)' if presunti else 'nemici'}: "
+                         f"{_nemici_testo(v)}")
             continue
         parti.append(f"{pulito(str(k).replace('_', ' '), 40)}: {_valore(v)}")
     s = "; ".join(parti)
@@ -706,6 +862,9 @@ def riassunto_md(giorno: str, candidati, avvisi, giocatori, fuso: str = "Europe/
         rf = _riga_fatti(fatti)
         if rf:
             righe.append(f"   Fatti: {rf}")
+        for chiave, etichetta, limite in TESTI_MISSIONE:
+            if fatti.get(chiave):
+                righe.append(f"   {etichetta}: {pulito(fatti[chiave], limite)}")
         ins = fatti.get("insieme")
         if ins in INSIEME:
             righe.append(f"   Insieme: {INSIEME[ins]}")

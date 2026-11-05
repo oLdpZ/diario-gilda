@@ -48,14 +48,35 @@ def _taglia_parole(testo: str, limite: int) -> list[str]:
     return pezzi
 
 
+def _taglia_righe(testo: str, limite: int) -> list[str]:
+    """Divide un paragrafo lungo alle righe (riunite fino al limite); a parole solo una riga troppo lunga."""
+    pezzi, cur = [], ""
+    for riga in testo.split("\n"):
+        riga = riga.strip()
+        if not riga:
+            continue
+        parti = [riga] if len(riga) <= limite else _taglia_parole(riga, limite)
+        for parte in parti:
+            if not cur:
+                cur = parte
+            elif len(cur) + 1 + len(parte) <= limite:
+                cur += "\n" + parte
+            else:
+                pezzi.append(cur)
+                cur = parte
+    if cur:
+        pezzi.append(cur)
+    return pezzi
+
+
 def _blocchi(corpo: str, limite: int) -> list[str]:
-    """Paragrafi uniti fino al limite; i paragrafi troppo lunghi divisi a parole."""
+    """Paragrafi uniti fino al limite; i paragrafi troppo lunghi divisi alle righe, poi a parole."""
     paragrafi = []
     for p in corpo.split("\n\n"):
         p = p.strip()
         if not p:
             continue
-        paragrafi.extend([p] if len(p) <= limite else _taglia_parole(p, limite))
+        paragrafi.extend([p] if len(p) <= limite else _taglia_righe(p, limite))
     out, cur = [], ""
     for p in paragrafi:
         if not cur:

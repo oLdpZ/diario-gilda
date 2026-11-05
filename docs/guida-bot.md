@@ -61,7 +61,7 @@ Il token non va mai nell'ambiente né nei file: lo aggiunge il proxy del cloud a
 1. Sempre su <https://claude.ai/code/routines> → **Nuova attività** (New routine).
 2. Repository: `oLdpZ/diario-gilda`, ramo `main` (il Cronista deve essere già unito in `main`).
 3. Ambiente: quello della sezione 4.
-4. Pianificazione: **ogni giorno alle 10:07** (ora italiana). I minuti non tondi partono più puntuali.
+4. Pianificazione: **ogni giorno alle 07:15** (ora italiana). I minuti non tondi partono più puntuali.
 5. Prompt, una riga sola:
 
    ```

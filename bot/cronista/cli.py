@@ -10,7 +10,7 @@ from dataclasses import asdict
 from datetime import date, timedelta
 from pathlib import Path
 
-from . import ingresso, momenti, pagina, stato
+from . import bilancio, ingresso, momenti, pagina, stato
 from .discord import Discord, DiscordError
 from .stato import Stato
 from .testo import pulito
@@ -20,6 +20,7 @@ CONFIG = QUI / "config.json"
 NIENTE = "Niente da raccontare oggi."
 TITOLO_GIORNO = "Cronache della Gilda — Giorno {n}, Era della Rinascita"
 TITOLO_RECUPERO = "Le Cronache dei primi giorni"
+SEZIONE_BILANCIO = "## Bilancio (lo aggiunge pubblica: non scriverlo)"
 MAX_RICORRENZE_GIORNO = 3
 MAX_RICORRENZE = 20
 MAX_LUNGHEZZA_RICORRENZA = 120
@@ -108,7 +109,7 @@ def _giocatori(sessioni: list[dict]) -> dict[str, str]:
 
 def _pulisci_lavoro(cartella: Path) -> None:
     cartella.mkdir(parents=True, exist_ok=True)
-    for pat in ("giorno-*.md", "giorno-*.json", "pagina-*.md", "recupero.md",
+    for pat in ("giorno-*.md", "giorno-*.json", "pagina-*.md", "bilancio-*.md", "recupero.md",
                 "prepara.json", "prepara-chiuso.json", "ricorrenze.txt"):
         for f in cartella.glob(pat):
             f.unlink()
@@ -235,6 +236,7 @@ def prepara(ora: float) -> int:
     contatori = st.contatori
     dopo: dict[str, dict] = {}  # contatori dopo ciascuna giornata
     riassunti: dict[str, str] = {}
+    tutte: list[dict] = []
     pagine = []
     n = st.numero_giorno
     for i, g in enumerate(giorni):
@@ -255,13 +257,19 @@ def prepara(ora: float) -> int:
         gioc = _giocatori([s for s in ss if id(s) not in tardi])
         gioc_tardi = _giocatori([s for s in ss if id(s) in tardi])
         md = momenti.riassunto_md(g, cand, avv, gioc, fuso=fuso, in_ritardo=gioc_tardi)
+        tutte += ss
         if not recupero:
+            file_bilancio = cartella / f"bilancio-{g}.md"
+            testo_bilancio = bilancio.md(bilancio.righe(ss, tardi, fuso, inizio))
+            file_bilancio.write_text(testo_bilancio, encoding="utf-8")
+            md = f"{md.rstrip()}\n\n{SEZIONE_BILANCIO}\n\n{testo_bilancio}"
             n += 1
             titolo = TITOLO_GIORNO.format(n=n)
             file_pagina = cartella / f"pagina-{g}.md"
             md = md.rstrip("\n") + "\n" + "\n".join(_note(titolo, file_pagina, st.ricorrenze)) + "\n"
             pagine.append({"numero": n, "titolo": titolo, "giorni": [g],
-                           "riassunti": [str(cartella / f"giorno-{g}.md")], "pagina": str(file_pagina)})
+                           "riassunti": [str(cartella / f"giorno-{g}.md")], "pagina": str(file_pagina),
+                           "bilancio": str(file_bilancio)})
         riassunti[g] = md
         (cartella / f"giorno-{g}.md").write_text(md, encoding="utf-8")
         _scrivi_json(cartella / f"giorno-{g}.json", {
@@ -278,9 +286,14 @@ def prepara(ora: float) -> int:
         for g in giorni:
             righe.append("")
             righe += [("#" + r if r.startswith("#") else r) for r in riassunti[g].rstrip("\n").split("\n")]
+        file_bilancio = cartella / "bilancio-recupero.md"
+        testo_bilancio = bilancio.md(bilancio.righe(tutte, tardi, fuso, inizio))
+        file_bilancio.write_text(testo_bilancio, encoding="utf-8")
+        righe += ["", SEZIONE_BILANCIO, ""] + testo_bilancio.rstrip("\n").split("\n")
         (cartella / "recupero.md").write_text("\n".join(righe) + "\n", encoding="utf-8")
         pagine.append({"numero": n, "titolo": TITOLO_RECUPERO, "giorni": giorni,
-                       "riassunti": [str(cartella / "recupero.md")], "pagina": str(file_pagina)})
+                       "riassunti": [str(cartella / "recupero.md")], "pagina": str(file_pagina),
+                       "bilancio": str(file_bilancio)})
 
     # cursore finale: le giornate non finite si rileggono domani, prima del loro messaggio
     cursore = racc.ultimo_messaggio
@@ -385,6 +398,17 @@ def _controlla(p: Path, prova: bool, prep_file: Path):
                 break
             if _chiave(x["pagina"]) not in fatte:
                 raise Errore(f"pubblica prima {_mostra(Path(x['pagina']))} (le pagine vanno in ordine)")
+    pag = attesa
+    if prova and prep_file.exists():
+        try:
+            pag = next((x for x in _carica_prep(prep_file)["pagine"] if _chiave(x["pagina"]) == _chiave(p)), None)
+        except Errore:
+            pag = None
+    if pag and pag.get("bilancio"):
+        try:
+            testo = testo.rstrip() + "\n\n" + Path(pag["bilancio"]).read_text(encoding="utf-8").strip()
+        except OSError:
+            raise Errore(f"manca il bilancio ({pag['bilancio']}): esegui di nuovo `prepara`") from None
     try:
         messaggi = pagina.embed(testo)
     except ValueError as e:

@@ -303,6 +303,120 @@ describe("Main (collegamento al gioco)", function()
     assert.equals("done", q.action)
     assert.equals(450, q.xp)
     assert.equals(1200, q.money)
+    assert.is_nil(q.desc)
+    assert.is_nil(q.obj)
+    assert.is_nil(q.fine)
+  end)
+
+  local function questWindow(id)
+    v.quests[id] = "Il Ragno"
+    v.questId = id
+    v.rewardText = "Well done."
+    v.questLog[id] = { index = 3, desc = "Long story", obj = "Kill 8 rats" }
+  end
+
+  it("QUEST_COMPLETE poi QUEST_TURNED_IN: testi della missione nell'evento", function()
+    login()
+    questWindow(42)
+    v.questSel = 5
+    H.fire("QUEST_COMPLETE")
+    H.fire("QUEST_TURNED_IN", 42, 450, 1200)
+    local q = find("quest")
+    assert.equals("Il Ragno", q.title)
+    assert.equals(450, q.xp)
+    assert.equals("Long story", q.desc)
+    assert.equals("Kill 8 rats", q.obj)
+    assert.equals("Well done.", q.fine)
+    assert.equals(5, v.questSel) -- selezione del registro ripristinata
+    assert.equals(0, #DiarioGildaDB.errors)
+  end)
+
+  it("registro senza C_QuestLog.GetLogIndexForQuestID: si usa GetQuestLogIndexByID", function()
+    finally(function() _G.GetQuestLogIndexByID = nil end)
+    restart(function()
+      rawset(C_QuestLog, "GetLogIndexForQuestID", nil)
+      _G.GetQuestLogIndexByID = function(id) local q = G.v.questLog[id] return q and q.index end
+    end)
+    login()
+    questWindow(42)
+    H.fire("QUEST_COMPLETE")
+    H.fire("QUEST_TURNED_IN", 42, 450, 1200)
+    local q = find("quest")
+    assert.equals("Long story", q.desc)
+    assert.equals("Kill 8 rats", q.obj)
+    assert.equals("Well done.", q.fine)
+  end)
+
+  it("API dei testi assenti: evento come prima, nessun errore", function()
+    restart(function()
+      rawset(C_QuestLog, "GetLogIndexForQuestID", nil)
+      _G.GetQuestID = nil
+      _G.GetRewardText = nil
+      _G.GetQuestLogSelection = nil
+      _G.SelectQuestLogEntry = nil
+      _G.GetQuestLogQuestText = nil
+    end)
+    login()
+    v.quests[42] = "Il Ragno"
+    H.fire("QUEST_COMPLETE")
+    H.fire("QUEST_TURNED_IN", 42, 450, 1200)
+    local q = find("quest")
+    assert.equals("Il Ragno", q.title)
+    assert.equals(450, q.xp)
+    assert.is_nil(q.desc)
+    assert.is_nil(q.obj)
+    assert.is_nil(q.fine)
+    assert.equals(0, #DiarioGildaDB.errors)
+  end)
+
+  it("QUEST_TURNED_IN di un'altra missione: nessun testo; i testi non restano per la successiva", function()
+    login()
+    questWindow(42)
+    v.quests[43] = "Altra"
+    H.fire("QUEST_COMPLETE")
+    H.fire("QUEST_TURNED_IN", 43, 10, 0)
+    H.fire("QUEST_TURNED_IN", 42, 450, 1200)
+    for _, e in ipairs(events()) do
+      if e.k == "quest" then
+        assert.is_nil(e.desc)
+        assert.is_nil(e.obj)
+        assert.is_nil(e.fine)
+      end
+    end
+    assert.equals(2, count("quest"))
+  end)
+
+  it("QUEST_TURNED_IN senza QUEST_COMPLETE: nessun testo", function()
+    login()
+    questWindow(42)
+    H.fire("QUEST_TURNED_IN", 42, 450, 1200)
+    local q = find("quest")
+    assert.is_nil(q.desc)
+    assert.is_nil(q.fine)
+  end)
+
+  it("testi lunghi troncati a 600/300/400", function()
+    login()
+    questWindow(42)
+    v.questLog[42].desc = string.rep("d", 700)
+    v.questLog[42].obj = string.rep("o", 350)
+    v.rewardText = string.rep("f", 450)
+    H.fire("QUEST_COMPLETE")
+    H.fire("QUEST_TURNED_IN", 42, 450, 1200)
+    local q = find("quest")
+    assert.equals(string.rep("d", 600), q.desc)
+    assert.equals(string.rep("o", 300), q.obj)
+    assert.equals(string.rep("f", 400), q.fine)
+  end)
+
+  it("verde a livello 12 registrato, a livello 25 no", function()
+    login()
+    local green = "|cnIQ2:|Hitem:55::::::::|h[Verde]|h|r"
+    H.fire("CHAT_MSG_LOOT", "You receive loot: " .. green .. ".")
+    assert.equals(1, count("loot"))
+    v.units.player.level = 25
+    H.fire("CHAT_MSG_LOOT", "You receive loot: " .. green .. ".")
+    assert.equals(1, count("loot"))
   end)
 
   it("abbandono via C_QuestLog: id ricordato a SetAbandonQuest, un solo evento", function()

@@ -4,6 +4,7 @@ import gzip
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -417,6 +418,100 @@ class TestStatoPerPagina(BaseCli):
         self.assertEqual(codice, 1)
         self.assertIn("pagina pubblicata ma stato non salvato", err)
         self.assertEqual(len(self.post(DIARIO)), 1)
+
+
+class TestBilancio(BaseCli):
+    def _bil(self, nome="bilancio-2026-10-26.md") -> str:
+        return (self.lavoro / nome).read_text(encoding="utf-8")
+
+    def test_prepara_scrive_bilancio(self):
+        self.carica(PACCHETTI[:2])
+        codice, _, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        testo = self._bil()
+        self.assertIn("**Bilancio della giornata**", testo)
+        self.assertIn("**Gino**", testo)
+        self.assertIn("**Mara**", testo)
+        pag = self.preparato()["pagine"][0]
+        self.assertEqual(Path(pag["bilancio"]), self.lavoro / "bilancio-2026-10-26.md")
+        riass = (self.lavoro / "giorno-2026-10-26.md").read_text(encoding="utf-8")
+        self.assertIn("## Bilancio (lo aggiunge pubblica: non scriverlo)", riass)
+
+    def test_pubblica_aggiunge_bilancio_in_fondo(self):
+        self.carica(PACCHETTI[:2])
+        self.esegui("prepara")
+        bil = self._bil()
+        riga_mara = next(r for r in bil.splitlines() if r.startswith("**Mara**"))
+        pag = self.scrivi_pagina("pagina-2026-10-26.md", self.preparato()["pagine"][0]["titolo"])
+        codice, _, err = self.esegui("pubblica", str(pag))
+        self.assertEqual(codice, 0, err)
+        desc = self.post(DIARIO)[-1]["payload"]["embeds"][0]["description"]
+        self.assertTrue(desc.rstrip().endswith(riga_mara), desc)
+        self.assertLess(desc.index("Narrano le genti"), desc.index("**Bilancio della giornata**"))
+
+    def test_recupero_un_bilancio_sommato(self):
+        self.carica()
+        self.esegui("prepara")
+        self.assertEqual(sorted(p.name for p in self.lavoro.glob("bilancio-*.md")),
+                         ["bilancio-recupero.md"])
+        pag = self.preparato()["pagine"][0]
+        self.assertEqual(Path(pag["bilancio"]), self.lavoro / "bilancio-recupero.md")
+        righe = [r for r in self._bil("bilancio-recupero.md").splitlines() if r.startswith("**Gino**")]
+        self.assertEqual(len(righe), 1)
+
+    def test_pagina_senza_bilancio_compatibile(self):
+        self.carica(PACCHETTI[:2])
+        self.esegui("prepara")
+        prep = self.preparato()
+        for p in prep["pagine"]:
+            p.pop("bilancio", None)
+        (self.lavoro / "prepara.json").write_text(json.dumps(prep), encoding="utf-8")
+        pag = self.scrivi_pagina("pagina-2026-10-26.md", prep["pagine"][0]["titolo"])
+        codice, _, err = self.esegui("pubblica", str(pag))
+        self.assertEqual(codice, 0, err)
+        desc = self.post(DIARIO)[-1]["payload"]["embeds"][0]["description"]
+        self.assertNotIn("Bilancio della giornata", desc)
+
+    def test_bilancio_mancante_blocca_la_pubblicazione(self):
+        self.carica(PACCHETTI[:2])
+        self.esegui("prepara")
+        (self.lavoro / "bilancio-2026-10-26.md").unlink()
+        pag = self.scrivi_pagina("pagina-2026-10-26.md", self.preparato()["pagine"][0]["titolo"])
+        self.assertNotEqual(self.esegui("pubblica", str(pag))[0], 0)
+        self.assertEqual(self.post(DIARIO), [])
+
+
+class TestDeathknell(BaseCli):
+    """Prova completa sui dati veri: Sciatalgia a Deathknell (fixture del 2026-11-04)."""
+
+    def test_prepara_deathknell(self):
+        sessioni = json.loads((DATI / "deathknell-2026-11-04.json").read_text(encoding="utf-8"))
+        eventi = [e for s in sessioni for e in s["sessione"]["events"]]
+        missioni = sum(1 for e in eventi if e["k"] == "quest" and e.get("action") == "done")
+        morti = sum(1 for e in eventi if e["k"] == "death")
+        livelli = [s["sessione"]["level"] for s in sessioni] + [e["level"] for e in eventi if e["k"] == "level"]
+        da, a = min(livelli), max(livelli)
+        self.assertGreater(missioni, 0)
+        self.assertGreater(morti, 0)
+        self.assertGreater(a, da)
+        for s in sessioni:
+            doc = {"formato": 1, "app": s["sessione"]["addon"], **s}
+            nome = f"sessione_Sciatalgia_{s['sessione']['id'].replace(' ', '_')}.json.gz"
+            self.f.aggiungi_allegato(SERVIZIO, "", nome, _gz(doc), autore="555")
+        ora = _ora("2026-11-05 07:15")
+        codice, _, err = self.esegui("prepara", ora=ora)
+        self.assertEqual(codice, 0, err)
+        riass = (self.lavoro / "giorno-2026-11-04.md").read_text(encoding="utf-8")
+        self.assertIn("Missione", riass)
+        self.assertIn("Livelli", riass)
+        self.assertIn(f"da: {da}; a: {a}", riass)
+        bil = (self.lavoro / "bilancio-2026-11-04.md").read_text(encoding="utf-8")
+        riga = next(r for r in bil.splitlines() if r.startswith("**Sciatalgia"))
+        self.assertIn(f"livello {da} → {a}", riga)
+        self.assertIn(f"{missioni} missioni", riga)
+        self.assertIn(f"{morti} morti", riga)
+        nemici = re.search(r"(\d+) nemici", riga)
+        self.assertTrue(nemici and int(nemici.group(1)) > 0, riga)
 
 
 class TestComandi(BaseCli):
