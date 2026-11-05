@@ -121,6 +121,21 @@ describe("Recorder (boss, gruppo, missioni, duelli, zone)", function()
     assert.equals(0, #db.errors)
   end)
 
+  it("missione con testi su più righe: spazi e a capo ridotti a uno spazio, prima del taglio", function()
+    rec:onQuestDone(80, "Righe", 1, 0, {
+      desc = "a\r\n\r\nb\tc", obj = "  Kill\n\n8 rats  ", fine = " \n\t ",
+    })
+    local a = events()[1]
+    assert.equals("a b c", a.desc)
+    assert.equals("Kill 8 rats", a.obj)
+    assert.is_nil(a.fine)
+    rec:onQuestDone(81, "Lunga", 1, 0, { desc = string.rep("d\n\n", 400) })
+    local b = events()[2]
+    assert.equals(600, #b.desc)
+    assert.is_nil(b.desc:find("[\r\n]"))
+    assert.equals(0, #db.errors)
+  end)
+
   it("duello", function()
     rec:onSystemMsg("Gino has defeated Bob in a duel")
     local e = events()[1]

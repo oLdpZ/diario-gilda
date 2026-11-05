@@ -16,7 +16,7 @@
 -- I valori passano da DG.Safe prima di essere letti. La parte 2 (Task 6) aggiunge metodi a DG.Recorder.
 --   rec:onEncounterStart(id,name,diff,size) rec:onEncounterEnd(id,name,diff,size,success)  -> encounter
 --   rec:onRoster(members) (debounce GROUP_SETTLE) -> group; rec:onQuestDone/onQuestAbandon -> quest
---   rec:onQuestDone(id, title, xp, money, testi)  testi = { desc, obj, fine } o nil (troncati a MAX_DESC/OBJ/FINE)
+--   rec:onQuestDone(id, title, xp, money, testi)  testi = { desc, obj, fine } o nil (una riga, troncati)
 --   rec:onSystemMsg(msg) -> duel; rec:onZone(zone) -> zone
 local _, DG = ...
 
@@ -351,9 +351,18 @@ def("onQuestDone", function(self, id, title, xp, money, testi)
   }
   if type(testi) == "table" then
     local C, S = DG.Const, DG.Safe
-    fields.desc = S.cut(S.str(testi.desc), C.MAX_DESC)
-    fields.obj = S.cut(S.str(testi.obj), C.MAX_OBJ)
-    fields.fine = S.cut(S.str(testi.fine), C.MAX_FINE)
+    -- una riga sola: spazi e a capo ridotti a uno spazio, poi il taglio
+    local function riga(v, n)
+      v = S.str(v)
+      if not v then
+        return nil
+      end
+      v = v:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
+      return S.cut(v, n)
+    end
+    fields.desc = riga(testi.desc, C.MAX_DESC)
+    fields.obj = riga(testi.obj, C.MAX_OBJ)
+    fields.fine = riga(testi.fine, C.MAX_FINE)
   end
   self.journal.add("quest", fields)
 end)
