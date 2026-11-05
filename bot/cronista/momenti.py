@@ -484,6 +484,8 @@ def _da_missioni(g: str, p: dict) -> list[dict]:
         prec = t
         finestra = [ep for ep, _ in p["episodi"] if ep.get("kind") == "combat" and da < _int(ep["to"]) <= t]
         titolo = _str(e.get("title"))
+        dove = _dove(e)
+        noto = dove != "luogo sconosciuto"
         fatti: dict = {"missione": titolo} if titolo else {}
         xp = _int(e.get("xp"))
         if xp is not None:
@@ -496,8 +498,7 @@ def _da_missioni(g: str, p: dict) -> list[dict]:
                 finestra, lambda n: re.search(rf"\b{re.escape(n.lower())}s?\b", testo) is not None)
         if nemici:
             fatti["nemici"] = nemici
-        else:
-            dove = _dove(e)
+        elif noto:  # senza luogo non si indovinano i nemici
             vicini = [ep for ep in finestra if _int(ep["to"]) > t - MISSIONE_RIPIEGO_S
                       and _dove(_evento_a(p, _int(ep["to"]), "combat") or {}) == dove]
             nemici = _conta_uccisioni(vicini, lambda n: True)
@@ -509,9 +510,9 @@ def _da_missioni(g: str, p: dict) -> list[dict]:
             if v:
                 fatti[chiave] = v
         perche = f"Missione «{titolo}» completata" if titolo else "Una missione completata"
-        if _dove(e) != "luogo sconosciuto":
-            perche += f" a {_dove(e)}"
-        out.append(_cand("missione", 20 if _str(e.get("desc")) else 12, t, _dove(e), g, fatti, perche, _zona(e)))
+        if noto:
+            perche += f" a {dove}"
+        out.append(_cand("missione", 20 if _str(e.get("desc")) else 12, t, dove, g, fatti, perche, _zona(e)))
     return out
 
 
@@ -564,6 +565,8 @@ def _legame(gruppo: list[dict], c: dict, cron: dict) -> str | None:
     for x in gruppo:
         rel = _insieme(cron[x["_g"]], x["quando"], cron[c["_g"]], c["quando"])
         vicini = abs(x["quando"] - c["quando"]) <= UNIONE_S
+        if c["tipo"] == "missione" and x["fatti"].get("missione") != c["fatti"].get("missione"):
+            continue  # missioni diverse: mai unite
         bx, bc = x["fatti"].get("boss_id"), c["fatti"].get("boss_id")
         if bx is not None or bc is not None:
             if bx != bc:
@@ -719,12 +722,29 @@ def _valore(v) -> str:
     return pulito(v)
 
 
+def _nemici_testo(nemici: list) -> str:
+    """[{nome, n}] -> "Nome x3, Altro x1"."""
+    out = []
+    for x in nemici:
+        x = _dict(x)
+        nome, n = _str(x.get("nome")), _int(x.get("n"))
+        if nome:
+            out.append(f"{pulito(nome)} x{n}" if n is not None else pulito(nome))
+    return ", ".join(out)
+
+
 def _riga_fatti(fatti: dict) -> str:
     parti = []
     if "in_ritardo" in fatti:  # sempre per primo: il taglio a 300 caratteri non lo perde
         parti.append(f"in ritardo: {_valore(fatti['in_ritardo'])}")
     for k, v in fatti.items():
-        if k in ("boss_id", "altri", "insieme", "per_giocatore", "in_ritardo", "trama", "obiettivi", "consegna"):
+        if k in ("boss_id", "altri", "insieme", "per_giocatore", "in_ritardo", "trama", "obiettivi", "consegna",
+                 "nemici_presunti"):
+            continue
+        if k == "nemici" and isinstance(v, list):
+            presunti = fatti.get("nemici_presunti") is True
+            parti.append(f"{'nemici (presunti, dai combattimenti vicini)' if presunti else 'nemici'}: "
+                         f"{_nemici_testo(v)}")
             continue
         parti.append(f"{pulito(str(k).replace('_', ' '), 40)}: {_valore(v)}")
     s = "; ".join(parti)

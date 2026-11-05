@@ -547,5 +547,46 @@ class TestMissioni(unittest.TestCase):
         self.assertEqual((q["tipo"], q["punti"], q["fatti"], q["perche"]),
                          ("missione_abbandonata", 10, {"missione": "Il Ragno"}, "Missione «Il Ragno» abbandonata"))
 
+    def test_missioni_diverse_in_gruppo_separate(self):
+        a = [gruppo(50, "Bea"), missione(100, "Q1", 10)]
+        b = [gruppo(50, "Ada"), missione(150, "Q2", 10)]
+        cand = per_tipo(momenti.candidati([sessione("Ada", a), sessione("Bea", b)], {}), "missione")
+        self.assertEqual(sorted((m["fatti"]["missione"], m["chi"]) for m in cand),
+                         [("Q1", ["Ada"]), ("Q2", ["Bea"])])
+        self.assertTrue(all("insieme" not in m["fatti"] for m in cand))
+
+    def test_missioni_incrociate_in_gruppo(self):
+        a = [gruppo(50, "Bea"), missione(100, "Q1", 10), missione(110, "Q2", 10)]
+        b = [gruppo(50, "Ada"), missione(105, "Q2", 10), missione(115, "Q1", 10)]
+        cand = per_tipo(momenti.candidati([sessione("Ada", a), sessione("Bea", b)], {}), "missione")
+        self.assertEqual(sorted((m["fatti"]["missione"], m["chi"]) for m in cand),
+                         [("Q1", ["Ada", "Bea"]), ("Q2", ["Ada", "Bea"])])
+        # ognuno ha fatto proprio quella missione: nessun titolo diverso tra i giocatori
+        self.assertTrue(all("missione" not in f for m in cand for f in m["fatti"].get("per_giocatore", {}).values()))
+
+    def test_luogo_sconosciuto_niente_nemici_presunti(self):
+        ev = [{"t": 90, "k": "combat"}, {"t": 100, "k": "quest", "action": "done", "title": "Q"}]
+        eps = [{"from": 80, "to": 90, "kind": "combat", "kills": [{"name": "Lupo", "n": 2}]}]
+        (m,) = per_tipo(momenti.candidati([sessione("Sci", ev, eps)], {}), "missione")
+        self.assertEqual(m["fatti"], {"missione": "Q"})
+        self.assertEqual(m["perche"], "Missione «Q» completata")
+
+    def test_riassunto_nemici_leggibili(self):
+        t = 10_000
+        ev = [{"t": t - 600, "k": "combat", "z": "Tirisfal Glades", "s": "Deathknell"}, missione(t, "Q", 10)]
+        eps = [{"from": t - 610, "to": t - 600, "kind": "combat",
+                "kills": [{"name": "Lupo", "n": 2}, {"name": "Ragno", "n": 3}, {"name": "Ratto", "n": 1}]}]
+        cand = per_tipo(momenti.candidati([sessione("Sci", ev, eps)], {}), "missione")
+        md = momenti.riassunto_md("2026-11-05", cand, [], ["Sci"])
+        (fatti,) = [r for r in md.splitlines() if r.startswith("   Fatti: ")]
+        self.assertEqual(fatti, "   Fatti: missione: Q; xp: 10; "
+                                "nemici (presunti, dai combattimenti vicini): Ragno x3, Lupo x2, Ratto x1")
+        self.assertNotIn("presunti: sì", md)
+        c = {"tipo": "missione", "punti": 12, "quando": t, "dove": "D", "chi": ["Sci"], "perche": "p",
+             "fatti": {"missione": "Q", "nemici": [{"nome": "Mindless Zombie", "n": 5}, {"nome": "Wretched Zombie", "n": 4}]}}
+        md = momenti.riassunto_md("2026-11-05", [c], [], ["Sci"])
+        self.assertIn("   Fatti: missione: Q; nemici: Mindless Zombie x5, Wretched Zombie x4\n", md)
+
+
 if __name__ == "__main__":
     unittest.main()
