@@ -18,7 +18,7 @@ from . import testo as T
 from . import video, voce
 
 RADICE = Path(__file__).resolve().parents[1]
-MESSAGGIO = "🔊 **Il Vecchio Saggio** racconta: *{titolo}*"
+MESSAGGIO = "🔊 **Il Cronista Goblin** racconta: *{titolo}*"
 
 
 def fai_video(titolo: str, testo: str, cartella: Path, chiave: str) -> Path:

@@ -12,12 +12,12 @@ from pathlib import Path
 
 API = "https://generativelanguage.googleapis.com/v1beta/interactions"
 MODELLO = "gemini-3.8-flash-tts"
-VOCE = "Algenib"
-STILE = ("Narrate like an ancient, wise fantasy storyteller beside a candle: slow, solemn and warm, "
-         "with gravitas and quiet wonder; let dramatic moments breathe, never rushed, never theatrical shouting. "
+VOCE = "voice_l7tji7qvvm6z"   # goblin roco e furbo (voce personalizzata del progetto di doppiaggio)
+STILE = ("Narrate like a sly, excited old goblin chronicler telling the guild's latest deeds by candlelight: "
+         "lively and theatrical but always clear, savouring the juicy parts, a little mischievous. "
          "The text is Italian: speak it as a native Italian speaker from Italy, standard Italian pronunciation and "
          "intonation, no English or foreign accent; only proper names from the game stay as written.")
-VELOCITA = 1.12
+VELOCITA = 1.05
 PAUSA_FRASE, PAUSA_PARAGRAFO = 0.55, 1.1
 TENTATIVI = 3
 
