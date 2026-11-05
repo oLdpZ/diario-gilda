@@ -107,8 +107,13 @@ class Discord:
         raise DiscordError(404, f"server non trovato: {id_o_nome}")
 
     def canale(self, server_id: str, nome: str) -> str:
-        for c in self._json(f"/guilds/{server_id}/channels"):
-            if c.get("name") == nome and c.get("type", 0) == 0:
+        """Id del canale testuale `nome`, anche se ha un'icona davanti («🪶┃nome»): il nome esatto vince."""
+        canali = [c for c in self._json(f"/guilds/{server_id}/channels") if c.get("type", 0) == 0]
+        for c in canali:
+            if c.get("name") == nome:
+                return c["id"]
+        for c in canali:
+            if (c.get("name") or "").endswith("┃" + nome):
                 return c["id"]
         raise DiscordError(404, f"canale non trovato: {nome}")
 

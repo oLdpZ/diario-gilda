@@ -29,6 +29,15 @@ class TestDiscord(unittest.TestCase):
         with self.assertRaises(DiscordError):
             self.cl().canale("100", "nope")
 
+    def test_canale_con_icona(self):
+        self.f.canali["100"] = [{"id": "300", "name": "📜┃old_pz-diario-di-gilda", "type": 0},
+                                {"id": "301", "name": "🪶┃diario-di-gilda", "type": 0},
+                                {"id": "302", "name": "diario-servizio", "type": 0}]
+        self.assertEqual(self.cl().canale("100", "diario-di-gilda"), "301")   # non il canale della mod
+        self.assertEqual(self.cl().canale("100", "diario-servizio"), "302")
+        self.f.canali["100"].append({"id": "303", "name": "diario-di-gilda", "type": 0})
+        self.assertEqual(self.cl().canale("100", "diario-di-gilda"), "303")   # il nome esatto vince
+
     def test_messaggi_dopo_paginati_dal_piu_vecchio(self):
         for i in range(250):
             self.f.aggiungi("201", f"m{i}")
