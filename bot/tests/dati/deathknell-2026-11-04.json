@@ -1,0 +1,5037 @@
+[
+ {
+  "giocatore": "Sciatalgia Fulminante",
+  "interrotta": false,
+  "troncata": 0,
+  "sessione": {
+   "id": "CAMWOW EU5 Realm 5 PvE-Sciatalgia-1793834441",
+   "char": "Sciatalgia",
+   "realm": "CAMWOW EU5 Realm 5 PvE",
+   "class": "ROGUE",
+   "race": "Scourge",
+   "level": 1,
+   "build": "1.60.1.70790",
+   "addon": "0.1.2",
+   "start": 1793834441,
+   "stop": 1793842143,
+   "dropped": 0,
+   "events": [
+    {
+     "first": true,
+     "k": "zone",
+     "m": 1420,
+     "s": "Shadow Grave",
+     "t": 1793834445,
+     "x": 0.3,
+     "y": 0.717,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 363,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "s": "Deathknell",
+     "t": 1793835152,
+     "title": "Rude Awakening",
+     "x": 0.308,
+     "xp": 40,
+     "y": 0.662,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793835214,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793835219,
+     "to": 1793835219,
+     "x": 0.322,
+     "y": 0.636,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793835300,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793835307,
+     "to": 1793835307,
+     "x": 0.326,
+     "y": 0.627,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793835316,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793835323,
+     "to": 1793835323,
+     "x": 0.325,
+     "y": 0.621,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793835328,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793835338,
+     "to": 1793835338,
+     "x": 0.328,
+     "y": 0.621,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793835348,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793835362,
+     "to": 1793835362,
+     "x": 0.328,
+     "y": 0.621,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793835365,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793835373,
+     "to": 1793835373,
+     "x": 0.326,
+     "y": 0.621,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793835589,
+     "x": 0.328,
+     "y": 0.62,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836198,
+     "x": 0.329,
+     "y": 0.62,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836403,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836411,
+     "to": 1793836411,
+     "x": 0.321,
+     "y": 0.605,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836418,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836419,
+     "to": 1793836419,
+     "x": 0.32,
+     "y": 0.603,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "k": "level",
+     "level": 2,
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836433,
+     "x": 0.314,
+     "y": 0.604,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836423,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836434,
+     "to": 1793836434,
+     "x": 0.315,
+     "y": 0.604,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836442,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836449,
+     "to": 1793836449,
+     "x": 0.321,
+     "y": 0.606,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836453,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836458,
+     "to": 1793836458,
+     "x": 0.323,
+     "y": 0.605,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836475,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836479,
+     "to": 1793836479,
+     "x": 0.324,
+     "y": 0.629,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836486,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836495,
+     "to": 1793836495,
+     "x": 0.317,
+     "y": 0.638,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836563,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836567,
+     "to": 1793836567,
+     "x": 0.32,
+     "y": 0.634,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836572,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836582,
+     "to": 1793836582,
+     "x": 0.314,
+     "y": 0.631,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836587,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836593,
+     "to": 1793836593,
+     "x": 0.309,
+     "y": 0.625,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836605,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836610,
+     "to": 1793836610,
+     "x": 0.31,
+     "y": 0.63,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836614,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836619,
+     "to": 1793836619,
+     "x": 0.312,
+     "y": 0.634,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836635,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836640,
+     "to": 1793836640,
+     "x": 0.301,
+     "y": 0.654,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836652,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836662,
+     "to": 1793836662,
+     "x": 0.301,
+     "y": 0.661,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836678,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836682,
+     "to": 1793836682,
+     "x": 0.301,
+     "y": 0.656,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836690,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836696,
+     "to": 1793836696,
+     "x": 0.294,
+     "y": 0.663,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836700,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836707,
+     "to": 1793836707,
+     "x": 0.291,
+     "y": 0.673,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836710,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836718,
+     "to": 1793836718,
+     "x": 0.29,
+     "y": 0.68,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836741,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836746,
+     "to": 1793836746,
+     "x": 0.296,
+     "y": 0.674,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836753,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836763,
+     "to": 1793836763,
+     "x": 0.3,
+     "y": 0.663,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836768,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836774,
+     "to": 1793836774,
+     "x": 0.295,
+     "y": 0.657,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836777,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836787,
+     "to": 1793836787,
+     "x": 0.292,
+     "y": 0.666,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793836791,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793836800,
+     "to": 1793836800,
+     "x": 0.295,
+     "y": 0.668,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "how": "knockout",
+     "k": "duel",
+     "loser": "Altro2",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793837117,
+     "winner": "Altro1",
+     "x": 0.293,
+     "y": 0.659,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793837167,
+     "x": 0.293,
+     "y": 0.659,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "k": "level",
+     "level": 3,
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793837315,
+     "x": 0.291,
+     "y": 0.65,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793837308,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793837315,
+     "to": 1793837315,
+     "x": 0.291,
+     "y": 0.65,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793837337,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793837343,
+     "to": 1793837343,
+     "x": 0.296,
+     "y": 0.67,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793837372,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793837378,
+     "to": 1793837378,
+     "x": 0.292,
+     "y": 0.683,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793837391,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793837397,
+     "to": 1793837397,
+     "x": 0.297,
+     "y": 0.66,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793837409,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793837418,
+     "to": 1793837418,
+     "x": 0.301,
+     "y": 0.662,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793837425,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793837432,
+     "to": 1793837432,
+     "x": 0.302,
+     "y": 0.654,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 364,
+     "k": "quest",
+     "m": 1420,
+     "money": 17,
+     "s": "Deathknell",
+     "t": 1793837472,
+     "title": "The Mindless Ones",
+     "x": 0.308,
+     "xp": 170,
+     "y": 0.662,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 376,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "s": "Deathknell",
+     "t": 1793837659,
+     "title": "The Damned",
+     "x": 0.309,
+     "xp": 170,
+     "y": 0.661,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793838040,
+     "x": 0.308,
+     "y": 0.662,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793838460,
+     "x": 0.308,
+     "y": 0.662,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 3096,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "s": "Deathknell",
+     "t": 1793838804,
+     "title": "Encrypted Scroll",
+     "x": 0.325,
+     "xp": 40,
+     "y": 0.656,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839067,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839070,
+     "to": 1793839070,
+     "x": 0.32,
+     "y": 0.644,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839087,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839090,
+     "to": 1793839090,
+     "x": 0.325,
+     "y": 0.631,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839098,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839101,
+     "to": 1793839101,
+     "x": 0.32,
+     "y": 0.626,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839108,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839113,
+     "to": 1793839113,
+     "x": 0.323,
+     "y": 0.619,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839147,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839156,
+     "to": 1793839156,
+     "x": 0.33,
+     "y": 0.63,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839161,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839163,
+     "to": 1793839163,
+     "x": 0.329,
+     "y": 0.622,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839165,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839174,
+     "to": 1793839174,
+     "x": 0.326,
+     "y": 0.621,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839225,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839228,
+     "to": 1793839228,
+     "x": 0.321,
+     "y": 0.644,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839472,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839476,
+     "to": 1793839476,
+     "x": 0.335,
+     "y": 0.64,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839639,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839645,
+     "to": 1793839645,
+     "x": 0.33,
+     "y": 0.631,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839742,
+     "x": 0.329,
+     "y": 0.625,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 3902,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "s": "Deathknell",
+     "t": 1793839907,
+     "title": "Scavenging Deathknell",
+     "x": 0.316,
+     "xp": 320,
+     "y": 0.656,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839934,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839941,
+     "to": 1793839941,
+     "x": 0.324,
+     "y": 0.617,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839950,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839964,
+     "to": 1793839964,
+     "x": 0.323,
+     "y": 0.609,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "k": "level",
+     "level": 4,
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839975,
+     "x": 0.321,
+     "y": 0.611,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793839966,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793839975,
+     "to": 1793839975,
+     "x": 0.321,
+     "y": 0.611,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793840113,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793840120,
+     "to": 1793840120,
+     "x": 0.319,
+     "y": 0.616,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793840126,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793840136,
+     "to": 1793840136,
+     "x": 0.323,
+     "y": 0.616,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793840260,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793840262,
+     "to": 1793840262,
+     "x": 0.327,
+     "y": 0.613,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793840268,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793840275,
+     "to": 1793840275,
+     "x": 0.32,
+     "y": 0.611,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793840286,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793840292,
+     "to": 1793840292,
+     "x": 0.316,
+     "y": 0.606,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793840299,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793840307,
+     "to": 1793840307,
+     "x": 0.311,
+     "y": 0.607,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793840318,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793840325,
+     "to": 1793840325,
+     "x": 0.319,
+     "y": 0.601,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793840361,
+     "x": 0.323,
+     "y": 0.612,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793840402,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793840406,
+     "to": 1793840406,
+     "x": 0.324,
+     "y": 0.607,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793840571,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793840586,
+     "to": 1793840586,
+     "x": 0.365,
+     "y": 0.613,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 6395,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "s": "Deathknell",
+     "t": 1793840841,
+     "title": "Marla's Last Wish",
+     "x": 0.309,
+     "xp": 450,
+     "y": 0.661,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 3901,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "s": "Deathknell",
+     "t": 1793840863,
+     "title": "Rattling the Rattlecages",
+     "x": 0.309,
+     "xp": 250,
+     "y": 0.662,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841041,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793841046,
+     "to": 1793841046,
+     "x": 0.289,
+     "y": 0.593,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841051,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841055,
+     "to": 1793841055,
+     "x": 0.285,
+     "y": 0.59,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841060,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841066,
+     "to": 1793841066,
+     "x": 0.282,
+     "y": 0.593,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841071,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841080,
+     "to": 1793841080,
+     "x": 0.278,
+     "y": 0.597,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841091,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841099,
+     "to": 1793841099,
+     "x": 0.276,
+     "y": 0.589,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841106,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841113,
+     "to": 1793841113,
+     "x": 0.284,
+     "y": 0.583,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841126,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841133,
+     "to": 1793841133,
+     "x": 0.274,
+     "y": 0.589,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841144,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841149,
+     "to": 1793841149,
+     "x": 0.272,
+     "y": 0.591,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841162,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841166,
+     "to": 1793841166,
+     "x": 0.283,
+     "y": 0.574,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841170,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841178,
+     "to": 1793841178,
+     "x": 0.281,
+     "y": 0.57,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841182,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841189,
+     "to": 1793841189,
+     "x": 0.277,
+     "y": 0.57,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841194,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841201,
+     "to": 1793841201,
+     "x": 0.27,
+     "y": 0.567,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841208,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841213,
+     "to": 1793841213,
+     "x": 0.274,
+     "y": 0.58,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841217,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841224,
+     "to": 1793841224,
+     "x": 0.275,
+     "y": 0.587,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841245,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841252,
+     "to": 1793841252,
+     "x": 0.267,
+     "y": 0.595,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841271,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841280,
+     "to": 1793841280,
+     "x": 0.266,
+     "y": 0.594,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841290,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841300,
+     "to": 1793841300,
+     "x": 0.261,
+     "y": 0.596,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841308,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841315,
+     "to": 1793841315,
+     "x": 0.259,
+     "y": 0.596,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841318,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841328,
+     "to": 1793841328,
+     "x": 0.257,
+     "y": 0.594,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841338,
+     "x": 0.257,
+     "y": 0.594,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841346,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841352,
+     "to": 1793841352,
+     "x": 0.255,
+     "y": 0.599,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841360,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841383,
+     "to": 1793841383,
+     "x": 0.253,
+     "y": 0.597,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841387,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841398,
+     "to": 1793841398,
+     "x": 0.253,
+     "y": 0.602,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841402,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841410,
+     "to": 1793841410,
+     "x": 0.25,
+     "y": 0.603,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841413,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841423,
+     "to": 1793841423,
+     "x": 0.25,
+     "y": 0.603,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "k": "level",
+     "level": 5,
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841440,
+     "x": 0.245,
+     "y": 0.607,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841435,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841441,
+     "to": 1793841441,
+     "x": 0.245,
+     "y": 0.607,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841452,
+     "k": "combat",
+     "m": 1420,
+     "s": "Night Web's Hollow",
+     "t": 1793841475,
+     "to": 1793841475,
+     "x": 0.243,
+     "y": 0.607,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793841552,
+     "x": 0.298,
+     "y": 0.617,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 380,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "s": "Deathknell",
+     "t": 1793841632,
+     "title": "Night Web's Hollow",
+     "x": 0.322,
+     "xp": 360,
+     "y": 0.66,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 98389,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "s": "Deathknell",
+     "t": 1793841842,
+     "title": "A Light in the Darkness",
+     "x": 0.311,
+     "xp": 360,
+     "y": 0.664,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841922,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793841930,
+     "to": 1793841930,
+     "x": 0.366,
+     "y": 0.678,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841936,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793841951,
+     "to": 1793841951,
+     "x": 0.367,
+     "y": 0.681,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841961,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793841974,
+     "to": 1793841974,
+     "x": 0.367,
+     "y": 0.685,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841977,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793841990,
+     "to": 1793841990,
+     "x": 0.364,
+     "y": 0.682,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793841995,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842004,
+     "to": 1793842004,
+     "x": 0.367,
+     "y": 0.679,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842010,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842017,
+     "to": 1793842017,
+     "x": 0.365,
+     "y": 0.673,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842137,
+     "k": "combat",
+     "s": "Deathknell",
+     "t": 1793842143,
+     "to": 1793842143,
+     "z": "Tirisfal Glades"
+    }
+   ]
+  },
+  "combattimenti": [
+   {
+    "from": 1793835214,
+    "to": 1793835219,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Eviscerate",
+     "amount": 16,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793835300,
+    "to": 1793835307,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 6,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Eviscerate",
+     "amount": 17,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793835316,
+    "to": 1793835323,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 5,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Sinister Strike",
+     "amount": 8,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793835328,
+    "to": 1793835338,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 4,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Sinister Strike",
+     "amount": 8,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793835348,
+    "to": 1793835362,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 11,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Sinister Strike",
+     "amount": 7,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793835365,
+    "to": 1793835373,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 4,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Sinister Strike",
+     "amount": 14,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836403,
+    "to": 1793836411,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 8,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Sinister Strike",
+     "amount": 8,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836418,
+    "to": 1793836419,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Sinister Strike",
+     "amount": 7,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836423,
+    "to": 1793836434,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 15,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 4,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Eviscerate",
+     "amount": 14,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836442,
+    "to": 1793836449,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 4,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Sinister Strike",
+     "amount": 9,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836453,
+    "to": 1793836458,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 10,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836475,
+    "to": 1793836479,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Sinister Strike",
+     "amount": 8,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836486,
+    "to": 1793836495,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 5,
+    "biggestHitTaken": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Sinister Strike",
+     "amount": 8,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836563,
+    "to": 1793836567,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 1,
+    "biggestHitTaken": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Eviscerate",
+     "amount": 14,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836572,
+    "to": 1793836582,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Sinister Strike",
+     "amount": 8,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836587,
+    "to": 1793836593,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Eviscerate",
+     "amount": 12,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836605,
+    "to": 1793836610,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Sinister Strike",
+     "amount": 15,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836614,
+    "to": 1793836619,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Eviscerate",
+     "amount": 13,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836635,
+    "to": 1793836640,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Duskbat",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Duskbat",
+     "spell": "Eviscerate",
+     "amount": 24,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Duskbat",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836652,
+    "to": 1793836662,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 8,
+    "biggestHitTaken": {
+     "who": "Duskbat",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Duskbat",
+     "spell": "Sinister Strike",
+     "amount": 16,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Duskbat",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836678,
+    "to": 1793836682,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Duskbat",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Duskbat",
+     "spell": "Eviscerate",
+     "amount": 15,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Duskbat",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836690,
+    "to": 1793836696,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Duskbat",
+     "spell": "Eviscerate",
+     "amount": 14,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Duskbat",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836700,
+    "to": 1793836707,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Duskbat",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Duskbat",
+     "spell": "Throw",
+     "amount": 13,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Duskbat",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836710,
+    "to": 1793836718,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Young Scavenger",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Scavenger",
+     "spell": "Sinister Strike",
+     "amount": 7,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Scavenger",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836741,
+    "to": 1793836746,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Young Scavenger",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Scavenger",
+     "spell": "Sinister Strike",
+     "amount": 8,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Scavenger",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836753,
+    "to": 1793836763,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 8,
+    "biggestHitTaken": {
+     "who": "Duskbat",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Duskbat",
+     "spell": "Mischia",
+     "amount": 9,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Duskbat",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836768,
+    "to": 1793836774,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Young Scavenger",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Scavenger",
+     "spell": "Eviscerate",
+     "amount": 13,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Scavenger",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836777,
+    "to": 1793836787,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Duskbat",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Duskbat",
+     "spell": "Eviscerate",
+     "amount": 9,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Duskbat",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793836791,
+    "to": 1793836800,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 7,
+    "biggestHitTaken": {
+     "who": "Young Scavenger",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Scavenger",
+     "spell": "Sinister Strike",
+     "amount": 8,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Scavenger",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793837308,
+    "to": 1793837315,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Young Scavenger",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Scavenger",
+     "spell": "Sinister Strike",
+     "amount": 16,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Scavenger",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793837337,
+    "to": 1793837343,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Young Scavenger",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Scavenger",
+     "spell": "Eviscerate",
+     "amount": 16,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Scavenger",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793837372,
+    "to": 1793837378,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Young Scavenger",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Scavenger",
+     "spell": "Eviscerate",
+     "amount": 15,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Scavenger",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793837391,
+    "to": 1793837397,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 1,
+    "biggestHitTaken": {
+     "who": "Young Scavenger",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Scavenger",
+     "spell": "Eviscerate",
+     "amount": 15,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Scavenger",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793837409,
+    "to": 1793837418,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 5,
+    "biggestHitTaken": {
+     "who": "Duskbat",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Duskbat",
+     "spell": "Eviscerate",
+     "amount": 20,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Duskbat",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793837425,
+    "to": 1793837432,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Duskbat",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Duskbat",
+     "spell": "Sinister Strike",
+     "amount": 8,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Duskbat",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839067,
+    "to": 1793839070,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 4,
+    "biggestHitTaken": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Sinister Strike",
+     "amount": 10,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839087,
+    "to": 1793839090,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 12,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839098,
+    "to": 1793839101,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 13,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839108,
+    "to": 1793839113,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 6,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Eviscerate",
+     "amount": 16,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839147,
+    "to": 1793839156,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 9,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Eviscerate",
+     "amount": 13,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839161,
+    "to": 1793839163,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 1,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Sinister Strike",
+     "amount": 21,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839165,
+    "to": 1793839174,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 4,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Eviscerate",
+     "amount": 15,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839225,
+    "to": 1793839228,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 12,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839472,
+    "to": 1793839476,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Mindless Zombie",
+     "spell": "Mischia",
+     "amount": 13,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Mindless Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839639,
+    "to": 1793839645,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 9,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Sinister Strike",
+     "amount": 20,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839934,
+    "to": 1793839941,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 6,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Eviscerate",
+     "amount": 15,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839950,
+    "to": 1793839964,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 12,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Throw",
+     "amount": 11,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793839966,
+    "to": 1793839975,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 9,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Sinister Strike",
+     "amount": 10,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793840113,
+    "to": 1793840120,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 6,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Throw",
+     "amount": 12,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793840126,
+    "to": 1793840136,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 10,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Eviscerate",
+     "amount": 15,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793840260,
+    "to": 1793840262,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Backstab",
+     "amount": 27,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793840268,
+    "to": 1793840275,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 7,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793840286,
+    "to": 1793840292,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 6,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Backstab",
+     "amount": 25,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793840299,
+    "to": 1793840307,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 11,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Backstab",
+     "amount": 25,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793840318,
+    "to": 1793840325,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 10,
+    "biggestHitTaken": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Rattlecage Skeleton",
+     "spell": "Backstab",
+     "amount": 24,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Rattlecage Skeleton",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793840402,
+    "to": 1793840406,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 4,
+    "biggestHitTaken": {
+     "who": "Wretched Zombie",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Wretched Zombie",
+     "spell": "Eviscerate",
+     "amount": 15,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Wretched Zombie",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793840571,
+    "to": 1793840586,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 20,
+    "biggestHitTaken": {
+     "who": "Samuel Fipps",
+     "spell": "Mischia",
+     "amount": 5,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Samuel Fipps",
+     "spell": "Eviscerate",
+     "amount": 24,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Samuel Fipps",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841041,
+    "to": 1793841046,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841051,
+    "to": 1793841055,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 4,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Backstab",
+     "amount": 26,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841060,
+    "to": 1793841066,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841071,
+    "to": 1793841080,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 12,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841091,
+    "to": 1793841099,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Eviscerate",
+     "amount": 13,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841106,
+    "to": 1793841113,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841126,
+    "to": 1793841133,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ],
+    "damageTaken": 6,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Night Web Spider",
+     "spell": "Backstab",
+     "amount": 24,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841144,
+    "to": 1793841149,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ],
+    "damageTaken": 5,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841162,
+    "to": 1793841166,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841170,
+    "to": 1793841178,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 4,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 14,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841182,
+    "to": 1793841189,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 9,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 12,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841194,
+    "to": 1793841201,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 5,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 14,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841208,
+    "to": 1793841213,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 5,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 20,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841217,
+    "to": 1793841224,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 7,
+    "biggestHitTaken": {
+     "who": "Young Night Web Spider",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Young Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Young Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841245,
+    "to": 1793841252,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ],
+    "damageTaken": 10,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Night Web Spider",
+     "spell": "Backstab",
+     "amount": 24,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841271,
+    "to": 1793841280,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Webbed Forsaken",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": []
+   },
+   {
+    "from": 1793841290,
+    "to": 1793841300,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ],
+    "damageTaken": 15,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 4,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 19,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841308,
+    "to": 1793841315,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ],
+    "damageTaken": 6,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Night Web Spider",
+     "spell": "Eviscerate",
+     "amount": 14,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841318,
+    "to": 1793841328,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Webbed Forsaken",
+     "spell": "Sinister Strike",
+     "amount": 10,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": []
+   },
+   {
+    "from": 1793841346,
+    "to": 1793841352,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ],
+    "damageTaken": 11,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Night Web Spider",
+     "spell": "Backstab",
+     "amount": 26,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841360,
+    "to": 1793841383,
+    "kind": "combat",
+    "enemyCount": 2,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 2
+     }
+    ],
+    "damageTaken": 17,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 5,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 19,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841387,
+    "to": 1793841398,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ],
+    "damageTaken": 13,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 5,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Night Web Spider",
+     "spell": "Sinister Strike",
+     "amount": 20,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841402,
+    "to": 1793841410,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ],
+    "damageTaken": 4,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 14,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841413,
+    "to": 1793841423,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Weak Poison",
+     "amount": 1,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Webbed Forsaken",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": []
+   },
+   {
+    "from": 1793841435,
+    "to": 1793841441,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ],
+    "damageTaken": 9,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Night Web Spider",
+     "spell": "Backstab",
+     "amount": 25,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841452,
+    "to": 1793841475,
+    "kind": "combat",
+    "enemyCount": 2,
+    "enemies": [
+     {
+      "name": "Night Web Spider",
+      "n": 2
+     }
+    ],
+    "damageTaken": 34,
+    "biggestHitTaken": {
+     "who": "Night Web Spider",
+     "spell": "Mischia",
+     "amount": 4,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Webbed Forsaken",
+     "spell": "Sinister Strike",
+     "amount": 23,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Night Web Spider",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841922,
+    "to": 1793841930,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 5,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Sinister Strike",
+     "amount": 22,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841936,
+    "to": 1793841951,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Meven Korgal",
+      "n": 1
+     }
+    ],
+    "damageTaken": 26,
+    "biggestHitTaken": {
+     "who": "Meven Korgal",
+     "spell": "Mischia",
+     "amount": 6,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Meven Korgal",
+     "spell": "Mischia",
+     "amount": 14,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Meven Korgal",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841961,
+    "to": 1793841974,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Meven Korgal",
+      "n": 1
+     }
+    ],
+    "damageTaken": 25,
+    "biggestHitTaken": {
+     "who": "Meven Korgal",
+     "spell": "Mischia",
+     "amount": 6,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Meven Korgal",
+     "spell": "Eviscerate",
+     "amount": 15,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Meven Korgal",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841977,
+    "to": 1793841990,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 8,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Eviscerate",
+     "amount": 43,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793841995,
+    "to": 1793842004,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 9,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Eviscerate",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793842010,
+    "to": 1793842017,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 7,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793842137,
+    "to": 1793842143,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 4,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Sinister Strike",
+     "amount": 12,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": []
+   }
+  ]
+ },
+ {
+  "giocatore": "Sciatalgia Fulminante",
+  "interrotta": false,
+  "troncata": 0,
+  "sessione": {
+   "id": "CAMWOW EU5 Realm 5 PvE-Sciatalgia-1793842250",
+   "char": "Sciatalgia",
+   "realm": "CAMWOW EU5 Realm 5 PvE",
+   "class": "ROGUE",
+   "race": "Scourge",
+   "level": 5,
+   "build": "1.60.1.70790",
+   "addon": "0.1.3",
+   "start": 1793842250,
+   "stop": 1793845412,
+   "dropped": 0,
+   "events": [
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842251,
+     "x": 0.366,
+     "y": 0.668,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842281,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842289,
+     "to": 1793842289,
+     "x": 0.369,
+     "y": 0.657,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842472,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842477,
+     "to": 1793842477,
+     "x": 0.37,
+     "y": 0.654,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842482,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842494,
+     "to": 1793842494,
+     "x": 0.37,
+     "y": 0.661,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842502,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842508,
+     "to": 1793842508,
+     "x": 0.376,
+     "y": 0.655,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842519,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842531,
+     "to": 1793842531,
+     "x": 0.368,
+     "y": 0.657,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842539,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842548,
+     "to": 1793842548,
+     "x": 0.364,
+     "y": 0.67,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842574,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842584,
+     "to": 1793842584,
+     "x": 0.359,
+     "y": 0.68,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842588,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842600,
+     "to": 1793842600,
+     "x": 0.36,
+     "y": 0.683,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793842608,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793842620,
+     "to": 1793842620,
+     "x": 0.365,
+     "y": 0.679,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 381,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "s": "Deathknell",
+     "t": 1793842693,
+     "title": "The Scarlet Crusade",
+     "x": 0.322,
+     "xp": 360,
+     "y": 0.66,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "k": "group",
+     "m": 1420,
+     "members": [
+      "Altro3"
+     ],
+     "s": "Deathknell",
+     "t": 1793843106,
+     "x": 0.359,
+     "y": 0.689,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793843104,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793843107,
+     "to": 1793843107,
+     "x": 0.359,
+     "y": 0.689,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793843111,
+     "k": "combat",
+     "m": 1420,
+     "s": "Deathknell",
+     "t": 1793843117,
+     "to": 1793843117,
+     "x": 0.361,
+     "y": 0.688,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "k": "group",
+     "m": 1420,
+     "members": [],
+     "s": "Deathknell",
+     "t": 1793843132,
+     "x": 0.347,
+     "y": 0.682,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 382,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "s": "Deathknell",
+     "t": 1793843188,
+     "title": "The Red Messenger",
+     "x": 0.321,
+     "xp": 675,
+     "y": 0.66,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793843582,
+     "k": "combat",
+     "m": 1420,
+     "s": "Solliden Farmstead",
+     "t": 1793843597,
+     "to": 1793843597,
+     "x": 0.371,
+     "y": 0.506,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793843613,
+     "k": "combat",
+     "m": 1420,
+     "s": "Solliden Farmstead",
+     "t": 1793843640,
+     "to": 1793843640,
+     "x": 0.365,
+     "y": 0.518,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "k": "level",
+     "level": 6,
+     "m": 1420,
+     "s": "Solliden Farmstead",
+     "t": 1793843681,
+     "x": 0.351,
+     "y": 0.518,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793843656,
+     "k": "combat",
+     "m": 1420,
+     "s": "Solliden Farmstead",
+     "t": 1793843682,
+     "to": 1793843682,
+     "x": 0.351,
+     "y": 0.518,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793843726,
+     "k": "combat",
+     "m": 1420,
+     "s": "Solliden Farmstead",
+     "t": 1793843749,
+     "to": 1793843749,
+     "x": 0.346,
+     "y": 0.519,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "breath": false,
+     "k": "death",
+     "m": 1420,
+     "s": "Solliden Farmstead",
+     "t": 1793843957,
+     "x": 0.351,
+     "y": 0.52,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793843926,
+     "k": "combat",
+     "m": 1420,
+     "s": "Solliden Farmstead",
+     "t": 1793843957,
+     "to": 1793843957,
+     "x": 0.351,
+     "y": 0.52,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "s": "Solliden Farmstead",
+     "t": 1793844203,
+     "x": 0.353,
+     "y": 0.525,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "breath": false,
+     "k": "death",
+     "m": 1420,
+     "s": "Solliden Farmstead",
+     "t": 1793844277,
+     "x": 0.353,
+     "y": 0.525,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793844238,
+     "k": "combat",
+     "m": 1420,
+     "s": "Solliden Farmstead",
+     "t": 1793844277,
+     "to": 1793844277,
+     "x": 0.353,
+     "y": 0.525,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793844814,
+     "k": "combat",
+     "m": 1420,
+     "t": 1793844829,
+     "to": 1793844829,
+     "x": 0.393,
+     "y": 0.524,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793844835,
+     "k": "combat",
+     "m": 1420,
+     "t": 1793844853,
+     "to": 1793844853,
+     "x": 0.397,
+     "y": 0.523,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793844877,
+     "k": "combat",
+     "m": 1420,
+     "t": 1793844887,
+     "to": 1793844887,
+     "x": 0.407,
+     "y": 0.536,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793845031,
+     "k": "combat",
+     "m": 1420,
+     "s": "Stillwater Pond",
+     "t": 1793845038,
+     "to": 1793845038,
+     "x": 0.483,
+     "y": 0.538,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793845057,
+     "k": "combat",
+     "m": 1420,
+     "s": "Stillwater Pond",
+     "t": 1793845072,
+     "to": 1793845072,
+     "x": 0.477,
+     "y": 0.534,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793845117,
+     "k": "combat",
+     "m": 1420,
+     "s": "Stillwater Pond",
+     "t": 1793845128,
+     "to": 1793845128,
+     "x": 0.472,
+     "y": 0.551,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "from": 1793845140,
+     "k": "combat",
+     "m": 1420,
+     "s": "Stillwater Pond",
+     "t": 1793845156,
+     "to": 1793845156,
+     "x": 0.491,
+     "y": 0.559,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 96656,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "t": 1793845235,
+     "title": "The Adventurer",
+     "x": 0.573,
+     "xp": 410,
+     "y": 0.555,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "action": "done",
+     "id": 96607,
+     "k": "quest",
+     "m": 1420,
+     "money": 0,
+     "t": 1793845338,
+     "title": "The Great Outdoors",
+     "x": 0.572,
+     "xp": 410,
+     "y": 0.556,
+     "z": "Tirisfal Glades"
+    },
+    {
+     "first": false,
+     "k": "zone",
+     "m": 1420,
+     "t": 1793845376,
+     "x": 0.572,
+     "y": 0.556,
+     "z": "Tirisfal Glades"
+    }
+   ]
+  },
+  "combattimenti": [
+   {
+    "from": 1793842281,
+    "to": 1793842289,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793842472,
+    "to": 1793842477,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 6,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Sinister Strike",
+     "amount": 18,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793842482,
+    "to": 1793842494,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 6,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793842502,
+    "to": 1793842508,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 5,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Eviscerate",
+     "amount": 29,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793842519,
+    "to": 1793842531,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 8,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Sinister Strike",
+     "amount": 10,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793842539,
+    "to": 1793842548,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 5,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Eviscerate",
+     "amount": 16,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793842574,
+    "to": 1793842584,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 3,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793842588,
+    "to": 1793842600,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 2,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 2,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Eviscerate",
+     "amount": 16,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793842608,
+    "to": 1793842620,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ],
+    "damageTaken": 7,
+    "biggestHitTaken": {
+     "who": "Scarlet Convert",
+     "spell": "Mischia",
+     "amount": 3,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Eviscerate",
+     "amount": 15,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793843104,
+    "to": 1793843107,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Scarlet Convert",
+     "spell": "Backstab",
+     "amount": 25,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Convert",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793843111,
+    "to": 1793843117,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "biggestHitDone": {
+     "who": "Meven Korgal",
+     "spell": "Sinister Strike",
+     "amount": 19,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Meven Korgal",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793843582,
+    "to": 1793843597,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Tirisfal Farmer",
+      "n": 1
+     }
+    ],
+    "damageTaken": 53,
+    "biggestHitTaken": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 14,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Tirisfal Farmer",
+     "spell": "Eviscerate",
+     "amount": 27,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Tirisfal Farmer",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793843613,
+    "to": 1793843640,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Tirisfal Farmer",
+      "n": 1
+     }
+    ],
+    "damageTaken": 64,
+    "biggestHitTaken": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 18,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Tirisfal Farmer",
+     "spell": "Eviscerate",
+     "amount": 20,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Tirisfal Farmer",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793843656,
+    "to": 1793843682,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Tirisfal Farmer",
+      "n": 1
+     }
+    ],
+    "damageTaken": 91,
+    "biggestHitTaken": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 20,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Tirisfal Farmer",
+     "spell": "Eviscerate",
+     "amount": 27,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Tirisfal Farmer",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793843726,
+    "to": 1793843749,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Scarlet Warrior",
+      "n": 1
+     }
+    ],
+    "damageTaken": 74,
+    "biggestHitTaken": {
+     "who": "Scarlet Warrior",
+     "spell": "Mischia",
+     "amount": 10,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Scarlet Warrior",
+     "spell": "Eviscerate",
+     "amount": 27,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Scarlet Warrior",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793843942,
+    "to": 1793843957,
+    "kind": "death",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Tirisfal Farmer",
+      "n": 1
+     }
+    ],
+    "damageTaken": 71,
+    "biggestHitTaken": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 19,
+     "crit": false
+    },
+    "killedBy": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 17,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": []
+   },
+   {
+    "from": 1793843926,
+    "to": 1793843957,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Tirisfal Farmer",
+      "n": 1
+     }
+    ],
+    "damageTaken": 154,
+    "biggestHitTaken": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 19,
+     "crit": false
+    },
+    "killedBy": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 17,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": []
+   },
+   {
+    "from": 1793844262,
+    "to": 1793844277,
+    "kind": "death",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Tirisfal Farmer",
+      "n": 1
+     }
+    ],
+    "damageTaken": 71,
+    "biggestHitTaken": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 20,
+     "crit": false
+    },
+    "killedBy": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 15,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": []
+   },
+   {
+    "from": 1793844238,
+    "to": 1793844277,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Tirisfal Farmer",
+      "n": 1
+     }
+    ],
+    "damageTaken": 155,
+    "biggestHitTaken": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 20,
+     "crit": false
+    },
+    "killedBy": {
+     "who": "Tirisfal Farmer",
+     "spell": "Mischia",
+     "amount": 15,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": []
+   },
+   {
+    "from": 1793844814,
+    "to": 1793844829,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Decrepit Darkhound",
+      "n": 1
+     }
+    ],
+    "damageTaken": 16,
+    "biggestHitTaken": {
+     "who": "Decrepit Darkhound",
+     "spell": "Mischia",
+     "amount": 6,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Decrepit Darkhound",
+     "spell": "Sinister Strike",
+     "amount": 11,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Decrepit Darkhound",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793844835,
+    "to": 1793844853,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 71,
+    "biggestHitTaken": {
+     "who": "Greater Duskbat",
+     "spell": "Ravage",
+     "amount": 12,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Greater Duskbat",
+     "spell": "Mischia",
+     "amount": 14,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Greater Duskbat",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793844877,
+    "to": 1793844887,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Decrepit Darkhound",
+      "n": 1
+     }
+    ],
+    "damageTaken": 13,
+    "biggestHitTaken": {
+     "who": "Decrepit Darkhound",
+     "spell": "Mischia",
+     "amount": 5,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Decrepit Darkhound",
+     "spell": "Sinister Strike",
+     "amount": 20,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Decrepit Darkhound",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793845031,
+    "to": 1793845038,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Decrepit Darkhound",
+      "n": 1
+     }
+    ],
+    "damageTaken": 17,
+    "biggestHitTaken": {
+     "who": "Decrepit Darkhound",
+     "spell": "Mischia",
+     "amount": 6,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Decrepit Darkhound",
+     "spell": "Backstab",
+     "amount": 25,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Decrepit Darkhound",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793845057,
+    "to": 1793845072,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Cursed Darkhound",
+      "n": 1
+     }
+    ],
+    "damageTaken": 53,
+    "biggestHitTaken": {
+     "who": "Cursed Darkhound",
+     "spell": "Mischia",
+     "amount": 10,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Cursed Darkhound",
+     "spell": "Eviscerate",
+     "amount": 22,
+     "crit": false
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Cursed Darkhound",
+      "n": 1
+     }
+    ]
+   },
+   {
+    "from": 1793845117,
+    "to": 1793845128,
+    "kind": "combat",
+    "enemyCount": 0,
+    "enemies": [],
+    "damageTaken": 0,
+    "healers": [],
+    "environmental": [],
+    "kills": []
+   },
+   {
+    "from": 1793845140,
+    "to": 1793845156,
+    "kind": "combat",
+    "enemyCount": 1,
+    "enemies": [
+     {
+      "name": "Ravaged Corpse",
+      "n": 1
+     }
+    ],
+    "damageTaken": 55,
+    "biggestHitTaken": {
+     "who": "Ravaged Corpse",
+     "spell": "Disease Touch",
+     "amount": 18,
+     "crit": false
+    },
+    "biggestHitDone": {
+     "who": "Ravaged Corpse",
+     "spell": "Eviscerate",
+     "amount": 45,
+     "crit": true
+    },
+    "healers": [],
+    "environmental": [],
+    "kills": [
+     {
+      "name": "Ravaged Corpse",
+      "n": 1
+     }
+    ]
+   }
+  ]
+ }
+]

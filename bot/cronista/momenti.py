@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -15,12 +16,17 @@ PESCA_S = 120           # pesca finita entro 120 s prima della fuga
 DROP_BOSS_S = 120       # bottino senza fonte entro 120 s da un boss ucciso
 ORO_FOLLE = 100 * 10000  # 100 oro in rame
 MAX_RIASSUNTO = 40
+MISSIONE_S = 3600        # uccisioni di una missione: entro un'ora prima della consegna
+MISSIONE_RIPIEGO_S = 1800  # senza obiettivi: solo gli ultimi 30 minuti
+MAX_MISSIONI = 2         # missioni per giocatore nella giornata
+TESTI_MISSIONE = (("trama", "Trama", 600), ("obiettivi", "Obiettivi", 300), ("consegna", "Consegna", 400))
 SALTA = (TypeError, ValueError, KeyError, AttributeError, IndexError, OverflowError)
 
 NOMI_TIPO = {
     "drop": "Bottino", "boss_ucciso": "Boss ucciso", "wipe_ripetuti": "Wipe ripetuti", "fuga": "Fuga",
     "salvataggio": "Salvataggio", "morte": "Morte", "duello": "Duello", "livello": "Livello",
     "prima_visita": "Prima visita", "spesa": "Spesa", "missione_abbandonata": "Missione abbandonata",
+    "missione": "Missione",
 }
 SPIEGA_TIPO = {"fuga": "sopravvissuto a ≥4 nemici con poca vita"}
 QUALITA = {3: "raro", 4: "epico", 5: "leggendario"}
@@ -455,6 +461,70 @@ def _da_eventi_semplici(g: str, p: dict) -> list[dict]:
     return out
 
 
+def _conta_uccisioni(episodi: list[dict], tieni) -> list[dict]:
+    """Uccisioni sommate per nome (solo i nomi per cui `tieni(nome)`), le 3 piu' numerose."""
+    conta: dict[str, int] = {}
+    for ep in episodi:
+        for k in _lista(ep.get("kills")):
+            k = _dict(k)
+            nome, n = _str(k.get("name")), _int(k.get("n"))
+            if nome and n and n > 0 and tieni(nome):
+                conta[nome] = conta.get(nome, 0) + n
+    return [{"nome": nome, "n": n} for nome, n in sorted(conta.items(), key=lambda x: (-x[1], x[0]))][:3]
+
+
+def _da_missioni(g: str, p: dict) -> list[dict]:
+    out = []
+    prec = None  # consegna precedente: le uccisioni contano per una sola missione
+    for e in _di_tipo(p, "quest"):
+        if e.get("action") != "done":
+            continue
+        t = _int(e["t"])
+        da = t - MISSIONE_S if prec is None else max(t - MISSIONE_S, prec)
+        prec = t
+        finestra = [ep for ep, _ in p["episodi"] if ep.get("kind") == "combat" and da < _int(ep["to"]) <= t]
+        titolo = _str(e.get("title"))
+        fatti: dict = {"missione": titolo} if titolo else {}
+        xp = _int(e.get("xp"))
+        if xp is not None:
+            fatti["xp"] = xp
+        obj = _str(e.get("obj"))
+        nemici = []
+        if obj:
+            testo = obj.lower()
+            nemici = _conta_uccisioni(
+                finestra, lambda n: re.search(rf"\b{re.escape(n.lower())}s?\b", testo) is not None)
+        if nemici:
+            fatti["nemici"] = nemici
+        else:
+            dove = _dove(e)
+            vicini = [ep for ep in finestra if _int(ep["to"]) > t - MISSIONE_RIPIEGO_S
+                      and _dove(_evento_a(p, _int(ep["to"]), "combat") or {}) == dove]
+            nemici = _conta_uccisioni(vicini, lambda n: True)
+            if nemici:
+                fatti["nemici"] = nemici
+                fatti["nemici_presunti"] = True
+        for chiave, campo in (("trama", "desc"), ("obiettivi", "obj"), ("consegna", "fine")):
+            v = _str(e.get(campo))
+            if v:
+                fatti[chiave] = v
+        perche = f"Missione «{titolo}» completata" if titolo else "Una missione completata"
+        if _dove(e) != "luogo sconosciuto":
+            perche += f" a {_dove(e)}"
+        out.append(_cand("missione", 20 if _str(e.get("desc")) else 12, t, _dove(e), g, fatti, perche, _zona(e)))
+    return out
+
+
+def _limita_missioni(cand: list[dict]) -> list[dict]:
+    """Al massimo MAX_MISSIONI missioni per giocatore; una di gruppo resta se e' tra le prime di qualcuno."""
+    mis = [c for c in cand if c["tipo"] == "missione"]
+    ordine = lambda c: (-c["punti"], -(_int(c["fatti"].get("xp")) or 0), c["quando"])
+    tenute: set[int] = set()
+    for g in sorted({n for c in mis for n in c["chi"]}):
+        tenute.update(id(c) for c in sorted((c for c in mis if g in c["chi"]), key=ordine)[:MAX_MISSIONI])
+    return [c for c in cand if c["tipo"] != "missione" or id(c) in tenute]
+
+
 def _duelli(cron: dict[str, dict]) -> list[dict]:
     per_char = {}
     for g, p in cron.items():
@@ -573,7 +643,8 @@ def candidati(sessioni: list[dict], contatori: dict) -> list[dict]:
     grezzi: list[dict] = []
     for g, p in cron.items():
         for fonte in (lambda: _da_boss(g, p, cont), lambda: _da_combattimenti(g, p),
-                      lambda: _da_morti(g, p), lambda: _da_eventi_semplici(g, p)):
+                      lambda: _da_morti(g, p), lambda: _da_eventi_semplici(g, p),
+                      lambda: _da_missioni(g, p)):
             try:
                 grezzi.extend(fonte())
             except SALTA:
@@ -582,7 +653,7 @@ def candidati(sessioni: list[dict], contatori: dict) -> list[dict]:
         grezzi.extend(_duelli(cron))
     except SALTA:
         pass
-    out = _unisci(grezzi, cron)
+    out = _limita_missioni(_unisci(grezzi, cron))
     out.sort(key=lambda c: (-c["punti"], c["quando"], c["tipo"], c["chi"], c["dove"], c["perche"],
                             json.dumps(c["fatti"], sort_keys=True, default=str)))
     return out
@@ -653,7 +724,7 @@ def _riga_fatti(fatti: dict) -> str:
     if "in_ritardo" in fatti:  # sempre per primo: il taglio a 300 caratteri non lo perde
         parti.append(f"in ritardo: {_valore(fatti['in_ritardo'])}")
     for k, v in fatti.items():
-        if k in ("boss_id", "altri", "insieme", "per_giocatore", "in_ritardo"):
+        if k in ("boss_id", "altri", "insieme", "per_giocatore", "in_ritardo", "trama", "obiettivi", "consegna"):
             continue
         parti.append(f"{pulito(str(k).replace('_', ' '), 40)}: {_valore(v)}")
     s = "; ".join(parti)
@@ -706,6 +777,9 @@ def riassunto_md(giorno: str, candidati, avvisi, giocatori, fuso: str = "Europe/
         rf = _riga_fatti(fatti)
         if rf:
             righe.append(f"   Fatti: {rf}")
+        for chiave, etichetta, limite in TESTI_MISSIONE:
+            if fatti.get(chiave):
+                righe.append(f"   {etichetta}: {pulito(fatti[chiave], limite)}")
         ins = fatti.get("insieme")
         if ins in INSIEME:
             righe.append(f"   Insieme: {INSIEME[ins]}")

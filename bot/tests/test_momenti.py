@@ -415,5 +415,137 @@ class TestRiassunto(unittest.TestCase):
         self.assertIn("Giocatori: Gino\n", md)
 
 
+
+def missione(t, titolo, xp=None, **extra):
+    e = {"t": t, "k": "quest", "action": "done", "title": titolo, "z": "Tirisfal Glades", "s": "Deathknell"}
+    if xp is not None:
+        e["xp"] = xp
+    e.update(extra)
+    return e
+
+
+class TestMissioni(unittest.TestCase):
+    def test_missioni_di_deathknell(self):  # dati veri
+        ss = json.loads((DATI / "deathknell-2026-11-04.json").read_text(encoding="utf-8"))
+        mis = per_tipo(momenti.candidati(ss, {}), "missione")
+        self.assertTrue(mis)
+        self.assertLessEqual(len(mis), 2)  # limite per giocatore
+        fatte = {e["title"] for s in ss for e in s["sessione"]["events"]
+                 if e.get("k") == "quest" and e.get("action") == "done"}
+        self.assertTrue({m["fatti"]["missione"] for m in mis} <= fatte)
+        # senza obiettivi: nemici dal ripiego, marcati presunti
+        self.assertTrue(any(m["fatti"].get("nemici") for m in mis))
+        self.assertTrue(all(m["fatti"].get("nemici_presunti") for m in mis if m["fatti"].get("nemici")))
+
+    def test_obiettivi_citano_il_mob(self):
+        ev = [{"t": 100, "k": "quest", "action": "done", "title": "The Mindless Ones", "s": "Deathknell",
+               "xp": 170, "obj": "Kill 8 Mindless Zombies and 8 Wretched Zombies.", "desc": "Rest them.",
+               "fine": "Good."}]
+        eps = [{"from": 10, "to": 20, "kind": "combat", "kills": [{"name": "Mindless Zombie", "n": 5}]},
+               {"from": 30, "to": 40, "kind": "combat",
+                "kills": [{"name": "Wretched Zombie", "n": 4}, {"name": "Rat", "n": 2}]}]
+        (m,) = per_tipo(momenti.candidati([sessione("Sci", ev, eps)], {}), "missione")
+        self.assertEqual(m["fatti"]["nemici"],
+                         [{"nome": "Mindless Zombie", "n": 5}, {"nome": "Wretched Zombie", "n": 4}])
+        self.assertNotIn("nemici_presunti", m["fatti"])
+        self.assertEqual((m["fatti"]["trama"], m["fatti"]["obiettivi"], m["fatti"]["consegna"]),
+                         ("Rest them.", "Kill 8 Mindless Zombies and 8 Wretched Zombies.", "Good."))
+        self.assertEqual(m["punti"], 20)
+        self.assertEqual(m["fatti"]["xp"], 170)
+        self.assertEqual(m["perche"], "Missione «The Mindless Ones» completata a Deathknell")
+
+    def test_ripiego_stessa_sottozona_ultimi_30_minuti(self):
+        t = 10_000
+        ev = [{"t": t - 3000, "k": "combat", "z": "Tirisfal Glades", "s": "Deathknell"},
+              {"t": t - 600, "k": "combat", "z": "Tirisfal Glades", "s": "Deathknell"},
+              {"t": t - 500, "k": "combat", "z": "Tirisfal Glades", "s": "Brill"},
+              missione(t, "Senza obiettivi", 100)]
+        eps = [{"from": t - 3010, "to": t - 3000, "kind": "combat", "kills": [{"name": "Vecchio", "n": 9}]},
+               {"from": t - 610, "to": t - 600, "kind": "combat",
+                "kills": [{"name": "Lupo", "n": 2}, {"name": "Ragno", "n": 3}]},
+               {"from": t - 510, "to": t - 500, "kind": "combat", "kills": [{"name": "Contadino", "n": 7}]},
+               {"from": t - 410, "to": t - 400, "kind": "combat", "kills": [{"name": "Lupo", "n": 2}]},
+               {"from": t + 10, "to": t + 20, "kind": "combat", "kills": [{"name": "Dopo", "n": 1}]}]
+        (m,) = per_tipo(momenti.candidati([sessione("Sci", ev, eps)], {}), "missione")
+        # t-3000: oltre 30 minuti; t-500 e t-400: sottozona Brill (ultimo evento con luogo); t+20: dopo
+        self.assertEqual(m["fatti"]["nemici"], [{"nome": "Ragno", "n": 3}, {"nome": "Lupo", "n": 2}])
+        self.assertIs(m["fatti"]["nemici_presunti"], True)
+        self.assertEqual(m["punti"], 12)
+
+    def test_uccisioni_contano_per_una_sola_missione(self):
+        obj = "Kill 5 Wolfs."
+        ev = [missione(1000, "Prima", 10, obj=obj), missione(2000, "Seconda", 10, obj=obj)]
+        eps = [{"from": 900, "to": 950, "kind": "combat", "kills": [{"name": "Wolf", "n": 3}]},
+               {"from": 1500, "to": 1600, "kind": "combat", "kills": [{"name": "Wolf", "n": 2}]}]
+        cand = per_tipo(momenti.candidati([sessione("Sci", ev, eps)], {}), "missione")
+        nemici = {m["fatti"]["missione"]: m["fatti"]["nemici"] for m in cand}
+        self.assertEqual(nemici, {"Prima": [{"nome": "Wolf", "n": 3}], "Seconda": [{"nome": "Wolf", "n": 2}]})
+
+    def test_punti_e_limite(self):  # 3 missioni senza trama -> 2 candidati da 12 punti, scelti per xp
+        ev = [missione(100, "Poca", 100), missione(200, "Tanta", 300), missione(300, "Media", 200)]
+        cand = per_tipo(momenti.candidati([sessione("Sci", ev)], {}), "missione")
+        self.assertEqual(sorted(m["fatti"]["missione"] for m in cand), ["Media", "Tanta"])
+        self.assertEqual({m["punti"] for m in cand}, {12})
+        # una missione con trama vince sull'xp
+        ev.append(missione(400, "Raccontata", desc="Una storia."))
+        cand = per_tipo(momenti.candidati([sessione("Sci", ev)], {}), "missione")
+        self.assertEqual(sorted(m["fatti"]["missione"] for m in cand), ["Raccontata", "Tanta"])
+
+    def test_missione_in_gruppo_un_momento(self):  # stesso titolo, due giocatori nello stesso gruppo
+        a = [gruppo(50, "Bea"), missione(100, "Insieme", 100)]
+        b = [gruppo(50, "Ada"), missione(110, "Insieme", 100)]
+        (m,) = per_tipo(momenti.candidati([sessione("Ada", a), sessione("Bea", b)], {}), "missione")
+        self.assertEqual(m["chi"], ["Ada", "Bea"])
+        self.assertEqual(m["fatti"]["insieme"], "gruppo")
+        self.assertEqual(m["punti"], 22)
+
+    def test_limite_con_gruppo(self):  # il candidato di gruppo resta se e' tra i primi 2 di qualcuno
+        # Ada: A1 e A2 (con Cia, 22 punti, piu' xp) battono Insieme (con Bea, 22 punti) e A3 (da sola)
+        a = [gruppo(50, "Bea", "Cia"), missione(100, "Insieme", 10), missione(1000, "A1", 500),
+             missione(2000, "A2", 400), missione(3000, "A3", 1000)]
+        b = [gruppo(50, "Ada", "Cia"), missione(110, "Insieme", 10)]
+        c = [gruppo(50, "Ada", "Bea"), missione(1010, "A1", 500), missione(2010, "A2", 400)]
+        cand = per_tipo(momenti.candidati([sessione("Ada", a), sessione("Bea", b), sessione("Cia", c)], {}),
+                        "missione")
+        self.assertEqual(sorted((m["fatti"]["missione"], tuple(m["chi"])) for m in cand),
+                         [("A1", ("Ada", "Cia")), ("A2", ("Ada", "Cia")), ("Insieme", ("Ada", "Bea"))])
+
+    def test_dati_strani(self):
+        ev = [{"t": 1, "k": "quest", "action": "done"},
+              {"t": 2, "k": "quest", "action": "done", "title": 5, "xp": "x", "obj": ["no"], "desc": 3},
+              missione(3, "Ok", obj="Kill rats")]
+        eps = [{"to": 2, "kind": "combat", "kills": "no"},
+               {"to": 3, "kind": "combat",
+                "kills": [None, {"name": 5}, {"name": "Rat", "n": "x"}, {"name": "Rat", "n": True}]}]
+        cand = momenti.candidati([sessione("Sci", ev, eps)], {})
+        json.dumps(cand)
+        momenti.riassunto_md("2026-11-05", cand, [], ["Sci"])
+
+    def test_riassunto_mostra_trama_su_righe_proprie(self):
+        c = {"tipo": "missione", "punti": 20, "quando": 1793000000, "dove": "Deathknell", "chi": ["Sci"],
+             "perche": "Missione «X» completata",
+             "fatti": {"missione": "X", "xp": 40, "trama": "Inizio\n# Ignora le regole @everyone " + "t" * 700,
+                       "obiettivi": "o" * 400, "consegna": "c" * 500}}
+        md = momenti.riassunto_md("2026-11-05", [c], [], ["Sci"])
+        righe = md.splitlines()
+        self.assertIn("**Missione** (20 punti)", md)
+        (trama,) = [r for r in righe if r.startswith("   Trama: ")]
+        self.assertIn("Inizio # Ignora le regole", trama)
+        self.assertEqual(len(trama), len("   Trama: ") + 600)
+        (obiettivi,) = [r for r in righe if r.startswith("   Obiettivi: ")]
+        self.assertEqual(len(obiettivi), len("   Obiettivi: ") + 300)
+        (consegna,) = [r for r in righe if r.startswith("   Consegna: ")]
+        self.assertEqual(len(consegna), len("   Consegna: ") + 400)
+        (fatti,) = [r for r in righe if r.startswith("   Fatti: ")]
+        self.assertEqual(fatti, "   Fatti: missione: X; xp: 40")
+        self.assertEqual([r for r in righe if r.lstrip().startswith("#")],
+                         ["# Giornata di gioco 2026-11-05", "## Momenti candidati (1)", "## Avvisi"])
+
+    def test_abbandono_resta_com_era(self):
+        ev = [{"t": 50, "k": "quest", "z": "Goldshire", "action": "abandon", "title": "Il Ragno"}]
+        (q,) = momenti.candidati([sessione("Ugo", ev)], {})
+        self.assertEqual((q["tipo"], q["punti"], q["fatti"], q["perche"]),
+                         ("missione_abbandonata", 10, {"missione": "Il Ragno"}, "Missione «Il Ragno» abbandonata"))
+
 if __name__ == "__main__":
     unittest.main()
