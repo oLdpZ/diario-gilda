@@ -28,7 +28,9 @@ import (
 )
 
 const (
-	reloadGap   = 600 // s: un /reload entro questo tempo riapre la sessione
+	// s: a gioco chiuso una sessione con stop e' definitiva dopo questo margine
+	// (WoW finisce di scrivere il file); un /reload la riapre solo a gioco aperto
+	closedGap   = 30
 	crashAge    = 12 * 3600
 	logMargin   = 60         // s attorno alla sessione letti dal registro combattimenti
 	maxAge      = 50 * 86400 // s: oltre non si invia (lo stato dimentica gli id dopo 60 giorni)
@@ -316,13 +318,13 @@ func build1(env Env, s addondata.Session, interrupted bool) (string, []byte, err
 // final dice se la sessione e' definitiva e se e' interrotta (crash). Con WoW
 // aperto (running) uno stop vecchio non basta: dopo un /reload il file ha lo
 // stop del reload ma l'addon ha riaperto la sessione in memoria, quindi conta
-// solo una sessione piu' nuova dello stesso personaggio. La regola dei 600 s
-// vale a gioco chiuso.
+// solo una sessione piu' nuova dello stesso personaggio. A gioco chiuso basta il
+// margine closedGap.
 func final(s addondata.Session, all []addondata.Session, now int64, running bool) (ok, interrupted bool) {
 	if s.Stop == nil {
 		return now-lastTime(s) > crashAge, true
 	}
-	if !running && now-*s.Stop > reloadGap {
+	if !running && now-*s.Stop > closedGap {
 		return true, false
 	}
 	k := charKey(s)
@@ -370,6 +372,9 @@ func Watch(ctx context.Context, env Env, poll, stable time.Duration) {
 	watch(ctx, env, poll, stable, fullEvery)
 }
 
+// closedWait: dopo la chiusura di WoW il giro parte appena scade closedGap.
+var closedWait = (closedGap + 5) * time.Second
+
 func watch(ctx context.Context, env Env, poll, stable, every time.Duration) {
 	if poll <= 0 {
 		poll = 10 * time.Second
@@ -380,10 +385,11 @@ func watch(ctx context.Context, env Env, poll, stable, every time.Duration) {
 		}
 	}
 	last := snapshot(env.Cfg.ClientDir)
+	wasRunning := env.gameRunning()
 	run()
 	lastRun := time.Now()
 	pending := false
-	var changedAt time.Time
+	var changedAt, closedAt time.Time
 
 	t := time.NewTicker(poll)
 	defer t.Stop()
@@ -392,6 +398,19 @@ func watch(ctx context.Context, env Env, poll, stable, every time.Duration) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+		}
+		// WoW appena chiuso: un giro dopo closedWait, senza aspettare quello periodico
+		if r := env.gameRunning(); r != wasRunning {
+			wasRunning = r
+			if !r {
+				closedAt = time.Now()
+			}
+		}
+		if !closedAt.IsZero() && time.Since(closedAt) >= closedWait {
+			closedAt = time.Time{}
+			run()
+			lastRun = time.Now()
+			continue
 		}
 		cur := snapshot(env.Cfg.ClientDir)
 		changed := cur != last
