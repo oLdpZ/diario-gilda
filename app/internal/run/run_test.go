@@ -239,14 +239,32 @@ func firstCombat(t *testing.T, s sent) map[string]any {
 	return nil
 }
 
-// A gioco chiuso un /reload non puo' riaprire la sessione: basta il margine
-// closedGap perche' WoW finisca di scrivere il file.
+// Senza aver visto WoW chiudersi (avvio, giri periodici) a gioco chiuso vale
+// reloadGap: se il controllo dei processi sbagliasse, una sessione riaperta da
+// un /reload non partirebbe a meta'.
+func TestReloadWindow(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{}
+	cycle(t, tr.env(r, stop1+60))
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("Stop+60 senza QuickClose: nessun invio atteso, ottenuti %v", ids(got))
+	}
+	cycle(t, tr.env(r, stop1+601))
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id1 {
+		t.Fatalf("Stop+601: atteso %s, ottenuti %v", id1, ids(got))
+	}
+}
+
+// Il programmino ha visto WoW chiudersi: un /reload non puo' piu' riaprire la
+// sessione, basta il margine closedGap perche' WoW finisca di scrivere il file.
 func TestClosedGameShortGap(t *testing.T) {
 	tr := newTree(t, true)
 	tr.writeSV(t, "ACC", only1(t))
 	r := &recorder{}
+	quick := func(now int64) Env { e := tr.env(r, now); e.QuickClose = true; return e }
 
-	cycle(t, tr.env(r, stop1+10))
+	cycle(t, quick(stop1+10))
 	if got := r.take(); len(got) != 0 {
 		t.Fatalf("Stop+10: nessun invio atteso (margine), ottenuti %v", ids(got))
 	}
@@ -254,7 +272,7 @@ func TestClosedGameShortGap(t *testing.T) {
 		t.Fatal("Stop+10: la sessione non deve risultare in coda")
 	}
 
-	cycle(t, tr.env(r, stop1+31))
+	cycle(t, quick(stop1+31))
 	got := r.take()
 	if len(got) != 1 || sessionID(got[0]) != id1 {
 		t.Fatalf("Stop+31: atteso 1 invio di %s, ottenuti %v", id1, ids(got))
@@ -652,6 +670,41 @@ func TestWatchCyclesWhenGameCloses(t *testing.T) {
 	<-done
 }
 
+// WoW riaperto prima di closedWait: il giro parte ma la sessione resta in attesa.
+func TestWatchGameReopenedBeforeClosedWait(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{}
+	var mu sync.Mutex
+	running := true
+	env := tr.env(r, stop1+31)
+	env.GameRunning = func() bool { mu.Lock(); defer mu.Unlock(); return running }
+	old := closedWait
+	closedWait = 80 * time.Millisecond
+	defer func() { closedWait = old }()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		watch(ctx, env, 10*time.Millisecond, time.Hour, time.Hour)
+		close(done)
+	}()
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	running = false
+	mu.Unlock()
+	time.Sleep(20 * time.Millisecond)
+	mu.Lock()
+	running = true
+	mu.Unlock()
+	time.Sleep(200 * time.Millisecond)
+	if r.count() != 0 {
+		t.Fatalf("WoW riaperto: nessun invio atteso, ottenuti %d", r.count())
+	}
+	cancel()
+	<-done
+}
+
 func TestWatchPeriodicNotStarvedByChanges(t *testing.T) {
 	tr := newTree(t, true)
 	tr.writeSV(t, "ACC", only1(t))
@@ -841,7 +894,7 @@ func TestNoMainNoPendingDoesNotAsk(t *testing.T) {
 	tr := newTree(t, true)
 	tr.writeSV(t, "ACC", only1(t))
 	r := &recorder{}
-	env := tr.env(r, stop1+10) // la sessione non e' ancora definitiva (margine closedGap)
+	env := tr.env(r, stop1+60) // la sessione non e' ancora definitiva (un /reload puo' riaprirla)
 	env.Cfg.Main = config.Character{}
 	env.NeedMain = func([]config.Character) { t.Error("niente da inviare: non si chiede il main") }
 	cycle(t, env)

@@ -28,8 +28,10 @@ import (
 )
 
 const (
-	// s: a gioco chiuso una sessione con stop e' definitiva dopo questo margine
-	// (WoW finisce di scrivere il file); un /reload la riapre solo a gioco aperto
+	// s: a gioco chiuso una sessione con stop e' definitiva dopo reloadGap; se il
+	// programmino ha appena visto WoW chiudersi basta closedGap (WoW finisce di
+	// scrivere il file): un /reload la riapre solo a gioco aperto
+	reloadGap   = 600
 	closedGap   = 30
 	crashAge    = 12 * 3600
 	logMargin   = 60         // s attorno alla sessione letti dal registro combattimenti
@@ -52,6 +54,11 @@ type Env struct {
 	// GameRunning dice se WoW e' aperto (nil = chiuso). Con WoW aperto lo stop
 	// su disco puo' essere quello di un /reload: vedi final.
 	GameRunning func() bool
+	// QuickClose: questo giro parte perche' il programmino ha visto WoW chiudersi,
+	// quindi a gioco chiuso basta closedGap. Senza (avvio, giri periodici) vale
+	// reloadGap: se il controllo dei processi sbagliasse, una sessione riaperta da
+	// un /reload non partirebbe a meta'.
+	QuickClose bool
 	// NeedMain viene chiamata quando ci sono sessioni pronte ma Cfg.Main non e'
 	// scelto: quelle sessioni restano in attesa. chars sono i personaggi delle
 	// SavedVariables nell'ordine di Characters.
@@ -167,7 +174,11 @@ func enqueue(env Env, st *state.State, now int64) int {
 			continue
 		}
 		seen[s.ID] = true
-		ok, interrupted := final(s, all, now, running)
+		gap := int64(reloadGap)
+		if env.QuickClose {
+			gap = closedGap
+		}
+		ok, interrupted := final(s, all, now, running, gap)
 		if !ok {
 			continue
 		}
@@ -319,12 +330,12 @@ func build1(env Env, s addondata.Session, interrupted bool) (string, []byte, err
 // aperto (running) uno stop vecchio non basta: dopo un /reload il file ha lo
 // stop del reload ma l'addon ha riaperto la sessione in memoria, quindi conta
 // solo una sessione piu' nuova dello stesso personaggio. A gioco chiuso basta il
-// margine closedGap.
-func final(s addondata.Session, all []addondata.Session, now int64, running bool) (ok, interrupted bool) {
+// margine gap (reloadGap, o closedGap se il programmino ha visto WoW chiudersi).
+func final(s addondata.Session, all []addondata.Session, now int64, running bool, gap int64) (ok, interrupted bool) {
 	if s.Stop == nil {
 		return now-lastTime(s) > crashAge, true
 	}
-	if !running && now-*s.Stop > closedGap {
+	if !running && now-*s.Stop > gap {
 		return true, false
 	}
 	k := charKey(s)
@@ -366,7 +377,8 @@ func charKey(s addondata.Session) string {
 }
 
 // Watch esegue Cycle all'avvio, quando i file SavedVariables cambiano e poi
-// restano uguali per stable, e comunque ogni 5 minuti. Ritorna quando ctx e'
+// restano uguali per stable, closedWait dopo che WoW si e' chiuso (con
+// QuickClose) e comunque ogni 5 minuti. Ritorna quando ctx e'
 // cancellato. Gli errori di Cycle vanno nel log e il controllo continua.
 func Watch(ctx context.Context, env Env, poll, stable time.Duration) {
 	watch(ctx, env, poll, stable, fullEvery)
@@ -379,11 +391,12 @@ func watch(ctx context.Context, env Env, poll, stable, every time.Duration) {
 	if poll <= 0 {
 		poll = 10 * time.Second
 	}
-	run := func() {
-		if err := Cycle(ctx, env); err != nil && ctx.Err() == nil {
+	runWith := func(e Env) {
+		if err := Cycle(ctx, e); err != nil && ctx.Err() == nil {
 			env.logf("giro non completato: %v", err)
 		}
 	}
+	run := func() { runWith(env) }
 	last := snapshot(env.Cfg.ClientDir)
 	wasRunning := env.gameRunning()
 	run()
@@ -408,7 +421,9 @@ func watch(ctx context.Context, env Env, poll, stable, every time.Duration) {
 		}
 		if !closedAt.IsZero() && time.Since(closedAt) >= closedWait {
 			closedAt = time.Time{}
-			run()
+			quick := env
+			quick.QuickClose = true
+			runWith(quick)
 			lastRun = time.Now()
 			continue
 		}

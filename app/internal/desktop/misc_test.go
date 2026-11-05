@@ -12,7 +12,7 @@ func TestIsWoWProcess(t *testing.T) {
 	yes := []string{"Wow.exe", "WowClassic.exe", "wowclassicb.exe", "WowT.exe", "Wow-64.exe",
 		"World of Warcraft", "World of Warcraft Classic"}
 	no := []string{"DiarioGilda.exe", "Battle.net.exe", "explorer.exe", "WowVoiceProxy.exe",
-		"WowError.exe", "Agent.exe", "Wow", ""}
+		"WowError.exe", "Agent.exe", "Wow", "", "WowUp.exe", "WowUp-CF.exe", "WowMatrix.exe"}
 	for _, n := range yes {
 		if !IsWoWProcess(n) {
 			t.Errorf("%q non riconosciuto", n)

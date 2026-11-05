@@ -59,13 +59,14 @@ func InstallRoots(paths []string) []string {
 }
 
 // IsGameExe riconosce l'eseguibile di un client di WoW per Windows
-// ("Wow*.exe": Wow, WowClassic, WowT, Wow-64...), escluse le utilita' di contorno.
+// ("Wow*.exe": Wow, WowClassic, WowT, Wow-64...), escluse le utilita' di contorno
+// e i gestori di addon che restano aperti accanto all'orologio (WowUp, WowMatrix).
 func IsGameExe(name string) bool {
 	l := strings.ToLower(name)
 	if !strings.HasPrefix(l, "wow") || !strings.HasSuffix(l, ".exe") {
 		return false
 	}
-	for _, helper := range []string{"wowvoiceproxy", "wowerror"} {
+	for _, helper := range []string{"wowvoiceproxy", "wowerror", "wowup", "wowmatrix"} {
 		if strings.HasPrefix(l, helper) {
 			return false
 		}
