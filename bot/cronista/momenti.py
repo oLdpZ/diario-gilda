@@ -303,7 +303,7 @@ def _da_boss(g: str, p: dict, cont: dict) -> list[dict]:
     for e in _di_tipo(p, "loot"):
         q = _int(e.get("q"))
         if q == 2:  # verde: piccolo momento a parte, solo ai livelli bassi e uno al giorno
-            if not verde_dato:
+            if not verde_dato:  # consumato anche se questo verde viene scartato (livello alto o ignoto)
                 verde_dato = True
                 liv = _livello_a(p, _int(e["t"]))
                 if liv is not None and liv < VERDE_MAX_LIVELLO:

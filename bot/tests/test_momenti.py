@@ -589,10 +589,6 @@ class TestMissioni(unittest.TestCase):
         self.assertIn("   Fatti: missione: Q; nemici: Mindless Zombie x5, Wretched Zombie x4\n", md)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestLivelliBassi(unittest.TestCase):
     def test_livelli_bassi_un_solo_momento(self):
         ev = [{"t": 10 * i, "k": "level", "z": "Tirisfal Glades", "s": "Deathknell", "level": i}
@@ -645,3 +641,16 @@ class TestLivelliBassi(unittest.TestCase):
         (d,) = per_tipo(momenti.candidati([s], {}), "drop")
         self.assertEqual(d["punti"], 8)
         self.assertNotIn("boss", d["fatti"])
+
+    def test_verde_confini_14_e_15(self):
+        def con_livello(g, liv):
+            s = sessione(g, [{"t": 10, "k": "loot", "item": "Verde", "id": 1, "q": 2, "n": 1, "z": "Elwynn"}])
+            s["sessione"]["level"] = liv
+            return s
+        self.assertEqual(len(per_tipo(momenti.candidati([con_livello("A", 14)], {}), "drop")), 1)
+        self.assertEqual(per_tipo(momenti.candidati([con_livello("B", 15)], {}), "drop"), [])
+
+
+
+if __name__ == "__main__":
+    unittest.main()
