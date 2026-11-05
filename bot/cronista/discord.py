@@ -173,10 +173,12 @@ class Discord:
         return self._richiesta("GET", url, auth=url.startswith(self.base + "/"), cap=CAP_ALLEGATO)
 
     def invia(self, canale_id: str, contenuto: str = "", embed: list[dict] | None = None,
-              file: tuple[str, bytes] | None = None) -> dict:
+              file: tuple[str, bytes] | None = None, risposta: str | None = None) -> dict:
         payload: dict = {"content": contenuto, "allowed_mentions": {"parse": []}}
         if embed:
             payload["embeds"] = embed
+        if risposta:
+            payload["message_reference"] = {"message_id": str(risposta), "fail_if_not_exists": False}
         url = f"{self.base}/channels/{canale_id}/messages"
         pj = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         if file is None:

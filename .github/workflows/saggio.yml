@@ -1,0 +1,43 @@
+name: Voce del Saggio
+
+# Ogni mattina, dopo il Cronista (07:15 ora italiana), il Saggio legge la pagina nuova e pubblica
+# il video in risposta. Due orari: il secondo recupera se il primo è partito prima della pagina
+# o è fallito. Se la pagina ha già il suo video, non fa niente.
+on:
+  schedule:
+    - cron: "55 6 * * *"   # 07:55 ora italiana (inverno)
+    - cron: "25 8 * * *"   # 09:25, recupero
+  workflow_dispatch:
+    inputs:
+      prova:
+        description: "Prova: l'ultima pagina, video in #diario-servizio"
+        type: boolean
+        default: true
+
+concurrency:
+  group: saggio
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  narra:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Installa ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: Il Saggio racconta
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PROVA: ${{ github.event_name == 'workflow_dispatch' && inputs.prova }}
+        run: |
+          if [ "$PROVA" = "true" ]; then python -m bot.saggio --prova; else python -m bot.saggio; fi
