@@ -18,6 +18,8 @@ ORO_FOLLE = 100 * 10000  # 100 oro in rame
 MAX_RIASSUNTO = 40
 MISSIONE_S = 3600        # uccisioni di una missione: entro un'ora prima della consegna
 MISSIONE_RIPIEGO_S = 1800  # senza obiettivi: solo gli ultimi 30 minuti
+LIVELLO_BASSO = 10        # sotto: i livelli diventano un solo momento
+VERDE_MAX_LIVELLO = 15   # bottino verde: solo sotto questo livello
 MAX_MISSIONI = 2         # missioni per giocatore nella giornata
 TESTI_MISSIONE = (("trama", "Trama", 600), ("obiettivi", "Obiettivi", 300), ("consegna", "Consegna", 400))
 SALTA = (TypeError, ValueError, KeyError, AttributeError, IndexError, OverflowError)
@@ -26,10 +28,10 @@ NOMI_TIPO = {
     "drop": "Bottino", "boss_ucciso": "Boss ucciso", "wipe_ripetuti": "Wipe ripetuti", "fuga": "Fuga",
     "salvataggio": "Salvataggio", "morte": "Morte", "duello": "Duello", "livello": "Livello",
     "prima_visita": "Prima visita", "spesa": "Spesa", "missione_abbandonata": "Missione abbandonata",
-    "missione": "Missione",
+    "missione": "Missione", "livelli": "Livelli",
 }
 SPIEGA_TIPO = {"fuga": "sopravvissuto a ≥4 nemici con poca vita"}
-QUALITA = {3: "raro", 4: "epico", 5: "leggendario"}
+QUALITA = {2: "non comune", 3: "raro", 4: "epico", 5: "leggendario"}
 INSIEME = {"gruppo": "nello stesso gruppo",
            "stessa_zona": "solo stessa zona e stessa ora (nessun dato di gruppo: forse non erano insieme)"}
 
@@ -116,7 +118,11 @@ def _cronologia(sessioni) -> dict[str, dict]:
             se = _dict(s.get("sessione"))
             if not g:
                 continue
-            p = out.setdefault(g, {"eventi": [], "episodi": [], "char": set(), "char_l": set(), "gruppi": []})
+            p = out.setdefault(g, {"eventi": [], "episodi": [], "char": set(), "char_l": set(), "gruppi": [],
+                                   "livello_iniziale": None})
+            if p["livello_iniziale"] is None:
+                liv = _int(se.get("level"))
+                p["livello_iniziale"] = liv if liv is not None and liv > 0 else None
             char = _str(se.get("char"))
             if char:
                 p["char"].add(char)
@@ -179,6 +185,19 @@ def _evento_a(p: dict, t: int, k: str | None = None) -> dict | None:
         if _zona(e):
             prima = e
     return prima
+
+
+def _livello_a(p: dict, t: int) -> int | None:
+    """Livello del giocatore a t: ultimo evento level fino a t, altrimenti quello della prima sessione."""
+    liv = p.get("livello_iniziale")
+    for e in p["eventi"]:
+        if _int(e["t"]) > t:
+            break
+        if e.get("k") == "level":
+            v = _int(e.get("level"))
+            if v is not None and v > 0:
+                liv = v
+    return liv
 
 
 def _incontri(p: dict) -> list[dict]:
@@ -280,8 +299,19 @@ def _da_boss(g: str, p: dict, cont: dict) -> list[dict]:
             fin = (_finestra(ws[0])[0], _finestra(ws[-1])[1])
             out.append(_cand("wipe_ripetuti", 40, _int(e["t"]), _dove(e), g, fatti, perche, _zona(e), fin))
     # bottino
+    verde_dato = False
     for e in _di_tipo(p, "loot"):
         q = _int(e.get("q"))
+        if q == 2:  # verde: piccolo momento a parte, solo ai livelli bassi e uno al giorno
+            if not verde_dato:
+                verde_dato = True
+                liv = _livello_a(p, _int(e["t"]))
+                if liv is not None and liv < VERDE_MAX_LIVELLO:
+                    item = _str(e.get("item")) or "oggetto senza nome"
+                    out.append(_cand("drop", 8, _int(e["t"]), _dove(e), g,
+                                     {"oggetto": item, "qualita": QUALITA[2]},
+                                     f"{item} ({QUALITA[2]}) a livello {liv}", _zona(e)))
+            continue
         if q is None or q < 3:
             continue
         boss, presunta = _boss_del_bottino(e, uccisi)
@@ -432,10 +462,13 @@ def _da_morti(g: str, p: dict) -> list[dict]:
 
 def _da_eventi_semplici(g: str, p: dict) -> list[dict]:
     out = []
+    bassi = []
     for e in p["eventi"]:
         k, t = e.get("k"), _int(e["t"])
         if k == "level":
             lv = _int(e.get("level"))
+            if lv is not None and 0 < lv < LIVELLO_BASSO:
+                bassi.append((e, lv))
             if lv is not None and lv > 0 and (lv == 60 or lv % 10 == 0):
                 perche = "Raggiunto il livello 60, il massimo!" if lv == 60 else f"Raggiunto il livello {lv}"
                 out.append(_cand("livello", 70 if lv == 60 else 20, t, _dove(e), g, {"livello": lv},
@@ -458,6 +491,11 @@ def _da_eventi_semplici(g: str, p: dict) -> list[dict]:
             fatti = {"missione": titolo} if titolo else {}
             perche = f"Missione «{titolo}» abbandonata" if titolo else "Una missione abbandonata"
             out.append(_cand("missione_abbandonata", 10, t, _dove(e), g, fatti, perche, _zona(e)))
+    if bassi:
+        ultimo, a = bassi[-1]
+        da = bassi[0][1] - 1
+        out.append(_cand("livelli", 15, _int(ultimo["t"]), _dove(ultimo), g, {"da": da, "a": a},
+                         f"Saliti dal livello {da} al {a}", _zona(ultimo)))
     return out
 
 

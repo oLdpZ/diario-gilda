@@ -186,6 +186,7 @@ class TestRegole(unittest.TestCase):
         (d,) = per_tipo(cand, "duello")
         self.assertEqual((d["chi"], d["punti"], d["fatti"]["vincitore"]), (["Lia", "Ugo"], 30, "Ugo"))
         self.assertEqual(sorted(c["punti"] for c in per_tipo(cand, "livello")), [20, 70])
+        self.assertEqual(per_tipo(cand, "livelli"), [])  # tutti >= 10
         (sp,) = per_tipo(cand, "spesa")
         self.assertEqual((sp["punti"], sp["fatti"]["oro"]), (25, 150))
         (q,) = per_tipo(cand, "missione_abbandonata")
@@ -590,3 +591,57 @@ class TestMissioni(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLivelliBassi(unittest.TestCase):
+    def test_livelli_bassi_un_solo_momento(self):
+        ev = [{"t": 10 * i, "k": "level", "z": "Tirisfal Glades", "s": "Deathknell", "level": i}
+              for i in (2, 3, 4, 5, 6)]
+        cand = momenti.candidati([sessione("Ugo", ev)], {})
+        (lv,) = per_tipo(cand, "livelli")
+        self.assertEqual((lv["fatti"], lv["punti"], lv["quando"]), ({"da": 1, "a": 6}, 15, 60))
+        self.assertEqual(lv["dove"], "Tirisfal Glades, Deathknell")
+        self.assertEqual(per_tipo(cand, "livello"), [])
+
+    def test_livello_10_resta_separato(self):
+        ev = [{"t": 10, "k": "level", "z": "Elwynn", "level": 9}, {"t": 20, "k": "level", "z": "Elwynn", "level": 10}]
+        cand = momenti.candidati([sessione("Ugo", ev)], {})
+        (lv,) = per_tipo(cand, "livelli")
+        self.assertEqual(lv["fatti"], {"da": 8, "a": 9})
+        (l10,) = per_tipo(cand, "livello")
+        self.assertEqual((l10["fatti"]["livello"], l10["punti"]), (10, 20))
+
+    def test_livelli_dati_strani(self):
+        ev = [{"t": 10, "k": "level", "level": "x"}, {"t": 11, "k": "level", "level": 0},
+              {"t": 12, "k": "level", "level": True}]
+        self.assertEqual(per_tipo(momenti.candidati([sessione("Ugo", ev)], {}), "livelli"), [])
+
+    def test_verde_solo_ai_livelli_bassi(self):
+        def verde(t, item, **extra):
+            return dict({"t": t, "k": "loot", "item": item, "id": t, "q": 2, "n": 1, "z": "Elwynn"}, **extra)
+        s = sessione("Ugo", [verde(10, "Stivali Verdi"), verde(20, "Guanti Verdi")])
+        s["sessione"]["level"] = 7
+        (d,) = per_tipo(momenti.candidati([s], {}), "drop")
+        self.assertEqual((d["punti"], d["fatti"]["qualita"], d["fatti"]["oggetto"]), (8, "non comune", "Stivali Verdi"))
+        # livello dall'ultimo evento level prima del drop
+        s = sessione("Ugo", [{"t": 5, "k": "level", "z": "Elwynn", "level": 16}, verde(10, "Verde")])
+        s["sessione"]["level"] = 15
+        self.assertEqual(per_tipo(momenti.candidati([s], {}), "drop"), [])
+        s = sessione("Ugo", [verde(10, "Verde")])
+        s["sessione"]["level"] = 16
+        self.assertEqual(per_tipo(momenti.candidati([s], {}), "drop"), [])
+        # livello ignoto: niente
+        self.assertEqual(per_tipo(momenti.candidati([sessione("Ugo", [verde(10, "Verde")])], {}), "drop"), [])
+        # il primo verde e' alto, ma conta solo il primo della giornata
+        s = sessione("Ugo", [verde(10, "Primo"), {"t": 15, "k": "level", "z": "Elwynn", "level": 5}, verde(20, "Secondo")])
+        s["sessione"]["level"] = 20
+        self.assertEqual(per_tipo(momenti.candidati([s], {}), "drop"), [])
+
+    def test_verde_non_e_un_epico(self):
+        ev = [{"t": 10, "k": "encounter", "id": 1, "name": "Boss", "ok": True, "z": "Elwynn"},
+              {"t": 12, "k": "loot", "item": "Verde", "id": 5, "q": 2, "n": 1, "z": "Elwynn", "src": "Boss"}]
+        s = sessione("Ugo", ev)
+        s["sessione"]["level"] = 8
+        (d,) = per_tipo(momenti.candidati([s], {}), "drop")
+        self.assertEqual(d["punti"], 8)
+        self.assertNotIn("boss", d["fatti"])
