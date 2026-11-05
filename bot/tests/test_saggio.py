@@ -103,17 +103,17 @@ class TestBocca(unittest.TestCase):
         return out
 
     def test_virgola_chiude_la_bocca_respiro_corto_no(self):
-        c = self.suono((0.2, False), (0.5, True), (0.3, False), (0.4, True), (0.06, False), (0.4, True), (0.2, False))
+        c = self.suono((0.2, False), (0.5, True), (0.5, False), (0.4, True), (0.25, False), (0.4, True), (0.2, False))
         iv = T.parlato(c, self.RATE)
-        self.assertEqual(len(iv), 2)                       # la pausa di 0,3 s separa, quella di 0,06 no
+        self.assertEqual(len(iv), 2)                       # la pausa di 0,5 s separa, il respiro di 0,25 no
         self.assertAlmostEqual(iv[0][0], 0.2, delta=0.03)
         self.assertAlmostEqual(iv[0][1], 0.7, delta=0.03)
-        self.assertAlmostEqual(iv[1][0], 1.0, delta=0.03)
-        self.assertAlmostEqual(iv[1][1], 1.86, delta=0.03)
+        self.assertAlmostEqual(iv[1][0], 1.2, delta=0.03)
+        self.assertAlmostEqual(iv[1][1], 2.25, delta=0.03)
 
     def test_silenzio_e_schiocchi(self):
         self.assertEqual(T.parlato([0] * 500, self.RATE), [])
-        c = self.suono((0.5, True), (0.3, False), (0.03, True), (0.3, False))
+        c = self.suono((0.5, True), (0.5, False), (0.03, True), (0.5, False))
         self.assertEqual(len(T.parlato(c, self.RATE)), 1)  # lo schiocco di 30 ms non apre la bocca
 
     def test_maschera_segue_la_voce(self):
@@ -122,7 +122,7 @@ class TestBocca(unittest.TestCase):
         self.assertEqual(len(m), 40)
         self.assertEqual(m[0], 0)                  # sigla: bocca chiusa
         self.assertEqual(m[14], 255)               # 1,45 s: parla
-        self.assertEqual(m[21], 0)                 # 2,15 s: la virgola, bocca chiusa
+        self.assertEqual(m[20], 0)                 # 2,05 s: la virgola, bocca chiusa
         self.assertEqual(m[27], 255)               # 2,75 s: parla di nuovo
         self.assertEqual(m[-1], 0)                 # coda
         self.assertTrue(all(abs(a - b) <= 128 for a, b in zip(m, m[1:])))  # niente scatti

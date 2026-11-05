@@ -143,7 +143,7 @@ def srt(tempi: list[dict], spost: float = 0.0) -> str:
 
 
 def parlato(campioni, rate: int, finestra: float = 0.02, soglia_db: float = -32.0,
-            pausa_min: float = 0.16, voce_min: float = 0.08) -> list[tuple[float, float]]:
+            pausa_min: float = 0.35, voce_min: float = 0.08) -> list[tuple[float, float]]:
     """Intervalli (da, a) in secondi in cui la voce si sente davvero (virgole e respiri esclusi).
 
     Volume a finestre di 20 ms; «voce» = sopra `soglia_db` rispetto alla finestra più forte.
@@ -172,22 +172,23 @@ def parlato(campioni, rate: int, finestra: float = 0.02, soglia_db: float = -32.
     return [(round(da, 3), round(a, 3)) for da, a in uniti if a - da >= voce_min]
 
 
-def maschera(tempi: list[dict], spost: float, totale: float, fps: int = 24, rampa: int = 3) -> list[int]:
+def maschera(tempi: list[dict], spost: float, totale: float, fps: int = 24, rampa: int = 5) -> list[int]:
     """Peso della clip «parla» fotogramma per fotogramma (0 = bocca chiusa, 255 = parla).
 
     Segue gli intervalli di voce vera di ogni blocco (chiave "voce", altrimenti tutto il blocco);
-    passa da una clip all'altra in `rampa` fotogrammi; apre un attimo prima della voce."""
-    intervalli = sorted((spost + da - 0.04, spost + a)
+    passa da una clip all'altra in `rampa` fotogrammi, morbido all'inizio e alla fine;
+    apre un attimo prima della voce."""
+    intervalli = sorted((spost + da - 0.06, spost + a)
                         for x in tempi for da, a in (x.get("voce") or [(x["da"], x["a"])]))
     out, w, j = [], 0.0, 0
-    passo = 255 / max(1, rampa)
+    passo = 1 / max(1, rampa)
     for k in range(int(round(totale * fps))):
         t = (k + 0.5) / fps
         while j < len(intervalli) and intervalli[j][1] <= t:
             j += 1
         dentro = j < len(intervalli) and intervalli[j][0] <= t
-        w = min(255.0, w + passo) if dentro else max(0.0, w - passo)
-        out.append(int(round(w)))
+        w = min(1.0, w + passo) if dentro else max(0.0, w - passo)
+        out.append(int(round(255 * w * w * (3 - 2 * w))))
     return out
 
 
