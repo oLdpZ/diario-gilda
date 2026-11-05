@@ -239,23 +239,43 @@ func firstCombat(t *testing.T, s sent) map[string]any {
 	return nil
 }
 
+// Senza aver visto WoW chiudersi (avvio, giri periodici) a gioco chiuso vale
+// reloadGap: se il controllo dei processi sbagliasse, una sessione riaperta da
+// un /reload non partirebbe a meta'.
 func TestReloadWindow(t *testing.T) {
 	tr := newTree(t, true)
 	tr.writeSV(t, "ACC", only1(t))
 	r := &recorder{}
-
 	cycle(t, tr.env(r, stop1+60))
 	if got := r.take(); len(got) != 0 {
-		t.Fatalf("Stop+60: nessun invio atteso (un /reload puo' riaprirla), ottenuti %v", ids(got))
+		t.Fatalf("Stop+60 senza QuickClose: nessun invio atteso, ottenuti %v", ids(got))
+	}
+	cycle(t, tr.env(r, stop1+601))
+	if got := r.take(); len(got) != 1 || sessionID(got[0]) != id1 {
+		t.Fatalf("Stop+601: atteso %s, ottenuti %v", id1, ids(got))
+	}
+}
+
+// Il programmino ha visto WoW chiudersi: un /reload non puo' piu' riaprire la
+// sessione, basta il margine closedGap perche' WoW finisca di scrivere il file.
+func TestClosedGameShortGap(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{}
+	quick := func(now int64) Env { e := tr.env(r, now); e.QuickClose = true; return e }
+
+	cycle(t, quick(stop1+10))
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("Stop+10: nessun invio atteso (margine), ottenuti %v", ids(got))
 	}
 	if readState(t, tr).Has(id1) {
-		t.Fatal("Stop+60: la sessione non deve risultare in coda")
+		t.Fatal("Stop+10: la sessione non deve risultare in coda")
 	}
 
-	cycle(t, tr.env(r, stop1+601))
+	cycle(t, quick(stop1+31))
 	got := r.take()
 	if len(got) != 1 || sessionID(got[0]) != id1 {
-		t.Fatalf("Stop+601: atteso 1 invio di %s, ottenuti %v", id1, ids(got))
+		t.Fatalf("Stop+31: atteso 1 invio di %s, ottenuti %v", id1, ids(got))
 	}
 	if !strings.HasPrefix(got[0].name, "sessione_Gigi_") {
 		t.Errorf("nome file: %s", got[0].name)
@@ -617,6 +637,74 @@ func TestTooOldSessionSkipped(t *testing.T) {
 	}
 }
 
+// Quando WoW si chiude il giro parte dopo closedWait, senza aspettare il giro periodico.
+func TestWatchCyclesWhenGameCloses(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{}
+	var mu sync.Mutex
+	running := true
+	env := tr.env(r, stop1+31)
+	env.GameRunning = func() bool { mu.Lock(); defer mu.Unlock(); return running }
+	old := closedWait
+	closedWait = 50 * time.Millisecond
+	defer func() { closedWait = old }()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		watch(ctx, env, 10*time.Millisecond, time.Hour, time.Hour)
+		close(done)
+	}()
+	time.Sleep(100 * time.Millisecond) // giro all'avvio e qualche giro di controllo con WoW aperto
+	if r.count() != 0 {
+		t.Fatal("WoW aperto: nessun invio atteso")
+	}
+	mu.Lock()
+	running = false
+	mu.Unlock()
+	if !waitFor(t, 2*time.Second, func() bool { return r.count() == 1 }) {
+		t.Fatalf("WoW chiuso: atteso 1 invio, ottenuti %d", r.count())
+	}
+	cancel()
+	<-done
+}
+
+// WoW riaperto prima di closedWait: il giro parte ma la sessione resta in attesa.
+func TestWatchGameReopenedBeforeClosedWait(t *testing.T) {
+	tr := newTree(t, true)
+	tr.writeSV(t, "ACC", only1(t))
+	r := &recorder{}
+	var mu sync.Mutex
+	running := true
+	env := tr.env(r, stop1+31)
+	env.GameRunning = func() bool { mu.Lock(); defer mu.Unlock(); return running }
+	old := closedWait
+	closedWait = 80 * time.Millisecond
+	defer func() { closedWait = old }()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		watch(ctx, env, 10*time.Millisecond, time.Hour, time.Hour)
+		close(done)
+	}()
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	running = false
+	mu.Unlock()
+	time.Sleep(20 * time.Millisecond)
+	mu.Lock()
+	running = true
+	mu.Unlock()
+	time.Sleep(200 * time.Millisecond)
+	if r.count() != 0 {
+		t.Fatalf("WoW riaperto: nessun invio atteso, ottenuti %d", r.count())
+	}
+	cancel()
+	<-done
+}
+
 func TestWatchPeriodicNotStarvedByChanges(t *testing.T) {
 	tr := newTree(t, true)
 	tr.writeSV(t, "ACC", only1(t))
@@ -660,7 +748,7 @@ func TestWatchPeriodicNotStarvedByChanges(t *testing.T) {
 
 // Ruling F1: dopo un /reload il file su disco ha stop = ora del reload ma
 // l'addon ha riaperto la sessione in memoria. Finche' WoW e' aperto la regola
-// dei 10 minuti non vale: solo una sessione piu' nuova la rende definitiva.
+// del margine a gioco chiuso non vale: solo una sessione piu' nuova la rende definitiva.
 func TestReloadWhileGameRunning(t *testing.T) {
 	tr := newTree(t, true)
 	tr.writeSV(t, "ACC", only1(t))

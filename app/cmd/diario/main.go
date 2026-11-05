@@ -360,7 +360,7 @@ func (a *app) sendNow() {
 	case after.After(before):
 		desktop.Notify("Diario inviato.")
 	default:
-		desktop.Notify("Niente di nuovo da inviare (una sessione parte una decina di minuti dopo che hai chiuso World of Warcraft).")
+		desktop.Notify("Niente di nuovo da inviare (una sessione parte circa un minuto dopo che hai chiuso World of Warcraft).")
 	}
 }
 

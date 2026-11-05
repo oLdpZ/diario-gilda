@@ -71,8 +71,9 @@ Dal menu dell'icona puoi: **Invia ora**, **Cambia nome…**, **Personaggio princ
 client sbagliato o hai spostato WoW), **Apri cartella dei registri** (se qualcosa non va, manda all'autore il file
 `diario.log` che trovi lì), **Esci**.
 
-La sessione parte verso Discord una decina di minuti dopo che hai chiuso World of Warcraft: mentre il gioco è aperto
-il programma aspetta, perché un `/reload` riapre la stessa sessione.
+La sessione parte verso Discord circa un minuto dopo che hai chiuso World of Warcraft: mentre il gioco è aperto
+il programma aspetta, perché un `/reload` riapre la stessa sessione. Se spegni il PC prima, non si perde niente:
+parte alla prossima accensione.
 
 ## 4. Controlla in gioco
 
