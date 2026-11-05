@@ -678,6 +678,56 @@ class TestLivelliBassi(unittest.TestCase):
         self.assertEqual(per_tipo(momenti.candidati([con_livello("B", 15)], {}), "drop"), [])
 
 
+def consegna(t, titolo, s="Deathknell"):
+    return {"t": t, "k": "quest", "action": "done", "title": titolo, "z": "Tirisfal Glades", "s": s, "xp": 450}
+
+
+class TestMissioniUniche(unittest.TestCase):
+    def test_stessa_missione_ore_diverse_un_momento(self):
+        a = sessione("Ugo", [consegna(1000, "Marla's Last Wish")], start=900)
+        b = sessione("Lia", [consegna(9000, "Marla's Last Wish")], start=8900)
+        mis = per_tipo(momenti.candidati([a, b], {}), "missione")
+        self.assertEqual(len(mis), 1)
+        (m,) = mis
+        self.assertEqual(m["chi"], ["Lia", "Ugo"])
+        self.assertEqual(m["fatti"]["insieme"], "separati")
+        self.assertEqual(m["quando"], 1000)
+
+    def test_stessa_missione_in_gruppo_resta_insieme(self):
+        a = sessione("Ugo", [gruppo(900, "Ugo", "Lia"), consegna(1000, "Q")], start=900)
+        b = sessione("Lia", [gruppo(900, "Ugo", "Lia"), consegna(1010, "Q")], start=900)
+        (m,) = per_tipo(momenti.candidati([a, b], {}), "missione")
+        self.assertEqual(m["fatti"]["insieme"], "gruppo")
+
+    def test_riassunto_separati_non_dice_insieme(self):
+        a = sessione("Ugo", [consegna(1000, "Q")], start=900)
+        b = sessione("Lia", [consegna(9000, "Q")], start=8900)
+        md = momenti.riassunto_md("2026-11-05", momenti.candidati([a, b], {}), [], ["Ugo", "Lia"])
+        self.assertIn("Insieme: no", md)
+
+    def test_stesso_giocatore_due_volte_non_si_unisce(self):  # missione ripetibile
+        a = sessione("Ugo", [consegna(1000, "Q"), consegna(5000, "Q")], start=900)
+        self.assertEqual(len(per_tipo(momenti.candidati([a], {}), "missione")), 2)
+
+    def test_gia_vista_nei_giorni_passati(self):
+        prima = momenti.aggiorna_contatori({}, [sessione("Ugo", [consegna(1000, "Marla's Last Wish")])])
+        self.assertEqual(prima["missioni"]["marla's last wish"], {"titolo": "Marla's Last Wish", "chi": ["Ugo"]})
+        oggi = sessione("Lia", [consegna(90000, "Marla's Last Wish"), consegna(90100, "Altra")], start=89000)
+        mis = {m["fatti"]["missione"]: m for m in per_tipo(momenti.candidati([oggi], prima), "missione")}
+        self.assertEqual(mis["Marla's Last Wish"]["fatti"]["gia_vista"], "Ugo")
+        self.assertNotIn("gia_vista", mis["Altra"]["fatti"])
+        self.assertLess(mis["Marla's Last Wish"]["punti"], mis["Altra"]["punti"])
+
+    def test_contatori_missioni_limitati_e_robusti(self):
+        cont = {"missioni": "rotto"}
+        out = momenti.aggiorna_contatori(cont, [sessione("Ugo", [consegna(1, "Q")])])
+        self.assertIn("q", out["missioni"])
+        tante = {"missioni": {f"m{i}": {"titolo": f"M{i}", "chi": ["X"]} for i in range(momenti.MAX_MISSIONI_RICORDATE)}}
+        out = momenti.aggiorna_contatori(tante, [sessione("Ugo", [consegna(1, "Nuova")])])
+        self.assertEqual(len(out["missioni"]), momenti.MAX_MISSIONI_RICORDATE)
+        self.assertIn("nuova", out["missioni"])
+        self.assertNotIn("m0", out["missioni"])  # si dimenticano le piu' vecchie
+
 
 if __name__ == "__main__":
     unittest.main()

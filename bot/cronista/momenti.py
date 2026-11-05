@@ -18,6 +18,8 @@ ORO_FOLLE = 100 * 10000  # 100 oro in rame
 MAX_RIASSUNTO = 40
 MISSIONE_S = 3600        # uccisioni di una missione: entro un'ora prima della consegna
 MISSIONE_RIPIEGO_S = 1800  # senza obiettivi: solo gli ultimi 30 minuti
+MAX_MISSIONI_RICORDATE = 2000  # titoli gia' visti nei giorni passati (nello stato)
+GIA_VISTA_MENO = 6      # punti in meno per una missione gia' vista in un giorno passato
 LIVELLO_BASSO = 10        # sotto: i livelli diventano un solo momento
 VERDE_MAX_LIVELLO = 15   # bottino verde: solo sotto questo livello
 MAX_MISSIONI = 2         # missioni per giocatore nella giornata
@@ -33,7 +35,8 @@ NOMI_TIPO = {
 SPIEGA_TIPO = {"fuga": "sopravvissuto a ≥4 nemici con poca vita"}
 QUALITA = {2: "non comune", 3: "raro", 4: "epico", 5: "leggendario"}
 INSIEME = {"gruppo": "nello stesso gruppo",
-           "stessa_zona": "solo stessa zona e stessa ora (nessun dato di gruppo: forse non erano insieme)"}
+           "stessa_zona": "solo stessa zona e stessa ora (nessun dato di gruppo: forse non erano insieme)",
+           "separati": "no: l'hanno completata in momenti diversi, ognuno per conto suo"}
 
 
 # --- letture difensive -------------------------------------------------------
@@ -575,6 +578,23 @@ def _da_missioni(g: str, p: dict) -> list[dict]:
     return out
 
 
+def _chiave_missione(titolo) -> str | None:
+    t = _str(titolo)
+    return t.strip().lower() if t and t.strip() else None
+
+
+def _segna_gia_viste(cand: list[dict], viste: dict) -> None:
+    """Missioni gia' completate in un giorno passato: `gia_vista` (chi l'aveva fatta) e meno punti."""
+    for c in cand:
+        if c["tipo"] != "missione":
+            continue
+        v = _dict(viste.get(_chiave_missione(c["fatti"].get("missione")) or ""))
+        chi = [n for n in (_str(x) for x in _lista(v.get("chi"))) if n]
+        if chi:
+            c["fatti"]["gia_vista"] = ", ".join(chi[:3])
+            c["punti"] = max(1, c["punti"] - GIA_VISTA_MENO)
+
+
 def _limita_missioni(cand: list[dict]) -> list[dict]:
     """Al massimo MAX_MISSIONI missioni per giocatore, dopo l'unione: una di gruppo conta per ognuno.
 
@@ -630,8 +650,16 @@ def _legame(gruppo: list[dict], c: dict, cron: dict) -> str | None:
     for x in gruppo:
         rel = _insieme(cron[x["_g"]], x["quando"], cron[c["_g"]], c["quando"])
         vicini = abs(x["quando"] - c["quando"]) <= UNIONE_S
-        if c["tipo"] == "missione" and x["fatti"].get("missione") != c["fatti"].get("missione"):
-            continue  # missioni diverse: mai unite
+        if c["tipo"] == "missione":
+            titolo = c["fatti"].get("missione")
+            if not titolo or x["fatti"].get("missione") != titolo:
+                continue  # missioni diverse (o senza titolo): mai unite
+            # stessa missione nella stessa giornata: un solo momento, anche se a ore diverse
+            if vicini and rel == "gruppo":
+                return "gruppo"
+            if vicini and rel == "nodati" and x["_zona"] and x["_zona"] == c["_zona"]:
+                return "stessa_zona"
+            return "separati"
         bx, bc = x["fatti"].get("boss_id"), c["fatti"].get("boss_id")
         if bx is not None or bc is not None:
             if bx != bc:
@@ -687,7 +715,12 @@ def _unisci(cand: list[dict], cron: dict) -> list[dict]:
         fatti = dict(base["fatti"])
         perche = base["perche"]
         if len(gr) > 1:
-            fatti["insieme"] = "gruppo" if all(r == "gruppo" for r in legami) else "stessa_zona"
+            if all(r == "gruppo" for r in legami):
+                fatti["insieme"] = "gruppo"
+            elif "separati" in legami:
+                fatti["insieme"] = "separati"
+            else:
+                fatti["insieme"] = "stessa_zona"
             pg = _per_giocatore(gr)
             if pg:
                 fatti["per_giocatore"] = pg
@@ -721,10 +754,32 @@ def candidati(sessioni: list[dict], contatori: dict) -> list[dict]:
         grezzi.extend(_duelli(cron))
     except SALTA:
         pass
+    _segna_gia_viste(grezzi, _dict(cont.get("missioni")))
     out = _limita_missioni(_unisci(grezzi, cron))
     out.sort(key=lambda c: (-c["punti"], c["quando"], c["tipo"], c["chi"], c["dove"], c["perche"],
                             json.dumps(c["fatti"], sort_keys=True, default=str)))
     return out
+
+
+def _ricorda_missioni(out: dict, sessioni) -> None:
+    """missioni["titolo minuscolo"] = {titolo, chi}: chi l'ha completata per primo (al massimo 3 nomi).
+
+    Si tengono le MAX_MISSIONI_RICORDATE piu' recenti: le piu' vecchie si dimenticano."""
+    viste = {k: v for k, v in _dict(out.get("missioni")).items() if isinstance(k, str) and isinstance(v, dict)}
+    for g, p in _cronologia(sessioni).items():
+        try:
+            for e in _di_tipo(p, "quest"):
+                k = _chiave_missione(e.get("title")) if e.get("action") == "done" else None
+                if not k:
+                    continue
+                v = viste.get(k)
+                if v is None:
+                    viste[k] = {"titolo": _str(e.get("title")).strip(), "chi": [g]}
+                elif g not in _lista(v.get("chi")) and len(_lista(v.get("chi"))) < 3:
+                    v["chi"] = _lista(v.get("chi")) + [g]
+        except SALTA:
+            continue
+    out["missioni"] = dict(list(viste.items())[-MAX_MISSIONI_RICORDATE:])
 
 
 def aggiorna_contatori(contatori: dict, sessioni) -> dict:
@@ -734,6 +789,7 @@ def aggiorna_contatori(contatori: dict, sessioni) -> dict:
     inseguiti["giocatore|boss"] = {nome, uccisioni}: boss uccisi senza che il drop epico sia arrivato.
     """
     out = copy.deepcopy(_dict(contatori))
+    _ricorda_missioni(out, sessioni)
     boss = out["boss"] = _dict(out.get("boss"))
     insegui = out["inseguiti"] = _dict(out.get("inseguiti"))
     for g, p in _cronologia(sessioni).items():

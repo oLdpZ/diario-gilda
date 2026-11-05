@@ -97,7 +97,9 @@ Regole del racconto:
 - **Insieme o no:** se il candidato ha la riga `Insieme: nello stesso gruppo` (nel `.json`:
   `fatti.insieme = "gruppo"`) puoi dire che erano insieme. Se dice `Insieme: solo stessa zona e stessa
   ora…` (`fatti.insieme = "stessa_zona"`) non è certo: scrivi con prudenza, «forse insieme», «nelle
-  stesse ore, nella stessa terra». Se non c'è nessuna riga `Insieme`, non dire che erano insieme.
+  stesse ore, nella stessa terra». Se dice `Insieme: no: …` (`fatti.insieme = "separati"`) hanno fatto la
+  stessa cosa in momenti diversi, ognuno per conto suo: raccontala una volta sola citandoli tutti, ma **non**
+  dire che erano insieme. Se non c'è nessuna riga `Insieme`, non dire che erano insieme.
 - **Bottino presunto:** se nei Fatti c'è `fonte presunta: sì` (`fatti.fonte_presunta`) o il perché dice
   «probabilmente da …», scrivi che l'oggetto **probabilmente** viene da quel nemico, non che ne viene
   di sicuro.
@@ -110,6 +112,9 @@ Regole del racconto:
   nemici sono scritti `nemici (presunti, dai combattimenti vicini)`, sono **probabilmente** quelli della
   missione.
 - Al massimo **una missione per giocatore** nel racconto, se ci sono altri momenti.
+- **Missione già vista:** se nei Fatti c'è `gia vista: …`, quella missione è già comparsa in un giorno passato
+  (completata da chi è indicato). **Non ripeterne la trama**: citala soltanto, per esempio «come già … prima
+  di lui/lei», e preferisci altri momenti se ci sono.
 - **Bilancio:** in fondo alla pagina lo aggiunge `pubblica` da solo. Non scriverlo e non ripeterne i numeri
   come elenco.
 - **Nomi:** i giocatori con il nome dei dati (quello del riassunto, per esempio «Gino»); mob, zone,
