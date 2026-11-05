@@ -104,7 +104,7 @@ Regole del racconto:
 - **Notizie in ritardo:** se nei Fatti di un momento c'è `in ritardo: AAAA-MM-GG`, quel fatto è
   successo in quel giorno passato e la notizia è arrivata solo ora. Dillo nel racconto («giunge solo ora
   notizia di quanto accadde il …»), non presentarlo come un fatto di questa giornata.
-- **Missioni:** sono momenti come gli altri. Se nei Fatti c'è la **Trama**, riassumila in italiano in una o due
+- **Missioni:** sono momenti come gli altri. Se sotto il momento c'è la riga **Trama**, riassumila in italiano in una o due
   frasi (nomi di persone, luoghi e nemici restano come sono). Se la trama non c'è, racconta solo il titolo, il
   luogo e i nemici abbattuti: **non aggiungere la storia della missione** da quello che sai del gioco. Se i
   nemici sono scritti `nemici (presunti, dai combattimenti vicini)`, sono **probabilmente** quelli della

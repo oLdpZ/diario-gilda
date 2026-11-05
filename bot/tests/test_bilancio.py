@@ -34,6 +34,32 @@ class TestBilancio(unittest.TestCase):
         self.assertIsNone(v["nemici"])
         self.assertNotIn("nemici", bilancio.md([v]))
 
+    def test_nemici_solo_dagli_episodi_di_combattimento(self):  # l'episodio di morte ripete le uccisioni
+        eps = [{"from": 1, "to": 2, "kind": "combat", "kills": [{"name": "Wolf", "n": 1}]},
+               {"from": 1, "to": 3, "kind": "death", "kills": [{"name": "Wolf", "n": 1}]}]
+        (v,) = bilancio.righe([sessione("Mara", [{"t": 3, "k": "death"}], eps)])
+        self.assertEqual(v["nemici"], 1)
+        self.assertIn("1 nemico", bilancio.md([v]))
+        solo_morte = [{"from": 1, "to": 3, "kind": "death", "kills": [{"name": "Wolf", "n": 1}]}]
+        (v,) = bilancio.righe([sessione("Mara", [{"t": 3, "k": "death"}], solo_morte)])
+        self.assertIsNone(v["nemici"])
+
+    def test_missioni_contate_tutte_titoli_senza_doppioni(self):
+        ev = [{"t": 1, "k": "quest", "action": "done", "title": "A"},
+              {"t": 2, "k": "quest", "action": "done", "title": "A"},
+              {"t": 3, "k": "quest", "action": "done"},
+              {"t": 4, "k": "quest", "action": "done", "title": "B"}]
+        (v,) = bilancio.righe([sessione("Mara", ev)])
+        self.assertEqual(v["missioni"], ["A", "B"])
+        self.assertIn("4 missioni (A, B)", bilancio.md([v]))
+        ev = [{"t": 1, "k": "quest", "action": "done", "title": "A"},
+              {"t": 2, "k": "quest", "action": "done", "title": "A"},
+              {"t": 3, "k": "quest", "action": "done"}]
+        (v,) = bilancio.righe([sessione("Mara", ev)])
+        self.assertIn("3 missioni (A)", bilancio.md([v]))
+        (v,) = bilancio.righe([sessione("Mara", [{"t": 3, "k": "quest", "action": "done"}])])
+        self.assertIn("**Mara** — 1 missione\n", bilancio.md([v]))
+
     def test_ritardo_riga_a_parte(self):
         a, b = sessione("Gino", [], start=1793834441), sessione("Gino", [], start=1793834441 - 86400)
         voci = bilancio.righe([a, b], tardi={id(b)})

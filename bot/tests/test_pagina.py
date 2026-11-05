@@ -48,6 +48,17 @@ class TestPagina(unittest.TestCase):
             self.assertTrue(set(e["description"].split()) == {"drago"})
         self.assertEqual(sum(len(e["description"].split()) for e in embeds), 2000)
 
+    def test_paragrafo_lungo_diviso_alle_righe(self):  # il bilancio: un paragrafo di molte righe
+        righe = [f"**R{i:02d}** — " + " ".join(["parola"] * 55) + "x" * 6 for i in range(15)]
+        self.assertTrue(all(len(r) == 400 for r in righe))
+        msgs = pagina.embed("# T\n\n" + "\n".join(righe))
+        embeds = [e for m in msgs for e in m]
+        self.assertGreater(len(embeds), 1)
+        uscite = [r for e in embeds for r in e["description"].split("\n")]
+        self.assertEqual(uscite, righe)  # ogni riga intera, nessuna unita a un'altra
+        for e in embeds:
+            self.assertLessEqual(len(e["description"]), 4096)
+
     def test_titolo_troppo_lungo_e_senza_titolo(self):
         e = pagina.embed("# " + "a " * 200 + "\n\ntesto")[0][0]
         self.assertLessEqual(len(e["title"]), 256)

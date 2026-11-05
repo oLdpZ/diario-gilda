@@ -58,7 +58,8 @@ def _voce(gr: dict) -> dict:
         eventi += [(_int(e.get("t")), e) for e in _lista(se.get("events"))
                    if isinstance(e, dict) and _int(e.get("t")) is not None]
         for ep in _lista(s.get("combattimenti")):
-            if not isinstance(ep, dict):
+            # solo i combattimenti: l'episodio di morte ripete le uccisioni degli ultimi secondi
+            if not isinstance(ep, dict) or ep.get("kind") != "combat":
                 continue
             n_episodi += 1
             for k in _lista(ep.get("kills")):
@@ -67,10 +68,11 @@ def _voce(gr: dict) -> dict:
     livelli = [lv for lv in (_int(e.get("level")) for _, e in eventi if e.get("k") == "level") if lv]
     da = livello0 if livello0 else (livelli[0] - 1 if livelli else None)
     a = livelli[-1] if livelli else da
-    missioni, luoghi, morti = [], [], 0
+    missioni, n_missioni, luoghi, morti = [], 0, [], 0
     for _, e in eventi:
         k = e.get("k")
         if k == "quest" and e.get("action") == "done":
+            n_missioni += 1  # tutte le consegne, anche senza titolo o ripetute
             titolo = _str(e.get("title"))
             titolo = pulito(titolo, 60) if titolo else None
             if titolo and titolo not in missioni:
@@ -83,6 +85,7 @@ def _voce(gr: dict) -> dict:
             if luogo and luogo not in luoghi:
                 luoghi.append(luogo)
     return {"giocatore": gr["giocatore"], "char": gr["char"], "da": da, "a": a, "missioni": missioni,
+            "n_missioni": n_missioni,
             "nemici": nemici if n_episodi else None, "morti": morti, "luoghi": luoghi[:MAX_LUOGHI],
             "ritardo": gr["ritardo"]}
 
@@ -101,12 +104,12 @@ def _riga(v: dict) -> str:
     if a is not None:
         pezzi.append(f"livello {a}" if da is None or da == a else f"livello {da} → {a}")
     miss = [pulito(m, 60) for m in _lista(v.get("missioni")) if _str(m)]
-    if miss:
+    n = max(_int(v.get("n_missioni")) or 0, len(miss))
+    if n:
         elenco = ", ".join(miss[:MAX_MISSIONI])
         if len(miss) > MAX_MISSIONI:
             elenco += f", e altre {len(miss) - MAX_MISSIONI}"
-        pezzi.append(f"{len(miss)} missione ({elenco})" if len(miss) == 1
-                     else f"{len(miss)} missioni ({elenco})")
+        pezzi.append(("1 missione" if n == 1 else f"{n} missioni") + (f" ({elenco})" if elenco else ""))
     nemici = _int(v.get("nemici"))
     if nemici is not None:
         pezzi.append(f"{nemici} nemico" if nemici == 1 else f"{nemici} nemici")

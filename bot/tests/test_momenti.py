@@ -500,8 +500,9 @@ class TestMissioni(unittest.TestCase):
         self.assertEqual(m["fatti"]["insieme"], "gruppo")
         self.assertEqual(m["punti"], 22)
 
-    def test_limite_con_gruppo(self):  # il candidato di gruppo resta se e' tra i primi 2 di qualcuno
-        # Ada: A1 e A2 (con Cia, 22 punti, piu' xp) battono Insieme (con Bea, 22 punti) e A3 (da sola)
+    def test_limite_con_gruppo(self):  # il limite vale dopo l'unione, per ognuno dei giocatori coinvolti
+        # Ada: A1 e A2 (con Cia, 22 punti, piu' xp) prima di Insieme (con Bea) e A3 (da sola):
+        # Insieme sarebbe la terza di Ada, quindi cade anche per Bea
         a = [gruppo(50, "Bea", "Cia"), missione(100, "Insieme", 10), missione(1000, "A1", 500),
              missione(2000, "A2", 400), missione(3000, "A3", 1000)]
         b = [gruppo(50, "Ada", "Cia"), missione(110, "Insieme", 10)]
@@ -509,7 +510,33 @@ class TestMissioni(unittest.TestCase):
         cand = per_tipo(momenti.candidati([sessione("Ada", a), sessione("Bea", b), sessione("Cia", c)], {}),
                         "missione")
         self.assertEqual(sorted((m["fatti"]["missione"], tuple(m["chi"])) for m in cand),
-                         [("A1", ("Ada", "Cia")), ("A2", ("Ada", "Cia")), ("Insieme", ("Ada", "Bea"))])
+                         [("A1", ("Ada", "Cia")), ("A2", ("Ada", "Cia"))])
+
+    def test_limite_gruppo_non_da_una_terza_missione(self):
+        # Insieme (Ada+Bea) sarebbe la terza di Ada dopo A1 e A2 (con Cia, piu' xp): cade,
+        # e Bea tiene al suo posto la sua missione da sola
+        a = [gruppo(50, "Bea", "Cia"), missione(100, "Insieme", 10), missione(1000, "A1", 500),
+             missione(2000, "A2", 400)]
+        b = [gruppo(50, "Ada", "Cia"), missione(110, "Insieme", 10), missione(5000, "B1", 5)]
+        c = [gruppo(50, "Ada", "Bea"), missione(1010, "A1", 500), missione(2010, "A2", 400)]
+        cand = per_tipo(momenti.candidati([sessione("Ada", a), sessione("Bea", b), sessione("Cia", c)], {}),
+                        "missione")
+        self.assertEqual(sorted((m["fatti"]["missione"], tuple(m["chi"])) for m in cand),
+                         [("A1", ("Ada", "Cia")), ("A2", ("Ada", "Cia")), ("B1", ("Bea",))])
+        per_g = {}
+        for m in cand:
+            for n in m["chi"]:
+                per_g[n] = per_g.get(n, 0) + 1
+        self.assertTrue(all(v <= 2 for v in per_g.values()))
+
+    def test_consegne_ravvicinate_tengono_i_loro_nemici(self):
+        ev = [missione(10_000, "Lupi", 10, obj="Kill 5 Wolfs."),
+              missione(10_005, "Orsi", 10, obj="Kill 5 Bears.")]
+        eps = [{"from": 8000, "to": 8100, "kind": "combat", "kills": [{"name": "Wolf", "n": 5}]},
+               {"from": 9000, "to": 9100, "kind": "combat", "kills": [{"name": "Bear", "n": 5}]}]
+        cand = per_tipo(momenti.candidati([sessione("Sci", ev, eps)], {}), "missione")
+        nemici = {m["fatti"]["missione"]: m["fatti"].get("nemici") for m in cand}
+        self.assertEqual(nemici, {"Lupi": [{"nome": "Wolf", "n": 5}], "Orsi": [{"nome": "Bear", "n": 5}]})
 
     def test_dati_strani(self):
         ev = [{"t": 1, "k": "quest", "action": "done"},

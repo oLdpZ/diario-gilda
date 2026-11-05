@@ -511,16 +511,39 @@ def _conta_uccisioni(episodi: list[dict], tieni) -> list[dict]:
     return [{"nome": nome, "n": n} for nome, n in sorted(conta.items(), key=lambda x: (-x[1], x[0]))][:3]
 
 
+def _uccisioni_obiettivi(episodi: list[dict], testo: str, usate: dict) -> list[dict]:
+    """Uccisioni citate negli obiettivi, senza quelle gia' date a una missione precedente.
+
+    `usate` conta per (episodio, nome) le uccisioni gia' assegnate e viene aggiornato."""
+    conta: dict[str, int] = {}
+    for ep in episodi:
+        for k in _lista(ep.get("kills")):
+            k = _dict(k)
+            nome, n = _str(k.get("name")), _int(k.get("n"))
+            if not nome or not n or n <= 0:
+                continue
+            if re.search(rf"\b{re.escape(nome.lower())}s?\b", testo) is None:
+                continue
+            chiave = (id(ep), nome)
+            libere = n - usate.get(chiave, 0)
+            if libere > 0:
+                usate[chiave] = n
+                conta[nome] = conta.get(nome, 0) + libere
+    return [{"nome": nome, "n": n} for nome, n in sorted(conta.items(), key=lambda x: (-x[1], x[0]))][:3]
+
+
 def _da_missioni(g: str, p: dict) -> list[dict]:
     out = []
-    prec = None  # consegna precedente: le uccisioni contano per una sola missione
+    prec = None  # consegna precedente: limita solo i nemici presunti
+    usate: dict = {}  # uccisioni gia' date a una missione con obiettivi: contano per una sola
+    combattimenti = [ep for ep, _ in p["episodi"] if ep.get("kind") == "combat"]
     for e in _di_tipo(p, "quest"):
         if e.get("action") != "done":
             continue
         t = _int(e["t"])
-        da = t - MISSIONE_S if prec is None else max(t - MISSIONE_S, prec)
+        finestra = [ep for ep in combattimenti if t - MISSIONE_S < _int(ep["to"]) <= t]
+        da_ripiego = t - MISSIONE_S if prec is None else max(t - MISSIONE_S, prec)
         prec = t
-        finestra = [ep for ep, _ in p["episodi"] if ep.get("kind") == "combat" and da < _int(ep["to"]) <= t]
         titolo = _str(e.get("title"))
         dove = _dove(e)
         noto = dove != "luogo sconosciuto"
@@ -531,13 +554,11 @@ def _da_missioni(g: str, p: dict) -> list[dict]:
         obj = _str(e.get("obj"))
         nemici = []
         if obj:
-            testo = obj.lower()
-            nemici = _conta_uccisioni(
-                finestra, lambda n: re.search(rf"\b{re.escape(n.lower())}s?\b", testo) is not None)
+            nemici = _uccisioni_obiettivi(finestra, obj.lower(), usate)
         if nemici:
             fatti["nemici"] = nemici
         elif noto:  # senza luogo non si indovinano i nemici
-            vicini = [ep for ep in finestra if _int(ep["to"]) > t - MISSIONE_RIPIEGO_S
+            vicini = [ep for ep in finestra if _int(ep["to"]) > max(t - MISSIONE_RIPIEGO_S, da_ripiego)
                       and _dove(_evento_a(p, _int(ep["to"]), "combat") or {}) == dove]
             nemici = _conta_uccisioni(vicini, lambda n: True)
             if nemici:
@@ -555,12 +576,18 @@ def _da_missioni(g: str, p: dict) -> list[dict]:
 
 
 def _limita_missioni(cand: list[dict]) -> list[dict]:
-    """Al massimo MAX_MISSIONI missioni per giocatore; una di gruppo resta se e' tra le prime di qualcuno."""
+    """Al massimo MAX_MISSIONI missioni per giocatore, dopo l'unione: una di gruppo conta per ognuno.
+
+    In ordine (punti, xp, quando) una missione resta solo se nessuno dei suoi giocatori e' gia' al limite."""
     mis = [c for c in cand if c["tipo"] == "missione"]
     ordine = lambda c: (-c["punti"], -(_int(c["fatti"].get("xp")) or 0), c["quando"])
     tenute: set[int] = set()
-    for g in sorted({n for c in mis for n in c["chi"]}):
-        tenute.update(id(c) for c in sorted((c for c in mis if g in c["chi"]), key=ordine)[:MAX_MISSIONI])
+    per_g: dict[str, int] = {}
+    for c in sorted(mis, key=ordine):
+        if all(per_g.get(n, 0) < MAX_MISSIONI for n in c["chi"]):
+            tenute.add(id(c))
+            for n in c["chi"]:
+                per_g[n] = per_g.get(n, 0) + 1
     return [c for c in cand if c["tipo"] != "missione" or id(c) in tenute]
 
 
