@@ -99,7 +99,8 @@ Regole del racconto:
   ora…` (`fatti.insieme = "stessa_zona"`) non è certo: scrivi con prudenza, «forse insieme», «nelle
   stesse ore, nella stessa terra». Se dice `Insieme: no: …` (`fatti.insieme = "separati"`) hanno fatto la
   stessa cosa in momenti diversi, ognuno per conto suo: raccontala una volta sola citandoli tutti, ma **non**
-  dire che erano insieme. Se non c'è nessuna riga `Insieme`, non dire che erano insieme.
+  dire che erano insieme (tranne chi è indicato dopo «erano davvero insieme»). Se non c'è nessuna riga
+  `Insieme`, non dire che erano insieme.
 - **Bottino presunto:** se nei Fatti c'è `fonte presunta: sì` (`fatti.fonte_presunta`) o il perché dice
   «probabilmente da …», scrivi che l'oggetto **probabilmente** viene da quel nemico, non che ne viene
   di sicuro.

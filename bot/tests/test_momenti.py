@@ -705,6 +705,23 @@ class TestMissioniUniche(unittest.TestCase):
         md = momenti.riassunto_md("2026-11-05", momenti.candidati([a, b], {}), [], ["Ugo", "Lia"])
         self.assertIn("Insieme: no", md)
 
+    def test_coppia_in_gruppo_dopo_un_solitario(self):  # Ugo da solo al mattino, Lia e Mario insieme la sera
+        u = sessione("Ugo", [consegna(1000, "Q")], start=900)
+        l = sessione("Lia", [gruppo(40000, "Lia", "Mario"), consegna(40100, "Q")], start=39000)
+        m = sessione("Mario", [gruppo(40000, "Lia", "Mario"), consegna(40110, "Q")], start=39000)
+        (c,) = per_tipo(momenti.candidati([u, l, m], {}), "missione")
+        self.assertEqual(c["chi"], ["Lia", "Mario", "Ugo"])
+        self.assertEqual(c["fatti"]["insieme"], "separati")  # non tutti insieme
+        self.assertEqual(c["fatti"]["insieme_gruppi"], [["Lia", "Mario"]])
+        md = momenti.riassunto_md("2026-11-05", [c], [], ["Ugo", "Lia", "Mario"])
+        self.assertIn("erano davvero insieme, nello stesso gruppo, solo: Lia e Mario", md)
+        self.assertNotIn("insieme gruppi", md)
+
+    def test_titolo_con_maiuscole_diverse_si_unisce(self):
+        a = sessione("Ugo", [consegna(1000, "Marla's Last Wish")], start=900)
+        b = sessione("Lia", [consegna(9000, "marla's last wish ")], start=8900)
+        self.assertEqual(len(per_tipo(momenti.candidati([a, b], {}), "missione")), 1)
+
     def test_stesso_giocatore_due_volte_non_si_unisce(self):  # missione ripetibile
         a = sessione("Ugo", [consegna(1000, "Q"), consegna(5000, "Q")], start=900)
         self.assertEqual(len(per_tipo(momenti.candidati([a], {}), "missione")), 2)

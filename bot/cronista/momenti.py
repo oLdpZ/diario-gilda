@@ -647,19 +647,11 @@ def _legame(gruppo: list[dict], c: dict, cron: dict) -> str | None:
         return None
     if set(c["chi"]) & {n for x in gruppo for n in x["chi"]}:
         return None
+    if c["tipo"] == "missione":
+        return _legame_missione(gruppo, c, cron)
     for x in gruppo:
         rel = _insieme(cron[x["_g"]], x["quando"], cron[c["_g"]], c["quando"])
         vicini = abs(x["quando"] - c["quando"]) <= UNIONE_S
-        if c["tipo"] == "missione":
-            titolo = c["fatti"].get("missione")
-            if not titolo or x["fatti"].get("missione") != titolo:
-                continue  # missioni diverse (o senza titolo): mai unite
-            # stessa missione nella stessa giornata: un solo momento, anche se a ore diverse
-            if vicini and rel == "gruppo":
-                return "gruppo"
-            if vicini and rel == "nodati" and x["_zona"] and x["_zona"] == c["_zona"]:
-                return "stessa_zona"
-            return "separati"
         bx, bc = x["fatti"].get("boss_id"), c["fatti"].get("boss_id")
         if bx is not None or bc is not None:
             if bx != bc:
@@ -679,6 +671,46 @@ def _legame(gruppo: list[dict], c: dict, cron: dict) -> str | None:
         if rel == "nodati" and x["_zona"] and x["_zona"] == c["_zona"]:
             return "stessa_zona"
     return None
+
+
+def _rel_missione(x: dict, c: dict, cron: dict) -> str:
+    rel = _insieme(cron[x["_g"]], x["quando"], cron[c["_g"]], c["quando"])
+    if abs(x["quando"] - c["quando"]) <= UNIONE_S:
+        if rel == "gruppo":
+            return "gruppo"
+        if rel == "nodati" and x["_zona"] and x["_zona"] == c["_zona"]:
+            return "stessa_zona"
+    return "separati"
+
+
+def _legame_missione(gruppo: list[dict], c: dict, cron: dict) -> str | None:
+    """Stessa missione (titolo senza maiuscole) nella stessa giornata: un solo momento anche a ore diverse.
+
+    Relazione migliore con uno qualsiasi dei membri: gruppo, poi stessa_zona, poi separati."""
+    k = _chiave_missione(c["fatti"].get("missione"))
+    simili = [x for x in gruppo if k and _chiave_missione(x["fatti"].get("missione")) == k]
+    if not simili:
+        return None  # missioni diverse (o senza titolo): mai unite
+    rel = {_rel_missione(x, c, cron) for x in simili}
+    return next(r for r in ("gruppo", "stessa_zona", "separati") if r in rel)
+
+
+def _gruppi_veri(gr: list[dict], cron: dict) -> list[list[str]]:
+    """Chi ha completato la missione davvero insieme (stesso gruppo, entro UNIONE_S): insiemi di 2+ nomi."""
+    radice = list(range(len(gr)))
+
+    def trova(i):
+        while radice[i] != i:
+            i = radice[i]
+        return i
+    for i in range(len(gr)):
+        for j in range(i + 1, len(gr)):
+            if _rel_missione(gr[i], gr[j], cron) == "gruppo":
+                radice[trova(i)] = trova(j)
+    comp: dict[int, set] = {}
+    for i, x in enumerate(gr):
+        comp.setdefault(trova(i), set()).update(x["chi"])
+    return sorted(sorted(v) for v in comp.values() if len(v) > 1)
 
 
 def _per_giocatore(gr: list[dict]) -> dict:
@@ -719,6 +751,9 @@ def _unisci(cand: list[dict], cron: dict) -> list[dict]:
                 fatti["insieme"] = "gruppo"
             elif "separati" in legami:
                 fatti["insieme"] = "separati"
+                veri = _gruppi_veri(gr, cron) if base["tipo"] == "missione" else []
+                if veri:
+                    fatti["insieme_gruppi"] = veri
             else:
                 fatti["insieme"] = "stessa_zona"
             pg = _per_giocatore(gr)
@@ -859,7 +894,7 @@ def _riga_fatti(fatti: dict) -> str:
     if "in_ritardo" in fatti:  # sempre per primo: il taglio a 300 caratteri non lo perde
         parti.append(f"in ritardo: {_valore(fatti['in_ritardo'])}")
     for k, v in fatti.items():
-        if k in ("boss_id", "altri", "insieme", "per_giocatore", "in_ritardo", "trama", "obiettivi", "consegna",
+        if k in ("boss_id", "altri", "insieme", "insieme_gruppi", "per_giocatore", "in_ritardo", "trama", "obiettivi", "consegna",
                  "nemici_presunti"):
             continue
         if k == "nemici" and isinstance(v, list):
@@ -923,7 +958,11 @@ def riassunto_md(giorno: str, candidati, avvisi, giocatori, fuso: str = "Europe/
                 righe.append(f"   {etichetta}: {pulito(fatti[chiave], limite)}")
         ins = fatti.get("insieme")
         if ins in INSIEME:
-            righe.append(f"   Insieme: {INSIEME[ins]}")
+            riga = f"   Insieme: {INSIEME[ins]}"
+            veri = [" e ".join(pulito(n) for n in _lista(v)) for v in _lista(fatti.get("insieme_gruppi"))]
+            if ins == "separati" and veri:
+                riga += f"; erano davvero insieme, nello stesso gruppo, solo: {'; '.join(veri)}"
+            righe.append(riga[:400])
         pg = _dict(fatti.get("per_giocatore"))
         if pg:
             parti = [f"{pulito(n)} ({_riga_fatti(_dict(f))})" for n, f in list(pg.items())[:5]]
