@@ -13,8 +13,9 @@ import (
 	"github.com/oLdpZ/diario-gilda/app/internal/update"
 )
 
-// UpdateEvery e' l'intervallo fra due controlli degli aggiornamenti.
-const UpdateEvery = 6 * time.Hour
+// UpdateEvery e' l'intervallo fra due controlli degli aggiornamenti: una domanda all'ora a GitHub
+// per PC, lontana dal limite di 60 all'ora per connessione delle richieste anonime.
+const UpdateEvery = time.Hour
 
 // Updater controlla e installa gli aggiornamenti. Check e Install sono di
 // solito update.Check e update.Install (che verifica la firma prima di
