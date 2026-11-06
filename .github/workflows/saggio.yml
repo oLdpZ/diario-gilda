@@ -2,11 +2,11 @@ name: Voce del Saggio
 
 # Ogni mattina, dopo il Cronista (07:15 ora italiana), il Saggio legge la pagina nuova e pubblica
 # il video in risposta. GitHub non garantisce gli orari programmati (il 6/11 il giro delle 07:55
-# non è mai partito), quindi ci prova ogni 15 minuti dalle 07:30 alle 10:45 ora italiana: se la
-# pagina ha già il suo video il giro finisce in pochi secondi, senza chiamare Gemini.
+# non è mai partito), quindi ci prova ogni 15 minuti dalle 07:00 alle 10:45 ora italiana: se non
+# c'è una pagina nuova senza video il giro finisce in pochi secondi, senza chiamare Gemini.
 on:
   schedule:
-    - cron: "*/15 6-9 * * *"   # 07:30–10:45 ora italiana (inverno)
+    - cron: "*/15 6-9 * * *"   # 07:00–10:45 ora italiana (inverno)
   workflow_dispatch:
     inputs:
       prova:
