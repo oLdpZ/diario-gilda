@@ -129,7 +129,7 @@ Prima di iniziare scrivi `/console scriptErrors 1` (vedi voce 15).
   - Se fallisce: copia il testo dell'errore (o la riga di `errors` nel file) con nome del file e riga. Ogni handler è protetto
     da `pcall`, quindi l'errore finisce in `errors` e non rompe il gioco. Correggi dal messaggio, non a occhio.
 
-- [ ] **16.** Testi delle missioni: consegna una missione, `/reload`, nel file l'evento `quest done` ha `desc`, `obj`, `fine`, e che il programmino invii comunque la sessione (nessun errore nel suo log).
+- [ ] **16.** Testi delle missioni: consegna una missione, `/reload`, nel file l'evento `quest done` ha `desc`, `obj`, `fine`, e che il programmino invii comunque la sessione (nessun errore nel suo log). **6/11: su Forever (1.60) `desc`/`obj` mancavano: niente `SelectQuestLogEntry` né `GetQuestLogIndexByID`; dalla 0.2.2 si usa `C_QuestLog.SetSelectedQuest`. Da riverificare con la 0.2.2.**
   Se mancano: annota quali API esistono (`/dump GetQuestLogQuestText, C_QuestLog.GetLogIndexForQuestID, GetRewardText`).
 
 ## Esito

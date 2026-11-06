@@ -347,6 +347,34 @@ describe("Main (collegamento al gioco)", function()
     assert.equals("Well done.", q.fine)
   end)
 
+  it("client come WoW Forever (senza SelectQuestLogEntry): testi con C_QuestLog.SetSelectedQuest", function()
+    local sel = 7 -- id della missione selezionata nel registro
+    finally(function()
+      _G.SelectQuestLogEntry = function(i) G.v.questSel = i end
+      _G.GetQuestLogSelection = function() return G.v.questSel end
+    end)
+    restart(function()
+      _G.SelectQuestLogEntry = nil
+      _G.GetQuestLogSelection = nil
+      rawset(C_QuestLog, "GetSelectedQuest", function() return sel end)
+      rawset(C_QuestLog, "SetSelectedQuest", function(id) sel = id end)
+      _G.GetQuestLogQuestText = function()
+        local q = G.v.questLog[sel]
+        if q then return q.desc, q.obj end
+      end
+    end)
+    login()
+    questWindow(42)
+    H.fire("QUEST_COMPLETE")
+    H.fire("QUEST_TURNED_IN", 42, 450, 1200)
+    local q = find("quest")
+    assert.equals("Long story", q.desc)
+    assert.equals("Kill 8 rats", q.obj)
+    assert.equals("Well done.", q.fine)
+    assert.equals(7, sel) -- selezione del registro ripristinata
+    assert.equals(0, #DiarioGildaDB.errors)
+  end)
+
   it("API dei testi assenti: evento come prima, nessun errore", function()
     restart(function()
       rawset(C_QuestLog, "GetLogIndexForQuestID", nil)
