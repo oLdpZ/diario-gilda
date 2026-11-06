@@ -9,7 +9,7 @@
 local _, DG = ...
 
 DG.Const = {
-  VERSION = "0.2.2", -- uguale a "## Version:" del TOC (controllato dai test e dalla release)
+  VERSION = "0.2.3", -- uguale a "## Version:" del TOC (controllato dai test e dalla release)
   MAX_EVENTS = 5000,
   KEEP_SECONDS = 1209600,
   FISHING_IDLE = 120,

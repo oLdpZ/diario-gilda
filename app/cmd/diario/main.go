@@ -105,6 +105,12 @@ func start() error {
 	// macOS: un'app aperta dalla cartella Download gira da una copia temporanea
 	// di sola lettura; non si puo' ne' avviare da sola ne' aggiornare.
 	translocated := runtime.GOOS == "darwin" && strings.Contains(exe, "/AppTranslocation/")
+	// Windows: aperta con un doppio clic dentro lo zip, gira da una copia nella cartella temporanea
+	// che poi viene cancellata: l'avvio automatico punterebbe a un file che sparisce.
+	inZip := runtime.GOOS == "windows" && desktop.InTempDir(longPath(exe), longPath(os.TempDir()))
+	if inZip {
+		log.Printf("programma aperto da dentro lo zip (%s): avvio automatico non attivato", exe)
+	}
 
 	ui := desktop.Dialogs{}
 	cfg, err := config.Load(dir)
@@ -120,6 +126,9 @@ func start() error {
 		Enable: func() error {
 			if translocated {
 				return errors.New("app in una posizione temporanea (App Translocation)")
+			}
+			if inZip {
+				return errors.New("programma aperto da dentro lo zip (cartella temporanea)")
 			}
 			return autostart.Enable(exe)
 		},
@@ -138,6 +147,8 @@ func start() error {
 		if firstRun {
 			ui.Info(msgMoveApp)
 		}
+	} else if inZip {
+		ui.Info(desktop.MsgExtractZip) // a ogni avvio da dentro lo zip: va estratto
 	} else if !firstRun && autostart.Enabled() {
 		// l'app potrebbe essere stata spostata: aggiorna il percorso
 		if err := autostart.Enable(exe); err != nil {
@@ -533,4 +544,13 @@ func (a *app) exit() {
 	lock := a.lock
 	a.mu.Unlock()
 	lock.Release()
+}
+
+// longPath risolve i collegamenti e, su Windows, i nomi corti 8.3 (OLD_P~1): serve a confrontare
+// percorsi che il sistema puo' dare in forme diverse. Se non riesce, restituisce p cosi' com'e'.
+func longPath(p string) string {
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	return p
 }
