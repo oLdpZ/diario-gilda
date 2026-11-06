@@ -88,7 +88,17 @@ Non inventare né calcolare il numero del giorno: è già nel titolo.
 
 Regole del racconto:
 
-- **3–5 momenti**, scelti tra i candidati. Se i momenti sono meno di 3, racconta quelli che ci sono.
+- **3–5 momenti** raccontati per esteso, scelti tra i candidati. Se i momenti sono meno di 3, racconta quelli
+  che ci sono.
+- **Ogni giocatore compare.** Ogni giocatore della riga `Giocatori:` (quelli della giornata, non solo quelli
+  «in ritardo») deve comparire nel racconto con **almeno un fatto suo di questa giornata**: se non ha un
+  momento tra quelli raccontati per esteso, dagli una o due frasi prese dalla **sua** riga del Bilancio
+  (livello raggiunto, una missione o una zona, i nemici abbattuti), intrecciate nel racconto, mai come
+  elenco. Una citazione solo nelle notizie in ritardo non basta. Prima di pubblicare controlla: ogni nome
+  della riga `Giocatori:` è nel testo?
+- **Numeri dalla riga giusta:** livelli, missioni e nemici di un giocatore si prendono solo dalla **sua**
+  riga del Bilancio o dai suoi momenti, mai per somiglianza con un altro giocatore («raggiunse anch'egli il
+  livello 10» va scritto solo se è vero per entrambi).
 - **Solo fatti presenti nei dati.** Niente nemici, oggetti, luoghi, numeri o dialoghi inventati. Puoi
   colorare (il tramonto, il vento, lo stato d'animo) ma non aggiungere eventi.
 - **Varietà:** se possibile dai spazio a giocatori diversi, non solo al primo della lista.
@@ -117,13 +127,15 @@ Regole del racconto:
   (completata da chi è indicato). **Non ripeterne la trama**: citala soltanto, per esempio «come già … prima
   di lui/lei», e preferisci altri momenti se ci sono.
 - **Bilancio:** in fondo alla pagina lo aggiunge `pubblica` da solo. Non scriverlo e non ripeterne i numeri
-  come elenco.
+  come elenco (puoi usarne i fatti nel racconto, uno o due per giocatore, come dice «Ogni giocatore compare»).
 - **Nomi:** i giocatori con il nome dei dati (quello del riassunto, per esempio «Gino»); mob, zone,
   boss e oggetti esattamente come li scrive il client nei dati (per esempio «Edwin VanCleef»,
   «Deadmines», «Lama dei Defias»). Non tradurli.
 - **Mai `@`** nel testo (nessuna menzione, nessun ping, nemmeno `@everyone`).
 - **Mai link né indirizzi web** nella pagina (`pubblica` li toglie comunque).
-- **Lunghezza:** fra 1200 e 2500 caratteri di racconto (la pagina di recupero può arrivare a 3500).
+- **Lunghezza:** fra 1200 e 2500 caratteri di racconto con fino a 4 giocatori; con più giocatori aggiungi
+  circa 250 caratteri per ognuno oltre il quarto, fino a 3500 al massimo (anche la pagina di recupero arriva
+  al massimo a 3500).
 - Racconto intrecciato in prosa, non un elenco puntato. Niente intestazioni dopo il titolo.
 - Se la giornata non ha momenti candidati, scrivi una pagina breve (anche sotto i 1200 caratteri) con
   quello che c'è nei dati: chi ha giocato, le zone percorse, i livelli.
