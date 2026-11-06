@@ -106,20 +106,33 @@ local function questTitle(id)
 end
 
 -- Descrizione e obiettivi dal registro delle missioni (nil, nil se la missione non c'e' o mancano le API).
--- La selezione del registro viene rimessa com'era.
+-- La selezione del registro viene rimessa com'era. Client vecchi: SelectQuestLogEntry(indice);
+-- client moderni come WoW Forever (1.60, senza SelectQuestLogEntry): C_QuestLog.SetSelectedQuest(id).
 local function questLogText(id)
   local index = Safe.num((Safe.call(api(C_QuestLog, "GetLogIndexForQuestID"), id)))
   if not index and type(api(C_QuestLog, "GetLogIndexForQuestID")) ~= "function" then
     index = Safe.num((Safe.call(GetQuestLogIndexByID, id)))
   end
-  if not index or index <= 0 or type(SelectQuestLogEntry) ~= "function" then
+  if not index or index <= 0 then
     return nil, nil
   end
-  local prev = Safe.num((Safe.call(GetQuestLogSelection)))
-  Safe.call(SelectQuestLogEntry, index)
-  local desc, obj = Safe.call(GetQuestLogQuestText)
-  if prev and prev ~= index then
-    Safe.call(SelectQuestLogEntry, prev)
+  local desc, obj
+  if type(SelectQuestLogEntry) == "function" then
+    local prev = Safe.num((Safe.call(GetQuestLogSelection)))
+    Safe.call(SelectQuestLogEntry, index)
+    desc, obj = Safe.call(GetQuestLogQuestText, index)
+    if prev and prev ~= index then
+      Safe.call(SelectQuestLogEntry, prev)
+    end
+  elseif type(api(C_QuestLog, "SetSelectedQuest")) == "function" then
+    local prev = Safe.num((Safe.call(api(C_QuestLog, "GetSelectedQuest"))))
+    Safe.call(C_QuestLog.SetSelectedQuest, id)
+    desc, obj = Safe.call(GetQuestLogQuestText, index)
+    if prev and prev > 0 and prev ~= id then
+      Safe.call(C_QuestLog.SetSelectedQuest, prev)
+    end
+  else
+    return nil, nil
   end
   return Safe.str(desc), Safe.str(obj)
 end
