@@ -142,7 +142,7 @@ jobs:
 
   macos:
     needs: [version, test-go, test-lua]
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       VERSION: ${{ needs.version.outputs.version }}
       ASSET: DiarioGilda-macos.zip
