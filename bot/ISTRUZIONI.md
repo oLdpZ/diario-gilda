@@ -205,8 +205,13 @@ python bot/cronista.py chiudi --ricorrenze-file bot/lavoro/ricorrenze.txt
 Se non c'è nulla da ricordare, non scrivere il file e lancia `chiudi` da solo. Non mettere mai le
 ricorrenze nella riga di comando.
 
+Alla fine `chiudi` chiede da solo a GitHub di far partire il video della pagina (la Voce del Saggio) e
+stampa «Voce del Saggio avviata» oppure un «Avviso: Voce del Saggio non avviata…». L'avviso non è un
+errore: lo stato è già salvato e il video arriverà col giro programmato. Non rilanciare `chiudi` e non
+provare ad avviare il video in altri modi: riporta l'avviso nella risposta finale.
+
 ### 6. Rispondi
 
 Nella risposta finale scrivi in breve: quali giornate hai pubblicato e con quale titolo, quali momenti
-hai scelto, le ricorrenze aggiunte, gli avvisi di `prepara` (se ci sono) e gli eventuali dati sospetti
+hai scelto, le ricorrenze aggiunte, gli avvisi di `prepara` e di `chiudi` (se ci sono) e gli eventuali dati sospetti
 (regola 6). Non copiare tutta la pagina.

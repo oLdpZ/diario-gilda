@@ -69,8 +69,9 @@ class BaseCli(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.lavoro = Path(self.tmp.name) / "lavoro"
-        env = {"CRONISTA_API": self.f.base, "CRONISTA_LAVORO": str(self.lavoro)}
-        vecchio = {k: os.environ.get(k) for k in (*env, "DISCORD_BOT_TOKEN")}
+        env = {"CRONISTA_API": self.f.base, "CRONISTA_LAVORO": str(self.lavoro),
+               "CRONISTA_GITHUB": self.f.base}  # mai il GitHub vero nei test
+        vecchio = {k: os.environ.get(k) for k in (*env, "DISCORD_BOT_TOKEN", "GITHUB_TOKEN_SAGGIO")}
 
         def ripristina():
             for k, v in vecchio.items():
@@ -80,6 +81,7 @@ class BaseCli(unittest.TestCase):
                     os.environ[k] = v
         self.addCleanup(ripristina)
         os.environ.pop("DISCORD_BOT_TOKEN", None)
+        os.environ.pop("GITHUB_TOKEN_SAGGIO", None)
         os.environ.update(env)
 
     def carica(self, nomi=PACCHETTI):
@@ -163,6 +165,14 @@ class TestFlusso(BaseCli):
         self.assertEqual(s.ricorrenze, ["Gino e i Murloc"])
         self.assertEqual(len(s.sessioni_viste), 4)
         self.assertIsNotNone(s.ultimo_messaggio)
+        # chiudi chiede subito il video del Saggio a GitHub (senza token: lo mette il proxy)
+        avvii = [r for r in self.f.richieste if r["percorso"].endswith("/dispatches")]
+        self.assertEqual(len(avvii), 1)
+        self.assertEqual(avvii[0]["percorso"],
+                         "/repos/oLdpZ/diario-gilda/actions/workflows/saggio.yml/dispatches")
+        self.assertEqual(json.loads(avvii[0]["corpo"]), {"ref": "main", "inputs": {"prova": "false"}})
+        self.assertNotIn("Authorization", avvii[0]["header"])
+        self.assertIn("Voce del Saggio avviata", out)
 
         codice, out, err = self.esegui("prepara")
         self.assertEqual(codice, 0, err)
@@ -515,6 +525,18 @@ class TestDeathknell(BaseCli):
 
 
 class TestComandi(BaseCli):
+    def test_chiudi_riesce_anche_se_github_rifiuta_il_saggio(self):
+        self.carica()
+        self.assertEqual(self.esegui("prepara")[0], 0)
+        for x in self.preparato()["pagine"]:
+            pag = self.scrivi_pagina(Path(x["pagina"]).name, x["titolo"])
+            self.assertEqual(self.esegui("pubblica", str(pag))[0], 0)
+        self.f.github_status = 403
+        codice, out, err = self.esegui("chiudi")
+        self.assertEqual(codice, 0, err)
+        self.assertIn("Voce del Saggio non avviata (GitHub HTTP 403)", out)
+        self.assertIsNotNone(self.stato_finale().ultimo_messaggio)
+
     def test_chiudi_senza_prepara(self):
         codice, out, err = self.esegui("chiudi")
         self.assertNotEqual(codice, 0)
@@ -698,10 +720,12 @@ class TestCdn(BaseCli):
         self.assertEqual(self.esegui("chiudi")[0], 0)
         self.assertEqual(self.esegui("prepara")[1].strip(), "Niente da raccontare oggi.")  # stato letto dal CDN
         cdn = [r for r in self.f.richieste if r["cdn"]]
-        api = [r for r in self.f.richieste if not r["cdn"]]
+        github = [r for r in self.f.richieste if r["percorso"].endswith("/dispatches")]
+        api = [r for r in self.f.richieste if not r["cdn"] and r not in github]
         self.assertGreaterEqual(len(cdn), 3)  # 2 pacchetti + stato.json
-        for r in cdn:
+        for r in cdn + github:  # il token di Discord non va mai al CDN né a GitHub
             self.assertNotIn("Authorization", r["header"])
+        self.assertEqual(len(github), 1)
         for r in api:
             self.assertEqual(r["header"]["Authorization"], "Bot segreto-cdn")
 
