@@ -10,7 +10,7 @@ from dataclasses import asdict
 from datetime import date, timedelta
 from pathlib import Path
 
-from . import bilancio, ingresso, momenti, pagina, stato
+from . import avvio_saggio, bilancio, ingresso, momenti, pagina, stato
 from .discord import Discord, DiscordError
 from .stato import Stato
 from .testo import pulito
@@ -499,6 +499,8 @@ def chiudi(ricorrenze: list[str], ora: float, file_ricorrenze: str | None = None
     prep_file.replace(prep_file.with_name("prepara-chiuso.json"))
     print(f"Stato salvato: Giorno {nuovo.numero_giorno}, giornate {', '.join(prep['pagine'][-1]['giorni'])}"
           f", ricorrenze aggiunte: {len(ok)}.")
+    if prep["pagine"]:
+        avvio_saggio.avvia()  # mai bloccante: se fallisce, il video arriva col cron
     return 0
 
 
