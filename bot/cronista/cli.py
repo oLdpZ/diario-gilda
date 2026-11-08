@@ -132,8 +132,31 @@ def _per_giornata(sessioni: list[dict], fuso: str, inizio: str):
     return dict(sorted(out.items())), avvisi
 
 
+def _escluso(s: dict, giorno: str, esclusi: list) -> bool:
+    """True se il giocatore di `s` va tolto dal racconto di `giorno` (config «esclusi»).
+
+    Il nome vale per intero o come prima parola, senza badare alle maiuscole
+    («Sciatalgia» esclude «Sciatalgia Fulminante»)."""
+    nome = str(s.get("giocatore") or "").casefold()
+    for e in esclusi:
+        if not isinstance(e, dict) or e.get("giornata") != giorno:
+            continue
+        chi = str(e.get("giocatore") or "").casefold().strip()
+        if chi and (nome == chi or nome.split(" ")[0] == chi):
+            return True
+    return False
+
+
+def _ricorrenze_per(ricorrenze: list[str], giorno: str, esclusi: list) -> list[str]:
+    """Le ricorrenze da mostrare per `giorno`, senza quelle che nominano un giocatore escluso."""
+    nomi = [str(e.get("giocatore") or "").casefold().strip() for e in esclusi
+            if isinstance(e, dict) and e.get("giornata") == giorno]
+    nomi = [n for n in nomi if n]
+    return [r for r in ricorrenze if not any(n in str(r).casefold() for n in nomi)]
+
+
 def _dividi(sessioni: list[dict], st: Stato, cfg: dict, ora: float):
-    """Sessioni divise in: pronte {giorno: [s]}, ritardo, trattenute, vecchie, future, avvisi.
+    """Sessioni divise in: pronte {giorno: [s]}, ritardo, trattenute, vecchie, future, escluse, avvisi.
 
     ritardo/vecchie/future sono liste di (giorno, s); trattenute di s (oggi e domani).
     """
@@ -154,13 +177,26 @@ def _dividi(sessioni: list[dict], st: Stato, cfg: dict, ora: float):
             ritardo.extend((g, s) for s in ss)
         else:
             pronte[g] = ss
+    # esclusi su richiesta: si guarda la pagina in cui la sessione finirebbe (i ritardi vanno nella prima)
+    esclusi = cfg.get("esclusi") or []
+    escluse = []  # segnate come viste con la prima pagina, mai raccontate
+    for g in list(pronte):
+        escluse += [s for s in pronte[g] if _escluso(s, g, esclusi)]
+        pronte[g] = [s for s in pronte[g] if not _escluso(s, g, esclusi)]
+        if not pronte[g]:
+            del pronte[g]
+    if pronte:
+        primo_g = min(pronte)
+        via = [(g, s) for g, s in ritardo if _escluso(s, primo_g, esclusi) or _escluso(s, g, esclusi)]
+        escluse += [s for _, s in via]
+        ritardo = [x for x in ritardo if x not in via]
     vecchie = []
     if pronte:
         primo = date.fromisoformat(min(pronte))
         limite = (primo - timedelta(days=RITARDO_MAX_GIORNI)).isoformat()
         vecchie = [(g, s) for g, s in ritardo if g < limite]
         ritardo = [(g, s) for g, s in ritardo if g >= limite]
-    return pronte, ritardo, trattenute, vecchie, future, avvisi
+    return pronte, ritardo, trattenute, vecchie, future, escluse, avvisi
 
 
 def _stampa_avvisi(avvisi: list[str]) -> None:
@@ -204,7 +240,7 @@ def prepara(ora: float) -> int:
     _, servizio = _canali(d, cfg)
     st = stato.leggi(d, servizio)
     racc = ingresso.raccogli(d, servizio, st)
-    pronte, ritardo, trattenute, vecchie, future, avvisi_giorni = _dividi(racc.sessioni, st, cfg, ora)
+    pronte, ritardo, trattenute, vecchie, future, escluse, avvisi_giorni = _dividi(racc.sessioni, st, cfg, ora)
     avvisi_lettura = racc.avvisi + avvisi_giorni
     if not pronte:
         if avvisi_lettura:
@@ -214,7 +250,7 @@ def prepara(ora: float) -> int:
 
     fuso, inizio = cfg.get("fuso", "Europe/Rome"), cfg.get("inizio_giornata", "06:00")
     giorni = sorted(pronte)
-    extra = [s for _, s in vecchie + future]  # viste con la prima pagina, mai raccontate
+    extra = [s for _, s in vecchie + future] + escluse  # viste con la prima pagina, mai raccontate
     avvisi_extra: dict[str, list[str]] = {g: [] for g in giorni}
     tardi = {id(s) for _, s in ritardo}  # sessioni di giornate passate: giocatori a parte
     for g, s in ritardo:
@@ -266,7 +302,8 @@ def prepara(ora: float) -> int:
             n += 1
             titolo = TITOLO_GIORNO.format(n=n)
             file_pagina = cartella / f"pagina-{g}.md"
-            md = md.rstrip("\n") + "\n" + "\n".join(_note(titolo, file_pagina, st.ricorrenze)) + "\n"
+            ric = _ricorrenze_per(st.ricorrenze, g, cfg.get("esclusi") or [])
+            md = md.rstrip("\n") + "\n" + "\n".join(_note(titolo, file_pagina, ric)) + "\n"
             pagine.append({"numero": n, "titolo": titolo, "giorni": [g],
                            "riassunti": [str(cartella / f"giorno-{g}.md")], "pagina": str(file_pagina),
                            "bilancio": str(file_bilancio)})
@@ -327,6 +364,9 @@ def prepara(ora: float) -> int:
     _stampa_avvisi(avvisi_lettura + [a for g in giorni for a in avvisi_extra[g]])
     if trattenute:
         print(f"Sessioni della giornata in corso rimandate a domani: {len(trattenute)}")
+    if escluse:  # senza nomi: il Cronista non deve sapere chi è stato tolto
+        print(f"{len(escluse)} sessioni escluse dal racconto per richiesta (config «esclusi»): "
+              "non vanno nominate né raccontate.")
     print("Pagine da scrivere (in quest'ordine):")
     for p in pagine:
         print(f"  {p['numero']}. leggi {', '.join(_mostra(Path(r)) for r in p['riassunti'])}"
