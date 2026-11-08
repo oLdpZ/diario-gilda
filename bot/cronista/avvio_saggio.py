@@ -32,11 +32,13 @@ def avvia() -> bool:
     req.add_header("Content-Type", "application/json")
     if token:
         req.add_header("Authorization", f"Bearer {token}")
+    dettagli = ""
     try:
         with _APRI(req, timeout=30) as r:
             codice = r.status
     except urllib.error.HTTPError as e:
         codice = e.code
+        dettagli = _dettagli(e)
         e.close()
     except (OSError, ValueError) as e:
         print(f"Avviso: Voce del Saggio non avviata ({type(e).__name__}); il video arriverà col giro programmato.")
@@ -44,5 +46,28 @@ def avvia() -> bool:
     if codice == 204:
         print("Voce del Saggio avviata: il video arriverà tra qualche minuto.")
         return True
-    print(f"Avviso: Voce del Saggio non avviata (GitHub HTTP {codice}); il video arriverà col giro programmato.")
+    print(f"Avviso: Voce del Saggio non avviata (GitHub HTTP {codice}); il video arriverà col giro programmato."
+          + (f" Dettagli: {dettagli}" if dettagli else ""))
     return False
+
+
+def _dettagli(e: urllib.error.HTTPError) -> str:
+    """Messaggio d'errore, permesso richiesto e server: dicono se ha rifiutato GitHub o il proxy."""
+    parti = []
+    try:
+        testo = e.read(2000).decode("utf-8", "replace")
+    except OSError:
+        testo = ""
+    try:
+        msg = json.loads(testo).get("message", "")
+    except (ValueError, AttributeError):
+        msg = " ".join(testo.split())[:200]
+    if msg:
+        parti.append(f"messaggio «{msg}»")
+    h = e.headers
+    if h is not None:
+        if h.get("X-Accepted-GitHub-Permissions"):
+            parti.append(f"permesso richiesto {h['X-Accepted-GitHub-Permissions']}")
+        if h.get("Server"):
+            parti.append(f"server {h['Server']}")
+    return ", ".join(parti)

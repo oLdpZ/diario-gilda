@@ -89,9 +89,13 @@ class _Handler(BaseHTTPRequestHandler):
             return
         parti = urlparse(self.path).path.strip("/").split("/")
         if parti[:1] == ["repos"] and parti[-1] == "dispatches":  # finto GitHub (avvio del Saggio)
+            corpo = f.github_corpo.encode()
             self.send_response(f.github_status)
-            self.send_header("Content-Length", "0")
+            for k, v in f.github_header.items():
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(corpo)))
             self.end_headers()
+            self.wfile.write(corpo)
             return
         if not (len(parti) == 3 and parti[0] == "channels" and parti[2] == "messages"):
             return self._rispondi(404, {})
@@ -147,6 +151,8 @@ class FintoDiscord:
         self.forza_status = 0
         self.post_status: dict[str, int] = {}  # canale -> status per i POST
         self.github_status = 204  # risposta del finto GitHub ai dispatches
+        self.github_corpo = ""
+        self.github_header: dict[str, str] = {}
         self._prossimo = 1000
         self._srv = None
         self._th = None

@@ -532,9 +532,16 @@ class TestComandi(BaseCli):
             pag = self.scrivi_pagina(Path(x["pagina"]).name, x["titolo"])
             self.assertEqual(self.esegui("pubblica", str(pag))[0], 0)
         self.f.github_status = 403
+        self.f.github_corpo = json.dumps({"message": "Resource not accessible by integration",
+                                          "documentation_url": "https://docs.github.com/x"})
+        self.f.github_header = {"X-Accepted-GitHub-Permissions": "actions=write", "Server": "GitHub.com"}
         codice, out, err = self.esegui("chiudi")
         self.assertEqual(codice, 0, err)
         self.assertIn("Voce del Saggio non avviata (GitHub HTTP 403)", out)
+        # dettagli per capire chi ha rifiutato (GitHub o il proxy del cloud) e quale permesso manca
+        self.assertIn("Resource not accessible by integration", out)
+        self.assertIn("actions=write", out)
+        self.assertIn("server ", out)
         self.assertIsNotNone(self.stato_finale().ultimo_messaggio)
 
     def test_chiudi_senza_prepara(self):
