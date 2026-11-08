@@ -524,6 +524,66 @@ class TestDeathknell(BaseCli):
         self.assertTrue(nemici and int(nemici.group(1)) > 0, riga)
 
 
+class TestEsclusi(BaseCli):
+    def config_con(self, esclusi) -> Path:
+        cfg = json.loads(cli.CONFIG.read_text(encoding="utf-8"))
+        cfg["esclusi"] = esclusi
+        file_cfg = Path(self.tmp.name) / "config.json"
+        file_cfg.write_text(json.dumps(cfg), encoding="utf-8")
+        return file_cfg
+
+    def test_esclusa_anche_la_sessione_in_ritardo_che_finirebbe_nella_pagina(self):
+        stato.scrivi(Discord(self.f.base, None), SERVIZIO,
+                     stato.Stato(giorni_pubblicati=["2026-10-26"], numero_giorno=1,
+                                 ricorrenze=["Gino e i Murloc", "Mara contro VanCleef"]), ora=ORA_28)
+        self.f.aggiungi_allegato(SERVIZIO, "", "g.json.gz", _gz(genera.gino()), autore="555")  # del 26
+        self.f.aggiungi_allegato(SERVIZIO, "", "m.json.gz", _gz(_sposta(genera.mara(), 86400, "M2")),
+                                 autore="555")
+        with mock.patch.object(cli, "CONFIG", self.config_con([{"giocatore": "Gino", "giornata": "2026-10-27"}])):
+            codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        md = (self.lavoro / "giorno-2026-10-27.md").read_text(encoding="utf-8")
+        self.assertNotIn("Gino", md)
+        self.assertNotIn("Gino", out)
+        self.assertIn("Giocatori: Mara\n", out)
+        self.assertIn("1 sessioni escluse dal racconto", out)
+        self.assertIn("Realm-Gino-1793000000", self.preparato()["stato"]["sessioni_viste"])
+        self.assertIn("- Mara contro VanCleef", md)
+        # la ricorrenza resta nello stato: dal giorno dopo torna a valere
+        self.assertIn("Gino e i Murloc", self.preparato()["stato"]["ricorrenze"])
+
+    def test_sessione_esclusa_arrivata_tardi_non_entra_nella_pagina_dopo(self):
+        stato.scrivi(Discord(self.f.base, None), SERVIZIO,
+                     stato.Stato(giorni_pubblicati=["2026-10-26"], numero_giorno=1), ora=ORA_28)
+        self.f.aggiungi_allegato(SERVIZIO, "", "g.json.gz", _gz(genera.gino()), autore="555")  # del 26
+        self.f.aggiungi_allegato(SERVIZIO, "", "m.json.gz", _gz(_sposta(genera.mara(), 86400, "M2")),
+                                 autore="555")
+        with mock.patch.object(cli, "CONFIG", self.config_con([{"giocatore": "Gino", "giornata": "2026-10-26"}])):
+            codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        md = (self.lavoro / "giorno-2026-10-27.md").read_text(encoding="utf-8")
+        self.assertNotIn("Gino", md)
+        self.assertIn("1 sessioni escluse dal racconto", out)
+
+    def test_giocatore_escluso_per_una_giornata(self):
+        file_cfg = self.config_con([{"giocatore": "mara", "giornata": "2026-10-26"}])
+        self.carica()
+        with mock.patch.object(cli, "CONFIG", file_cfg):
+            codice, out, err = self.esegui("prepara")
+        self.assertEqual(codice, 0, err)
+        prep = self.preparato()
+        md = (self.lavoro / "giorno-2026-10-26.md").read_text(encoding="utf-8")
+        js = json.loads((self.lavoro / "giorno-2026-10-26.json").read_text(encoding="utf-8"))
+        self.assertIn("Gino", js["giocatori"])
+        self.assertNotIn("Mara", js["giocatori"])
+        self.assertNotIn("Mara", [s["giocatore"] for s in js["sessioni"]])
+        self.assertNotIn("Mara", md)  # né nel racconto né nel bilancio né negli avvisi
+        self.assertNotIn("Mara", out.split("Avvisi")[0])
+        self.assertIn("1 sessioni escluse dal racconto", out)
+        # segnata come vista: non tornerà domani come «in ritardo»
+        self.assertIn("Realm-Mara-1793010000", prep["stato"]["sessioni_viste"])
+
+
 class TestComandi(BaseCli):
     def test_chiudi_riesce_anche_se_github_rifiuta_il_saggio(self):
         self.carica()
