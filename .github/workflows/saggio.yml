@@ -15,6 +15,10 @@ on:
         description: "Prova: l'ultima pagina, video in #diario-servizio"
         type: boolean
         default: true
+  # dal Cronista nel cloud: il token dell'app GitHub di Claude non può fare workflow_dispatch
+  # (manca actions=write) ma può fare repository_dispatch. Qui PROVA vale sempre false.
+  repository_dispatch:
+    types: [cronaca]
 
 concurrency:
   group: saggio

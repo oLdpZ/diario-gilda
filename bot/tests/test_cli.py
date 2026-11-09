@@ -585,19 +585,40 @@ class TestEsclusi(BaseCli):
 
 
 class TestComandi(BaseCli):
-    def test_chiudi_riesce_anche_se_github_rifiuta_il_saggio(self):
+    def pronto_per_chiudi(self):
         self.carica()
         self.assertEqual(self.esegui("prepara")[0], 0)
         for x in self.preparato()["pagine"]:
             pag = self.scrivi_pagina(Path(x["pagina"]).name, x["titolo"])
             self.assertEqual(self.esegui("pubblica", str(pag))[0], 0)
+
+    def test_se_workflow_dispatch_rifiutato_prova_repository_dispatch(self):
+        # nel cloud il proxy mette il token dell'app GitHub di Claude: niente actions=write, sì contents
+        self.pronto_per_chiudi()
         self.f.github_status = 403
+        codice, out, err = self.esegui("chiudi")
+        self.assertEqual(codice, 0, err)
+        avvii = [r for r in self.f.richieste if r["percorso"].endswith("/dispatches")]
+        self.assertEqual([r["percorso"] for r in avvii],
+                         ["/repos/oLdpZ/diario-gilda/actions/workflows/saggio.yml/dispatches",
+                          "/repos/oLdpZ/diario-gilda/dispatches"])
+        self.assertEqual(json.loads(avvii[1]["corpo"]), {"event_type": "cronaca"})
+        self.assertNotIn("Authorization", avvii[1]["header"])
+        self.assertIn("Voce del Saggio avviata", out)
+        self.assertNotIn("Avviso", out)
+
+    def test_chiudi_riesce_anche_se_github_rifiuta_il_saggio(self):
+        self.pronto_per_chiudi()
+        self.f.github_status = 403
+        self.f.github_status_repo = 403
         self.f.github_corpo = json.dumps({"message": "Resource not accessible by integration",
                                           "documentation_url": "https://docs.github.com/x"})
         self.f.github_header = {"X-Accepted-GitHub-Permissions": "actions=write", "Server": "GitHub.com"}
         codice, out, err = self.esegui("chiudi")
         self.assertEqual(codice, 0, err)
-        self.assertIn("Voce del Saggio non avviata (GitHub HTTP 403)", out)
+        self.assertIn("Voce del Saggio non avviata", out)
+        self.assertIn("workflow_dispatch: HTTP 403", out)
+        self.assertIn("repository_dispatch: HTTP 403", out)
         # dettagli per capire chi ha rifiutato (GitHub o il proxy del cloud) e quale permesso manca
         self.assertIn("Resource not accessible by integration", out)
         self.assertIn("actions=write", out)
