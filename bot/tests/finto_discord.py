@@ -90,7 +90,8 @@ class _Handler(BaseHTTPRequestHandler):
         parti = urlparse(self.path).path.strip("/").split("/")
         if parti[:1] == ["repos"] and parti[-1] == "dispatches":  # finto GitHub (avvio del Saggio)
             corpo = f.github_corpo.encode()
-            self.send_response(f.github_status)
+            # /repos/o/r/dispatches = repository_dispatch; .../actions/workflows/x/dispatches = workflow_dispatch
+            self.send_response(f.github_status_repo if len(parti) == 4 else f.github_status)
             for k, v in f.github_header.items():
                 self.send_header(k, v)
             self.send_header("Content-Length", str(len(corpo)))
@@ -150,7 +151,8 @@ class FintoDiscord:
         self.redirect = ""
         self.forza_status = 0
         self.post_status: dict[str, int] = {}  # canale -> status per i POST
-        self.github_status = 204  # risposta del finto GitHub ai dispatches
+        self.github_status = 204  # risposta del finto GitHub ai workflow_dispatch
+        self.github_status_repo = 204  # ... e ai repository_dispatch
         self.github_corpo = ""
         self.github_header: dict[str, str] = {}
         self._prossimo = 1000
