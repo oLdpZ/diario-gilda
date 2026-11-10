@@ -319,6 +319,19 @@ class TestFlusso(BaseCli):
         self.assertEqual(cli._giocatori([main, alt]),
                          {"Gino": "Zug'gar, WARRIOR, livello 60; Grizzo, MAGE, livello 10"})
 
+    def test_genere_dal_config(self):
+        s = {"giocatore": "Sciatalgia Fulminante",
+             "sessione": {"start": 1, "char": "Sciatalgia", "class": "WARRIOR", "level": 20, "events": []}}
+        altro = {"giocatore": "Gino", "sessione": {"start": 2, "char": "Gino", "class": "MAGE", "level": 5,
+                                                    "events": []}}
+        self.assertEqual(cli._giocatori([s, altro], {"sciatalgia": "maschio", "x": 3}),
+                         {"Gino": "Gino, MAGE, livello 5",
+                          "Sciatalgia Fulminante": "Sciatalgia, WARRIOR, livello 20, maschio"})
+        self.assertEqual(cli._generi({"generi": {"Sciatalgia": "Maschio", "Mara": "femmina", "Zed": "boh",
+                                                 "Ugo": 3}}), {"sciatalgia": "maschio", "mara": "femmina"})
+        self.assertEqual(cli._generi({"generi": "no"}), {})
+        self.assertEqual(cli._generi({}), {})
+
     def test_principali_salvati_nello_stato(self):
         m = genera.mara()
         m["app"] = "0.1.1"
