@@ -56,7 +56,8 @@ Se stampa `Niente da raccontare oggi.` → regola 3.
 
 Per ogni pagina dell'elenco leggi il riassunto indicato:
 
-- **Giocatori:** i nomi dei giocatori, con personaggio, classe, razza e il livello più alto raggiunto.
+- **Giocatori:** i nomi dei giocatori, con personaggio, classe, razza e il livello più alto raggiunto;
+  per alcuni anche il genere («maschio» o «femmina»).
   **Giocatori in ritardo** (se c'è): chi compare solo con notizie di giornate passate; non dire che ha
   giocato oggi.
 - **Momenti candidati:** numerati e ordinati per interesse (punti). Ognuno ha l'ora, il luogo, chi c'era,
@@ -131,6 +132,10 @@ Regole del racconto:
 - **Nomi:** i giocatori con il nome dei dati (quello del riassunto, per esempio «Gino»); mob, zone,
   boss e oggetti esattamente come li scrive il client nei dati (per esempio «Edwin VanCleef»,
   «Deadmines», «Lama dei Defias»). Non tradurli.
+- **Genere:** se la riga `Giocatori:` dà il genere di un personaggio, accorda tutto a quello (articoli,
+  aggettivi, participi: «Sciatalgia, maschio» → «il Fulminante», «lo portò», «caduto»). Se non lo dà,
+  non dedurlo dalla finale del nome: un nome in -a può essere di un maschio. Usa forme neutre
+  («la sua sorte», «il suo viaggio») o rifai la frase in modo che il genere non serva.
 - **Mai `@`** nel testo (nessuna menzione, nessun ping, nemmeno `@everyone`).
 - **Mai link né indirizzi web** nella pagina (`pubblica` li toglie comunque).
 - **Lunghezza:** fra 1200 e 2500 caratteri di racconto con fino a 4 giocatori; con più giocatori aggiungi
