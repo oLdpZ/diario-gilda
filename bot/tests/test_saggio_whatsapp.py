@@ -55,6 +55,15 @@ class TestAnnuncia(unittest.TestCase):
             with mock.patch.object(W, "_APRI", side_effect=eccezione):
                 self.assertFalse(W.annuncia("123", "T", MSG))
 
+    def test_risposta_strana_non_lancia(self):
+        with mock.patch.object(W, "_APRI", return_value=Risposta(b"[1]")):
+            self.assertFalse(W.annuncia("123", "T", MSG))
+
+    def test_allegati_strani_non_lanciano(self):
+        with mock.patch.object(W, "_APRI") as apri:
+            self.assertFalse(W.annuncia("123", "T", {"attachments": ["x"]}))
+        apri.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

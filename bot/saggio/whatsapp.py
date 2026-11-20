@@ -16,7 +16,18 @@ URL_PREDEFINITO = "https://orda-bottega.oldpz1.workers.dev"
 
 
 def annuncia(ref: str, titolo: str, messaggio: dict) -> bool:
-    """Mette in coda il video del `messaggio` Discord appena inviato. True se il Cancelliere l'ha accettato."""
+    """Mette in coda il video del `messaggio` Discord appena inviato. True se il Cancelliere l'ha accettato.
+
+    Non lancia mai: il video su Discord è già pubblicato, qualunque imprevisto qui è solo un avviso.
+    """
+    try:
+        return _annuncia(ref, titolo, messaggio)
+    except Exception as e:  # risposta o messaggio di forma inattesa
+        print(f"  WhatsApp NON avvisato: {type(e).__name__}")
+        return False
+
+
+def _annuncia(ref: str, titolo: str, messaggio: dict) -> bool:
     segreto = (os.environ.get("WA_CRONACA_SECRET") or "").strip()
     if not segreto:
         print("  WhatsApp: WA_CRONACA_SECRET mancante, salto")
