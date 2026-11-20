@@ -15,7 +15,7 @@ import tempfile
 from pathlib import Path
 
 from . import testo as T
-from . import video, voce
+from . import video, voce, whatsapp
 
 RADICE = Path(__file__).resolve().parents[1]
 MESSAGGIO = "🔊 **Il Cronista Goblin** racconta: *{titolo}*"
@@ -87,10 +87,12 @@ def main(argv: list[str] | None = None) -> int:
         try:
             with tempfile.TemporaryDirectory() as tmp:
                 v = fai_video(p["titolo"], p["testo"], Path(tmp), chiave)
-                d.invia(servizio if a.prova else diario, MESSAGGIO.format(titolo=p["titolo"]),
-                        file=(f"{T.PREFISSO_FILE}{p['id']}.mp4", v.read_bytes()),
-                        risposta=None if a.prova else p["id"])
+                msg = d.invia(servizio if a.prova else diario, MESSAGGIO.format(titolo=p["titolo"]),
+                              file=(f"{T.PREFISSO_FILE}{p['id']}.mp4", v.read_bytes()),
+                              risposta=None if a.prova else p["id"])
             print("  pubblicato" + (" in #" + cfg["canale_servizio"] if a.prova else ""))
+            if not a.prova:
+                whatsapp.annuncia(p["id"], p["titolo"], msg)  # non lancia: ogni errore è solo un avviso
         except (voce.ErroreVoce, DiscordError, RuntimeError, OSError) as e:
             errori += 1
             print(f"  NON pubblicato: {e}")

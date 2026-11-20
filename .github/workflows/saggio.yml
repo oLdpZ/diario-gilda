@@ -44,6 +44,7 @@ jobs:
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          WA_CRONACA_SECRET: ${{ secrets.WA_CRONACA_SECRET }}  # il video va anche su WhatsApp (via il Cancelliere)
           PROVA: ${{ github.event_name == 'workflow_dispatch' && inputs.prova }}
         run: |
           if [ "$PROVA" = "true" ]; then python -m bot.saggio --prova; else python -m bot.saggio; fi
