@@ -1,6 +1,9 @@
 DiarioGildaDB = {
 	["errors"] = {
 	},
+	["realms"] = {
+		["Gino"] = "Realm",
+	},
 	["seen"] = {
 		["Realm-Gino"] = {
 			["Deadmines"] = true,

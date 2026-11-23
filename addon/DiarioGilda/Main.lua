@@ -82,9 +82,16 @@ local function playerInfo()
   if version and buildNo then
     build = version .. "." .. buildNo
   end
+  local char = Safe.str((Safe.call(UnitName, "player")))
+  local realm = Safe.str((Safe.call(GetRealmName)))
+  -- Client del 21/11/2026: GetRealmName() vuoto. Prima il reame gia' noto del personaggio (cosi' il
+  -- programmino lo riconosce ancora come principale), poi quello corto di UnitFullName ("Fulminante").
+  if char and not realm then
+    realm = Journal.knownRealm(char) or Safe.str((select(2, Safe.call(UnitFullName, "player"))))
+  end
   return {
-    char = Safe.str((Safe.call(UnitName, "player"))),
-    realm = Safe.str((Safe.call(GetRealmName))),
+    char = char,
+    realm = realm,
     guild = Safe.str((Safe.call(GetGuildInfo, "player"))),
     class = Safe.str(class),
     race = Safe.str(race),

@@ -7,6 +7,7 @@
 --   DG.Journal.current() -> session|nil  sessione corrente
 --   DG.Journal.setGuild(name)            gilda letta in ritardo: la scrive solo se la sessione aperta non ce l'ha
 --   DG.Journal.logError(msg)             tiene gli ultimi MAX_ERRORS errori
+--   DG.Journal.knownRealm(char) -> realm|nil  ultimo reame del personaggio (db.realms, resiste alla potatura)
 local _, DG = ...
 
 local Journal = {}
@@ -33,6 +34,16 @@ function Journal.load(saved, d)
   db.sessions = db.sessions or {}
   db.seen = db.seen or {}
   db.errors = db.errors or {}
+  -- personaggio -> reame: dal client del 21/11/2026 GetRealmName() puo' essere vuoto e si usa questo.
+  -- Riempito anche dalle sessioni salvate prima che esistesse (l'ultima vince).
+  if type(db.realms) ~= "table" then
+    db.realms = {}
+    for _, s in ipairs(db.sessions) do
+      if type(s) == "table" and type(s.char) == "string" and type(s.realm) == "string" and s.realm ~= "" then
+        db.realms[s.char] = s.realm
+      end
+    end
+  end
   return db
 end
 
@@ -49,6 +60,7 @@ function Journal.begin(info, isReload)
   db.sessions = sessions
 
   local k = info.realm .. "-" .. info.char
+  db.realms[info.char] = info.realm
 
   -- /reload: riapre l'ultima sessione dello stesso personaggio (aperta o chiusa da poco)
   if isReload then
@@ -138,6 +150,14 @@ end
 
 function Journal.current()
   return cur
+end
+
+function Journal.knownRealm(char)
+  local r = db and db.realms and db.realms[char]
+  if type(r) == "string" and r ~= "" then
+    return r
+  end
+  return nil
 end
 
 function Journal.logError(msg)
