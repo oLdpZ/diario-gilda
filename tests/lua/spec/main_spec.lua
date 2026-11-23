@@ -86,6 +86,46 @@ describe("Main (collegamento al gioco)", function()
     assert.equals(0, #DiarioGildaDB.errors)
   end)
 
+  it("nome non ancora leggibile al login: riprova e apre la sessione appena arriva", function()
+    v.units.player.name = nil
+    login()
+    assert.equals(0, #DiarioGildaDB.sessions)
+    runTimers()
+    assert.equals(0, #DiarioGildaDB.sessions)
+    v.units.player.name = "Gino"
+    runTimers()
+    assert.equals(1, #DiarioGildaDB.sessions)
+    assert.equals("Gino", session().char)
+    assert.equals("Realm", session().realm)
+    assert.truthy(find("zone"))
+    assert.equals(1, #DiarioGildaDB.errors)
+    assert.truthy(DiarioGildaDB.errors[1]:find("dopo 2 tentativi", 1, true))
+    runTimers()
+    assert.equals(1, #DiarioGildaDB.sessions)
+  end)
+
+  it("nome o reame mai leggibili: un solo errore che dice cosa ha visto", function()
+    v.realm = ""
+    G.secret["Gino"] = true
+    login()
+    for _ = 1, 40 do runTimers() end
+    assert.equals(0, #DiarioGildaDB.sessions)
+    assert.equals(1, #DiarioGildaDB.errors)
+    local e = DiarioGildaDB.errors[1]
+    assert.truthy(e:find("non leggibili", 1, true))
+    assert.truthy(e:find("nome: nascosto", 1, true))
+    assert.truthy(e:find("reame: vuoto", 1, true))
+  end)
+
+  it("uscita dal gioco mentre aspetta il nome: nessuna sessione aperta dopo", function()
+    v.units.player.name = nil
+    login()
+    H.fire("PLAYER_LOGOUT")
+    v.units.player.name = "Gino"
+    for _ = 1, 40 do runTimers() end
+    assert.equals(0, #DiarioGildaDB.sessions)
+  end)
+
   it("in istanza: inst valorizzato, niente x/y", function()
     v.inInstance = true
     v.instanceName = "Deadmines"

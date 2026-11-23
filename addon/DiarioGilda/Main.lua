@@ -206,17 +206,19 @@ handlers.ADDON_LOADED = function(name)
   regFailed = {}
 end
 
-handlers.PLAYER_ENTERING_WORLD = function(isLogin, isReload)
-  lootOpen = nil
-  -- anche i cambi di zona con schermata di caricamento passano di qui: quelli li gestisce ZONE_CHANGED_NEW_AREA
-  if not (isLogin or isReload) then
-    return
+-- Come appare un valore letto dal gioco, per l'errore: nil, nascosto (secret), vuoto o il tipo.
+local function seen(x)
+  if x == nil then
+    return "nil"
+  elseif Safe.get(x) == nil then
+    return "nascosto"
+  elseif x == "" then
+    return "vuoto"
   end
-  local info = playerInfo()
-  if not info.char or not info.realm then
-    Journal.logError("Main.PLAYER_ENTERING_WORLD: personaggio o reame non leggibili")
-    return
-  end
+  return type(x)
+end
+
+local function startSession(info, isReload)
   Journal.begin(info, isReload and true or false)
   Journal.setGuild(info.guild) -- sessione riaperta da /reload senza gilda
   rec:onMoney(Safe.call(GetMoney))
@@ -230,7 +232,48 @@ handlers.PLAYER_ENTERING_WORLD = function(isLogin, isReload)
   end
 end
 
+-- Dal client del 21/11/2026 nome o reame possono mancare al primo PLAYER_ENTERING_WORLD:
+-- si riprova ogni START_RETRY secondi, al massimo START_TRIES volte. startToken annulla i tentativi
+-- vecchi (nuovo login, /reload o uscita dal gioco).
+local startToken = 0
+
+local function tryStart(token, isReload, tries)
+  if token ~= startToken then
+    return
+  end
+  local info = playerInfo()
+  if info.char and info.realm then
+    if tries > 0 then
+      Journal.logError("Main.PLAYER_ENTERING_WORLD: nome e reame letti dopo " .. tries .. " tentativi")
+    end
+    startSession(info, isReload)
+    return
+  end
+  if tries >= DG.Const.START_TRIES then
+    Journal.logError("Main.PLAYER_ENTERING_WORLD: personaggio o reame non leggibili (nome: "
+      .. seen((Safe.call(UnitName, "player"))) .. ", reame: " .. seen((Safe.call(GetRealmName))) .. ")")
+    return
+  end
+  after(DG.Const.START_RETRY, function()
+    local ok, err = pcall(tryStart, token, isReload, tries + 1)
+    if not ok then
+      pcall(Journal.logError, "Main.PLAYER_ENTERING_WORLD: " .. tostring(err))
+    end
+  end)
+end
+
+handlers.PLAYER_ENTERING_WORLD = function(isLogin, isReload)
+  lootOpen = nil
+  -- anche i cambi di zona con schermata di caricamento passano di qui: quelli li gestisce ZONE_CHANGED_NEW_AREA
+  if not (isLogin or isReload) then
+    return
+  end
+  startToken = startToken + 1
+  tryStart(startToken, isReload, 0)
+end
+
 handlers.PLAYER_LOGOUT = function()
+  startToken = startToken + 1
   rec:flush()
   Journal.finish()
 end
