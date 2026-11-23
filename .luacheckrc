@@ -24,6 +24,7 @@ read_globals = {
   "GetQuestLogQuestText",
   "GetQuestLogSelection",
   "GetRealmName",
+  "UnitFullName",
   "GetRewardText",
   "GetSubZoneText",
   "GetZoneText",

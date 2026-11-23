@@ -126,6 +126,40 @@ describe("Main (collegamento al gioco)", function()
     assert.equals(0, #DiarioGildaDB.sessions)
   end)
 
+  it("reame vuoto (client del 21/11/2026): usa il reame gia' noto del personaggio", function()
+    _G.DiarioGildaDB = { v = 1, sessions = {
+      { id = "CAMWOW EU5 Realm 5 PvE-Gino-1792990000", char = "Gino", realm = "CAMWOW EU5 Realm 5 PvE",
+        start = 1792990000, stop = 1792990100, dropped = 0, events = {} },
+    } }
+    v.realm = ""
+    v.units.player.fullRealm = "Fulminante"
+    login()
+    assert.equals(2, #DiarioGildaDB.sessions)
+    assert.equals("CAMWOW EU5 Realm 5 PvE", session().realm)
+    assert.equals(0, #DiarioGildaDB.errors)
+    assert.equals(0, #G.timers)
+  end)
+
+  it("reame vuoto e personaggio mai visto: usa il reame di UnitFullName", function()
+    v.realm = ""
+    v.units.player.fullRealm = "Fulminante"
+    login()
+    assert.equals("Fulminante", session().realm)
+    assert.equals("Fulminante", DiarioGildaDB.realms.Gino)
+  end)
+
+  it("il reame letto dal gioco resta ricordato anche dopo la potatura delle sessioni", function()
+    login()
+    assert.equals("Realm", DiarioGildaDB.realms.Gino)
+    H.fire("PLAYER_LOGOUT")
+    v.now = v.now + 30 * 86400
+    v.realm = ""
+    restart(function() end)
+    login()
+    assert.equals(1, #DiarioGildaDB.sessions)
+    assert.equals("Realm", session().realm)
+  end)
+
   it("in istanza: inst valorizzato, niente x/y", function()
     v.inInstance = true
     v.instanceName = "Deadmines"

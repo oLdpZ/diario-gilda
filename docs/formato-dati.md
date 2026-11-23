@@ -14,6 +14,7 @@ DiarioGildaDB = {
   },
   seen = { ["Realm-Char"] = { ["Westfall"] = true } },   -- zone già visitate (per `first`)
   errors = { "…" },                                        -- ultimi 20 errori dell'addon
+  realms = { ["Char"] = "Realm" },                         -- ultimo reame per personaggio (se GetRealmName() è vuoto)
 }
 ```
 

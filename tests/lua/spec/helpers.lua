@@ -113,6 +113,8 @@ function H.gameStub()
   set("AbandonQuest", function() end)
 
   set("UnitName", function(u) local x = unit(u) if x then return x.name, x.realm end end)
+  -- UnitFullName: reame "corto" (dal client del 21/11/2026 GetRealmName() puo' essere vuoto)
+  set("UnitFullName", function(u) local x = unit(u) if x then return x.name, x.fullRealm end end)
   set("UnitExists", function(u) return unit(u) ~= nil end)
   set("UnitIsUnit", function(a, b) return a == b end)
   set("UnitIsDead", function(u) local x = unit(u) return x and x.dead or false end)
